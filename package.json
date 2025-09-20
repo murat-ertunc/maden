@@ -12,5 +12,10 @@
         "laravel-vite-plugin": "^1.0",
         "sass": "^1.56.1",
         "vite": "^5.0"
+    },
+    "dependencies": {
+        "three": "^0.158.0",
+        "three-orbitcontrols": "^2.110.3",
+        "dat.gui": "^0.7.9"
     }
 }
