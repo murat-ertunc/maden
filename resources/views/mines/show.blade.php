@@ -140,6 +140,9 @@
                             <button class="btn btn-outline-danger btn-sm mining-tool-btn" data-tool="conveyor">
                                 <i class="fas fa-conveyor-belt me-2"></i>Konveyör Kur
                             </button>
+                            <button class="btn btn-outline-primary btn-sm mining-tool-btn" data-tool="merge">
+                                <i class="fas fa-link me-2"></i>Tünel Birleştir
+                            </button>
                         </div>
                     </div>
                     
