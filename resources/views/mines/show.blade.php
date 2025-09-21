@@ -29,7 +29,7 @@
                         </div>
                         <div class="text-center" style="min-width: 60px;">
                             <label class="form-label text-success mb-1" style="font-size: 0.75rem;">Y</label>
-                            <input type="range" id="camera-y" class="form-range" min="-10" max="30" value="5" step="1"
+                            <input type="range" id="camera-y" class="form-range" min="-70" max="30" value="5" step="1"
                                    style="width: 60px; height: 20px;">
                             <small class="text-light d-block" id="camera-y-value" style="font-size: 0.7rem;">5</small>
                         </div>
@@ -47,7 +47,7 @@
                     <div class="d-flex gap-2">
                         <div class="text-center" style="min-width: 70px;">
                             <label class="form-label text-primary mb-1" style="font-size: 0.75rem;">Zoom</label>
-                            <input type="range" id="camera-zoom" class="form-range" min="2" max="100" value="30" step="1"
+                            <input type="range" id="camera-zoom" class="form-range" min="2" max="1000" value="30" step="1"
                                    style="width: 70px; height: 20px;">
                             <small class="text-light d-block" id="camera-zoom-value" style="font-size: 0.7rem;">30</small>
                         </div>
@@ -153,6 +153,17 @@
                             </button>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <h6 class="text-secondary mb-2">
+                            <i class="fas fa-compress-alt me-2"></i>Path Basitleştirme
+                        </h6>
+                        <div class="small mb-1 d-flex justify-content-between">
+                            <span>Tolerans</span>
+                            <span id="simplify-value" class="fw-semibold">1.0x</span>
+                        </div>
+                        <input type="range" min="0" max="3" step="0.1" value="1" id="simplify-range" class="form-range">
+                        <div class="form-text">Daha yüksek değer = daha agresif azaltma.</div>
+                    </div>
                     
                     <div>
                         <h6 class="text-purple mb-2">
@@ -161,6 +172,9 @@
                         <div class="d-grid gap-1">
                             <button class="btn btn-outline-success btn-sm" id="export-scene-btn">
                                 <i class="fas fa-download me-1"></i>Sahne Dışa Aktar
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" id="save-path-btn" disabled>
+                                <i class="fas fa-save me-1"></i>Path Kaydet
                             </button>
                         </div>
                     </div>
@@ -280,6 +294,29 @@ window.mineData = {
     background: #555;
 }
 
+/* Path save button states */
+#save-path-btn.dirty {
+    animation: pulseDirty 1.2s infinite;
+    border-color: #ff9800 !important;
+    color: #ff9800 !important;
+}
+
+#save-path-btn.saved-once {
+    box-shadow: 0 0 0 0 rgba(76,175,80,0.6);
+    animation: savedFlash 0.4s ease;
+}
+
+@keyframes pulseDirty {
+    0% { box-shadow: 0 0 0 0 rgba(255,152,0,0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(255,152,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,152,0,0); }
+}
+
+@keyframes savedFlash {
+    from { background-color: #4caf50; color: #fff; }
+    to { background-color: transparent; }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .position-absolute .card {
@@ -321,6 +358,15 @@ window.mineData = {
 
         // UI Event Handlers
         setupUIEventHandlers(viewer);
+
+        // Dispose & unsaved warning
+        window.addEventListener('beforeunload', (e) => {
+            if (window.mineViewer && window.mineViewer._dirtyPaths && window.mineViewer._dirtyPaths.size > 0) {
+                e.preventDefault();
+                e.returnValue = 'Kaydedilmemiş yol değişiklikleri var. Çıkmak istediğinize emin misiniz?';
+            }
+            if (window.mineViewer) window.mineViewer.dispose?.();
+        });
     });
 
     function setupUIEventHandlers(viewer) {
@@ -332,6 +378,15 @@ window.mineData = {
         const pathControls = document.getElementById('path-controls');
         const finishPathBtn = document.getElementById('finish-path-btn');
         const cancelPathBtn = document.getElementById('cancel-path-btn');
+        const simplifyRange = document.getElementById('simplify-range');
+        const simplifyValue = document.getElementById('simplify-value');
+
+        // Global simplification multiplier
+        viewer.pathSimplifyMultiplier = 1.0;
+        simplifyRange?.addEventListener('input', () => {
+            viewer.pathSimplifyMultiplier = parseFloat(simplifyRange.value);
+            if (simplifyValue) simplifyValue.textContent = simplifyRange.value + 'x';
+        });
 
         let isDrawingMode = false;
 
@@ -344,6 +399,21 @@ window.mineData = {
         });
 
         finishPathBtn?.addEventListener('click', () => {
+        // Path kaydet butonu (manuel save)
+        const savePathBtn = document.getElementById('save-path-btn');
+        savePathBtn?.addEventListener('click', async () => {
+            if (!viewer || !viewer.selectedObject) return;
+            const data = viewer.selectedObject.userData.objectData;
+            if (!data || data.type !== 'path') return;
+            savePathBtn.disabled = true;
+            try {
+                await viewer.updatePathToServer(data.id, { points: data.points });
+            } catch (e) {
+                console.error('Path manuel kaydetme hatası:', e);
+            } finally {
+                setTimeout(()=> savePathBtn.disabled = false, 800);
+            }
+        });
             viewer.completeCurrentPath();
             stopPathDrawingMode();
         });
@@ -396,8 +466,20 @@ window.mineData = {
             alert('Model ekleme özelliği yakında gelecek!');
         });
 
-        document.getElementById('export-scene-btn')?.addEventListener('click', () => {
-            alert('Sahne dışa aktarma özelliği yakında gelecek!');
+        document.getElementById('export-scene-btn')?.addEventListener('click', async () => {
+            if (!viewer) return;
+            try {
+                const exportData = buildExportJSON(viewer);
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `mine-scene-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } catch (e) {
+                console.error('Export JSON hatası', e);
+                alert('Export sırasında hata oluştu: ' + e.message);
+            }
         });
 
         // Klavye kısayolları
@@ -409,6 +491,56 @@ window.mineData = {
                 }
             }
         });
+    }
+
+    function buildExportJSON(viewer) {
+        // Paths
+        const paths = [];
+        viewer.pathDrawer?.paths?.forEach((group, id) => {
+            const data = group.userData.pathData || {};
+            paths.push({
+                id,
+                type: data.type,
+                width: data.width,
+                height: data.height,
+                color: data.color,
+                points: (data.points || data.path_points || []).map(p=>({x:p.x,y:p.y,z:p.z}))
+            });
+        });
+        // Models (simplistic traversal)
+        const models = [];
+        if (viewer.objectCreator?.createdObjects) {
+            viewer.objectCreator.createdObjects.forEach((obj, key) => {
+                if (!obj) return;
+                models.push({
+                    id: key,
+                    type: obj.userData?.objectData?.modelType || 'generic',
+                    position: { x: obj.position.x, y: obj.position.y, z: obj.position.z },
+                    rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
+                    scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z }
+                });
+            });
+        }
+        // Selection snapshot
+        const selected = [];
+        if (viewer.objectSelector?.selectedObjects?.size) {
+            viewer.objectSelector.selectedObjects.forEach(o => {
+                selected.push(o.userData?.objectData?.id || o.userData?.objectData?.pathId || 'unknown');
+            });
+        }
+        return {
+            mineId: viewer.mineId,
+            exportedAt: new Date().toISOString(),
+            camera: viewer.camera ? {
+                position: { x: viewer.camera.position.x, y: viewer.camera.position.y, z: viewer.camera.position.z },
+                target: viewer.controls ? { x: viewer.controls.target.x, y: viewer.controls.target.y, z: viewer.controls.target.z } : null
+            } : null,
+            simplifyMultiplier: viewer.pathSimplifyMultiplier || 1.0,
+            counts: { paths: paths.length, models: models.length },
+            selection: selected,
+            paths,
+            models
+        };
     }
 
     function setupCameraControls(viewer) {

@@ -25,6 +25,8 @@ class MineObjectCreator {
         
         this.createdObjects = new Map();
         this.nextId = 1;
+        // Çoklu ardışık yerleştirme istenirse true yapılabilir
+        this.autoMultiPlace = false;
     }
 
     startCreating(type) {
@@ -198,7 +200,14 @@ class MineObjectCreator {
         
         this.removePreview();
         console.log(`[MineObjectCreator] Created ${this.currentType} with ID: ${finalObject.userData.id}`);
-        
+        if (!this.autoMultiPlace) {
+            // Tek yerleştirme modunda otomatik çık
+            this.isCreating = false;
+            this.hideCreationUI?.();
+        } else {
+            // Çoklu mod: yeni önizleme üret (konum sabit kalır)
+            this.createPreview();
+        }
         return finalObject;
     }
 
@@ -537,6 +546,10 @@ class MinePathDrawer {
             onPathUpdate: null,
             onPathComplete: null
         };
+
+        // Performans / LOD
+        this._lodFrame = 0;
+        this.debug = false; // Gürültülü logları kapatmak için
     }
 
     startDrawing(callbacks = {}) {
@@ -651,14 +664,10 @@ class MinePathDrawer {
                 const point = tunnelIntersects[0].point;
                 // Tunnel içindeki yol için Y offseti ekle (zemin seviyesi)
                 point.y = -2.5; // Tunnel zemini
-                console.log('[MinePathDrawer] Tunnel constraint intersection found:', {
-                    x: point.x.toFixed(2),
-                    y: point.y.toFixed(2),
-                    z: point.z.toFixed(2)
-                });
+                if (this.debug) console.log('[MinePathDrawer] Tunnel constraint intersection found:', { x: point.x.toFixed(2), y: point.y.toFixed(2), z: point.z.toFixed(2) });
                 return point;
             } else {
-                console.log('[MinePathDrawer] No tunnel constraint intersection found');
+                if (this.debug) console.log('[MinePathDrawer] No tunnel constraint intersection found');
                 return null;
             }
         } else {
@@ -666,14 +675,10 @@ class MinePathDrawer {
             const intersected = this.raycaster.ray.intersectPlane(this.groundPlane, intersection);
             
             if (intersected) {
-                console.log('[MinePathDrawer] Ground intersection found:', {
-                    x: intersection.x.toFixed(2),
-                    y: intersection.y.toFixed(2),
-                    z: intersection.z.toFixed(2)
-                });
+                if (this.debug) console.log('[MinePathDrawer] Ground intersection found:', { x: intersection.x.toFixed(2), y: intersection.y.toFixed(2), z: intersection.z.toFixed(2) });
                 return intersection;
             } else {
-                console.log('[MinePathDrawer] No ground intersection found');
+                if (this.debug) console.log('[MinePathDrawer] No ground intersection found');
                 return null;
             }
         }
@@ -752,26 +757,20 @@ class MinePathDrawer {
         const group = new THREE.Group();
         
         // Ana yol geometrisi - geliştirilmiş tüp
-        const pathGeometry = this.createTubeGeometry(points, width, height);
+    const pathGeometry = this.createTubeGeometry(points, width, height);
         const material = this.createPathMaterial(color, type);
         
         const pathMesh = new THREE.Mesh(pathGeometry, material);
         pathMesh.castShadow = true;
         pathMesh.receiveShadow = true;
+    // LOD için düşük poligon varyantı
+    const lowPolyGeometry = this.createTubeGeometry(points, width, height, { quality: 'low' });
+    pathMesh.userData.highGeometry = pathGeometry;
+    pathMesh.userData.lowGeometry = lowPolyGeometry;
+    pathMesh.userData.lodState = 'high';
         group.add(pathMesh);
 
-        // İç duvar malzemesi (tunnel için)
-        if (type === 'tunnel') {
-            const innerMaterial = new THREE.MeshPhongMaterial({
-                color: new THREE.Color(color).multiplyScalar(0.8),
-                transparent: true,
-                opacity: 0.9,
-                shininess: 10
-            });
-            const innerMesh = new THREE.Mesh(pathGeometry.clone(), innerMaterial);
-            innerMesh.scale.set(0.95, 0.95, 0.95);
-            group.add(innerMesh);
-        }
+        // İç mesh kaldırıldı: LOD karmaşıklığı ve gereksiz draw call azaltımı.
 
         // Kenar çizgileri - daha ince ve yumuşak
         const edgesGeometry = new THREE.EdgesGeometry(pathGeometry);
@@ -841,16 +840,22 @@ class MinePathDrawer {
         }
     }
 
-    createTubeGeometry(points, width, height) {
+    createTubeGeometry(points, width, height, options = {}) {
         if (points.length < 2) return new THREE.BoxGeometry(1, 1, 1);
 
         // İyileştirilmiş curve sistemi
         const curve = new THREE.CatmullRomCurve3(points);
         curve.tension = 0.2; // Daha düzgün geçişler
         
-        // Yüksek kaliteli segment sayıları
-        const tubularSegments = Math.max(points.length * 6, 24);
-        const radialSegments = 16; // Daha yuvarlak kesit
+        // Adaptif segment hesaplama
+        const base = Math.max(points.length * 6, 24);
+        let tubularSegments = base;
+        if (options.quality === 'low') {
+            tubularSegments = Math.max(Math.floor(base * 0.35), 8);
+        }
+        // Üst limit clamp (performans koruması)
+        tubularSegments = Math.min(tubularSegments, 360);
+        const radialSegments = options.quality === 'low' ? 8 : 16;
         
         // Temel tüp geometrisi
         const tubeGeometry = new THREE.TubeGeometry(
@@ -893,6 +898,36 @@ class MinePathDrawer {
         tubeGeometry.computeVertexNormals();
         
         return tubeGeometry;
+    }
+
+    updateLOD() {
+        // Her frame değil, her 10 frame'de bir kontrol
+        this._lodFrame++;
+        if (this._lodFrame % 10 !== 0) return;
+        for (const [, group] of this.paths) {
+            if (!group) continue;
+            // İlk child ana mesh varsayılır
+            const mesh = group.children.find(c => c.isMesh);
+            if (!mesh || !mesh.userData.highGeometry) continue;
+            // Dünya merkezini hesapla (bounding sphere yoksa oluştur)
+            if (!mesh.userData._bs) {
+                mesh.userData.highGeometry.computeBoundingSphere();
+                mesh.userData._bs = mesh.userData.highGeometry.boundingSphere.clone();
+            }
+            const center = mesh.userData._bs.center.clone();
+            group.localToWorld(center);
+            const dist = center.distanceTo(this.camera.position);
+            const desired = dist > 180 ? 'low' : 'high';
+            if (desired !== mesh.userData.lodState) {
+                if (desired === 'low') {
+                    mesh.geometry = mesh.userData.lowGeometry;
+                    mesh.userData.lodState = 'low';
+                } else {
+                    mesh.geometry = mesh.userData.highGeometry;
+                    mesh.userData.lodState = 'high';
+                }
+            }
+        }
     }
 
     addConveyorBelt(group, points, width) {
@@ -1124,6 +1159,295 @@ class MinePathDrawer {
     }
 }
 
+// Path düzenleme (nokta handle sürükleme) için yardımcı sınıf
+class MinePathEditor {
+    constructor(scene, camera, renderer, pathDrawer) {
+        this.scene = scene;
+        this.camera = camera;
+        this.renderer = renderer;
+        this.pathDrawer = pathDrawer; // Mevcut MinePathDrawer referansı
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.isEditing = false;
+        this.activePath = null; // THREE.Group (createPath sonucu)
+        this.handles = []; // {mesh, index}
+        this.draggingHandle = null;
+        this.dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0); // Varsayılan yatay düzlem
+        this.offset = new THREE.Vector3();
+        this.intersection = new THREE.Vector3();
+        this.callbacks = { onPointChange: null, onEditStart: null, onEditEnd: null };
+        // Undo/Redo yığınları
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxHistory = 50;
+    }
+
+    setCallbacks(callbacks) { this.callbacks = { ...this.callbacks, ...callbacks }; }
+
+    startEditing(pathGroup) {
+        if (!pathGroup || !pathGroup.userData || !pathGroup.userData.pathData) return;
+        this.stopEditing();
+        this.isEditing = true;
+        this.activePath = pathGroup;
+        // İlk snapshot kaydet
+        const data = pathGroup.userData.pathData;
+        const pts = (data.points || data.path_points || []).map(p=>({...p}));
+        this.undoStack = [pts];
+        this.redoStack = [];
+        this.buildHandles();
+        if (this.callbacks.onEditStart) this.callbacks.onEditStart(pathGroup);
+        const btn = document.getElementById('save-path-btn');
+        if (btn) btn.disabled = false;
+    }
+
+    stopEditing() {
+        this.clearHandles();
+        this.isEditing = false;
+        this.activePath = null;
+        this.draggingHandle = null;
+        if (this.callbacks.onEditEnd) this.callbacks.onEditEnd();
+        const btn = document.getElementById('save-path-btn');
+        if (btn) btn.disabled = true;
+    }
+
+    buildHandles() {
+        this.clearHandles();
+        const data = this.activePath.userData.pathData;
+        const points = data.points || data.path_points || [];
+        const handleGeom = new THREE.SphereGeometry(0.6, 12, 12);
+        const handleMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+        points.forEach((p, idx) => {
+            const m = new THREE.Mesh(handleGeom.clone(), handleMat.clone());
+            m.position.set(p.x, p.y, p.z);
+            m.userData.isPathHandle = true;
+            m.userData.pointIndex = idx;
+            this.scene.add(m);
+            this.handles.push({ mesh: m, index: idx });
+        });
+    }
+
+    clearHandles() {
+        this.handles.forEach(h => { this.scene.remove(h.mesh); h.mesh.geometry.dispose(); h.mesh.material.dispose(); });
+        this.handles = [];
+    }
+
+    updateMouse(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    pointerDown(event) {
+        if (!this.isEditing) return;
+        this.updateMouse(event);
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.handles.map(h => h.mesh), true);
+        if (intersects.length > 0) {
+            const handleMesh = intersects[0].object;
+            this.draggingHandle = this.handles.find(h => h.mesh === handleMesh);
+            // Drag planını handle pozisyonuna hizala (yatay)
+            this.dragPlane.set(new THREE.Vector3(0,1,0), -handleMesh.position.y);
+        }
+    }
+
+    pointerMove(event) {
+        if (!this.isEditing || !this.draggingHandle) return;
+        this.updateMouse(event);
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const planeIntersect = new THREE.Vector3();
+        if (this.raycaster.ray.intersectPlane(this.dragPlane, planeIntersect)) {
+            const handle = this.draggingHandle;
+            planeIntersect.y = -2.5;
+            handle.mesh.position.copy(planeIntersect);
+            // Sadece görsel güncelleme & geçici rebuild (history push yok)
+            this.applyHandlePosition(handle.index, planeIntersect, { skipHistory: true, skipDirty: true });
+        }
+    }
+
+    pointerUp() {
+        if (!this.isEditing) return;
+        if (this.draggingHandle) {
+            // Drag tamamlandı -> final snapshot & dirty işaretleme + tek seferlik save
+            const data = this.activePath?.userData.pathData;
+            if (data && data.points) {
+                this.pushHistory(data.points);
+                if (this.viewer) {
+                    this.viewer.markPathDirty(data.id || data.path_id || this.activePath.userData.id);
+                }
+            }
+        }
+        this.draggingHandle = null;
+    }
+
+    applyHandlePosition(index, newPos, opts = {}) {
+        if (!this.activePath) return;
+        const data = this.activePath.userData.pathData;
+        const points = data.points || data.path_points || [];
+        if (!points[index]) return;
+        points[index] = { x: newPos.x, y: newPos.y, z: newPos.z };
+        // Geometry rebuild (simplification ile)
+    const mult = (this.viewer && this.viewer.pathSimplifyMultiplier) ? this.viewer.pathSimplifyMultiplier : 1.0;
+    const adaptiveTol = computeAdaptiveTolerance(points, mult);
+    const simplified = simplifyPath(points, adaptiveTol);
+        this.rebuildPath(simplified, data);
+        // Callback'e sadeleştirilmiş nokta listesini gönder (tutarlılık)
+        if (this.callbacks.onPointChange) this.callbacks.onPointChange(simplified, data);
+        if (!opts.skipHistory) this.pushHistory(simplified);
+        if (!opts.skipDirty && this.viewer) this.viewer.markPathDirty(data.id || data.path_id || this.activePath.userData.id);
+    }
+
+    pushHistory(points) {
+        const clone = points.map(p=>({...p}));
+        const last = this.undoStack[this.undoStack.length-1];
+        if (last && last.length === clone.length && last.every((p,i)=>p.x===clone[i].x && p.y===clone[i].y && p.z===clone[i].z)) return; // no change
+        this.undoStack.push(clone);
+        if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+        this.redoStack = [];
+    }
+
+    undo() {
+        if (this.undoStack.length <= 1) return;
+        const current = this.undoStack.pop();
+        this.redoStack.push(current);
+        const prev = this.undoStack[this.undoStack.length-1];
+        this.applyHistoryState(prev);
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+        const next = this.redoStack.pop();
+        this.undoStack.push(next);
+        this.applyHistoryState(next);
+    }
+
+    applyHistoryState(points) {
+        if (!this.activePath) return;
+        const data = this.activePath.userData.pathData;
+        this.rebuildPath(points, data);
+        if (this.callbacks.onPointChange) this.callbacks.onPointChange(points, data);
+        this.clearHandles();
+        this.buildHandles();
+    }
+
+    rebuildPath(points, data) {
+        // Eski meshleri kaldır
+        const group = this.activePath;
+        const oldChildren = [...group.children];
+        oldChildren.forEach(ch => {
+            group.remove(ch);
+            if (ch.geometry) ch.geometry.dispose();
+            // LOD geometrileri userData'da tutuluyorsa temizle
+            if (ch.userData) {
+                if (ch.userData.lowGeometry && ch.userData.lowGeometry !== ch.geometry) {
+                    ch.userData.lowGeometry.dispose();
+                    ch.userData.lowGeometry = null;
+                }
+                if (ch.userData.highGeometry && ch.userData.highGeometry !== ch.geometry) {
+                    // highGeometry zaten ch.geometry ise yukarıda dispose edildi
+                    if (ch.userData.highGeometry !== ch.geometry) ch.userData.highGeometry.dispose();
+                    ch.userData.highGeometry = null;
+                }
+            }
+            if (ch.material) {
+                if (Array.isArray(ch.material)) ch.material.forEach(m => m.dispose()); else ch.material.dispose();
+            }
+        });
+        // Güncel data ile yeni geometri
+        const width = data.width || 2.5;
+        const height = data.height || 2.5;
+        const color = data.color || '#808080';
+        const type = data.type || 'tunnel';
+        const newGroup = this.pathDrawer.createPathMesh(points.map(p=> new THREE.Vector3(p.x,p.y,p.z)), width, height, color, type);
+        // newGroup children'larını aktif gruba taşı
+        newGroup.children.forEach(nc => group.add(nc));
+        // userData güncel kalsın
+        data.points = points;
+        data.path_points = points; // backend alanı
+        // Handle sayısı simplification sonrası değişmiş olabilir, yeniden oluştur
+        this.clearHandles();
+        this.buildHandles();
+        // LOD bounding sphere reset (yeni geometri ile)
+        group.traverse(ch => { if (ch.userData && ch.userData._bs) ch.userData._bs = null; });
+    }
+}
+
+// Douglas-Peucker basit implementasyon (3D)
+function simplifyPath(points, tolerance) {
+    if (!points || points.length < 3) return points;
+    const sqTol = tolerance * tolerance;
+    function getSqDist(p1, p2) {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = p1.z - p2.z;
+        return dx*dx + dy*dy + dz*dz;
+    }
+    function getSqSegDist(p, p1, p2) {
+        let x = p1.x, y = p1.y, z = p1.z;
+        let dx = p2.x - x, dy = p2.y - y, dz = p2.z - z;
+        if (dx !== 0 || dy !== 0 || dz !== 0) {
+            let t = ((p.x - x) * dx + (p.y - y) * dy + (p.z - z) * dz) / (dx*dx + dy*dy + dz*dz);
+            if (t > 1) { x = p2.x; y = p2.y; z = p2.z; }
+            else if (t > 0) { x += dx * t; y += dy * t; z += dz * t; }
+        }
+        dx = p.x - x; dy = p.y - y; dz = p.z - z;
+        return dx*dx + dy*dy + dz*dz;
+    }
+    function simplifyDP(points, first, last, sqTol, simplified) {
+        let maxSqDist = sqTol;
+        let index = -1;
+        for (let i = first + 1; i < last; i++) {
+            const sqDist = getSqSegDist(points[i], points[first], points[last]);
+            if (sqDist > maxSqDist) { index = i; maxSqDist = sqDist; }
+        }
+        if (maxSqDist > sqTol && index !== -1) {
+            if (index - first > 1) simplifyDP(points, first, index, sqTol, simplified);
+            simplified.push(points[index]);
+            if (last - index > 1) simplifyDP(points, index, last, sqTol, simplified);
+        }
+    }
+    const simplified = [points[0]];
+    simplifyDP(points, 0, points.length - 1, sqTol, simplified);
+    simplified.push(points[points.length - 1]);
+    return simplified;
+}
+
+// Adaptif tolerans hesaplama: uzunluk + eğrilik
+function computeAdaptiveTolerance(points, multiplier = 1.0) {
+    if (!points || points.length < 3) {
+        return 0.05 * multiplier; // küçük pathler için düşük tolerans
+    }
+    // Toplam uzunluk
+    let length = 0;
+    for (let i=1;i<points.length;i++) {
+        const dx = points[i].x - points[i-1].x;
+        const dy = points[i].y - points[i-1].y;
+        const dz = points[i].z - points[i-1].z;
+        length += Math.sqrt(dx*dx+dy*dy+dz*dz);
+    }
+    // Ortalama eğrilik (üçlü segment açıları)
+    let curvatureSum = 0; let curvatureCount = 0;
+    for (let i=1;i<points.length-1;i++) {
+        const p0 = points[i-1], p1 = points[i], p2 = points[i+1];
+        const v1x = p1.x - p0.x, v1y = p1.y - p0.y, v1z = p1.z - p0.z;
+        const v2x = p2.x - p1.x, v2y = p2.y - p1.y, v2z = p2.z - p1.z;
+        const d1 = Math.sqrt(v1x*v1x+v1y*v1y+v1z*v1z) + 1e-6;
+        const d2 = Math.sqrt(v2x*v2x+v2y*v2y+v2z*v2z) + 1e-6;
+        const dot = (v1x*v2x+v1y*v2y+v1z*v2z)/(d1*d2);
+        const angle = Math.acos(Math.min(1, Math.max(-1, dot))); // 0..PI
+        curvatureSum += angle;
+        curvatureCount++;
+    }
+    const avgCurv = curvatureCount ? curvatureSum / curvatureCount : 0;
+    // Temel tolerans formülü:
+    // Daha uzun ve düşük eğrilik => daha yüksek tolerans
+    // Kısa ve kıvrımlı => düşük tolerans
+    const lengthFactor = Math.min(1, length / 500); // 0..1
+    const curvatureFactor = 1 - Math.min(1, avgCurv / 0.8); // yüksek eğrilik -> küçük katsayı
+    const base = 0.05 + (0.4 * lengthFactor * curvatureFactor); // 0.05 .. ~0.45
+    const adjusted = base * multiplier;
+    return Math.min(1.0, Math.max(0.02, adjusted));
+}
+
 // Obje seçimi ve düzenleme için yardımcı sınıf
 class ObjectSelector {
     constructor(scene, camera, renderer) {
@@ -1132,7 +1456,9 @@ class ObjectSelector {
         this.renderer = renderer;
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
-        this.selectedObject = null;
+    this.selectedObject = null;
+    this.multiSelect = true;
+    this.selectedObjects = new Set();
         this.selectableObjects = new Set();
         this.highlightMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff4444, 
@@ -1192,9 +1518,20 @@ class ObjectSelector {
             }
 
             if (targetObject) {
-                this.selectObject(targetObject);
+                const isShift = event.shiftKey;
+                if (this.multiSelect && isShift) {
+                    if (this.selectedObjects.has(targetObject)) {
+                        this.deselectObject(targetObject);
+                    } else {
+                        this.addToSelection(targetObject);
+                    }
+                } else {
+                    this.clearMultiSelection();
+                    this.selectObject(targetObject);
+                }
             }
         } else {
+            this.clearMultiSelection();
             this.deselectObject();
         }
     }
@@ -1216,6 +1553,7 @@ class ObjectSelector {
 
         this.deselectObject();
         this.selectedObject = object;
+        this.selectedObjects.add(object);
         
         // Highlight efekti ekle
         this.addHighlight(object);
@@ -1282,28 +1620,47 @@ class ObjectSelector {
         });
     }
 
-    getSelectedObject() {
-        return this.selectedObject;
+    deselectObject(obj=null) {
+        if (obj) {
+            this.removeHighlight(obj);
+            if (this.xrayModeObject === obj) this.disableXRayMode();
+            this.selectedObjects.delete(obj);
+            if (this.selectedObject === obj) this.selectedObject = null;
+            if (this.callbacks.onObjectDeselect) this.callbacks.onObjectDeselect(obj);
+            return;
+        }
+        if (this.selectedObject) {
+            this.removeHighlight(this.selectedObject);
+            if (this.xrayModeObject === this.selectedObject) this.disableXRayMode();
+            if (this.callbacks.onObjectDeselect) this.callbacks.onObjectDeselect(this.selectedObject);
+        }
+        this.selectedObject = null;
+        this.selectedObjects.clear();
     }
 
-    clearSelection() {
-        this.deselectObject();
+    addToSelection(object) {
+        if (!this.selectedObjects.has(object)) {
+            this.selectedObjects.add(object);
+            this.addHighlight(object);
+            if (this.callbacks.onObjectSelect) this.callbacks.onObjectSelect(object, object.userData.objectData);
+        }
     }
 
-    // X-Ray Mode metodları
+    clearMultiSelection() {
+        if (this.selectedObjects.size > 1) {
+            for (const obj of this.selectedObjects) {
+                if (obj !== this.selectedObject) this.removeHighlight(obj);
+            }
+            this.selectedObjects = this.selectedObject ? new Set([this.selectedObject]) : new Set();
+        }
+    }
     enableXRayMode(object) {
-        if (this.xrayModeObject === object) return;
-        
-        this.disableXRayMode(); // Önceki X-Ray mode'u kapat
+        if (this.xrayModeObject === object) return; // zaten aktif
+        this.disableXRayMode();
         this.xrayModeObject = object;
-        
-        // Tunnel geometrisinin üst kısmını şeffaf yap
-        object.traverse((child) => {
+        object.traverse(child => {
             if (child.isMesh) {
-                // Orijinal materyali kaydet
                 this.originalMaterials.set(child, child.material.clone());
-                
-                // Şeffaf materyal oluştur
                 const xrayMaterial = child.material.clone();
                 xrayMaterial.transparent = true;
                 xrayMaterial.opacity = 0.3;
@@ -1311,7 +1668,6 @@ class ObjectSelector {
                 child.material = xrayMaterial;
             }
         });
-        
         console.log('[ObjectSelector] X-Ray mode enabled for tunnel');
     }
 
@@ -1364,6 +1720,7 @@ class SimpleMine3DViewer {
         this.renderer = null;
         this.controls = null;
         this.pathDrawer = null;
+    this.pathEditor = null; // Path düzenleme
         this.objectCreator = null; // Yeni oluşturucu
         this.transformControls = null; // Drag & Drop için
         this.isPathDrawingMode = false;
@@ -1372,6 +1729,12 @@ class SimpleMine3DViewer {
         this.objectSelector = null;
         
         console.log('[SimpleMine3DViewer] Starting initialization...');
+        // Dirty tracking
+        this._dirtyPaths = new Set();
+        this._dirtyIndicatorEl = null;
+        // Ölçüm çizgileri durumu
+        this.measurementsEnabled = true;
+        this._lastMeasuredTunnel = null;
         this.init();
     }
 
@@ -1476,7 +1839,7 @@ class SimpleMine3DViewer {
             
             // Damping - daha responsif
             this.controls.enableDamping = true;
-            this.controls.dampingFactor = 0.15; // 0.05'ten 0.15'e çıkardık (3x daha hızlı)
+            this.controls.dampingFactor = 0.05; // Hızlar yükseldiği için daha düşük damping
             
             // Temel kontroller
             this.controls.enableZoom = true;
@@ -1484,13 +1847,14 @@ class SimpleMine3DViewer {
             this.controls.enableRotate = true;
             
             // Hareket hızları - kullanıcı dostu
-            this.controls.rotateSpeed = 1.2; // Default: 1.0
-            this.controls.zoomSpeed = 1.5;   // Default: 1.0  
-            this.controls.panSpeed = 1.3;    // Default: 1.0
+            // Kontrolleri 10x kolaylaştırma kapsamında hızları artır
+            this.controls.rotateSpeed = 4.0; // 1.2 -> 4.0
+            this.controls.zoomSpeed = 5.0;   // 1.5 -> 5.0
+            this.controls.panSpeed = 4.5;    // 1.3 -> 4.5
             
             // Zoom ayarları - daha ince kontrol
-            this.controls.minDistance = 1;     // 2'den 1'e (daha yakın bakabilir)
-            this.controls.maxDistance = 150;   // 200'den 150'ye (daha kontrollü)
+            this.controls.minDistance = 1;     // Yakın limit aynı
+            this.controls.maxDistance = 1000;  // 150 -> 1000 (daha geniş gezinme)
             
             // Mouse wheel zoom hassasiyeti
             this.controls.zoomToCursor = true; // Cursor'a doğru zoom
@@ -1539,6 +1903,11 @@ class SimpleMine3DViewer {
             console.log('[SimpleMine3DViewer] Initializing path drawer...');
             this.pathDrawer = new MinePathDrawer(this.scene, this.camera, this.renderer);
             this.setupPathDrawingEvents();
+            // Path editor
+            this.pathEditor = new MinePathEditor(this.scene, this.camera, this.renderer, this.pathDrawer);
+            this.pathEditor.setCallbacks({
+                onPointChange: (points, data) => { this.markPathDirty(data.id || data.pathId); }
+            });
             
             // Initialize object creator
             console.log('[SimpleMine3DViewer] Initializing object creator...');
@@ -1563,6 +1932,10 @@ class SimpleMine3DViewer {
             console.log('[SimpleMine3DViewer] Initializing object selector...');
             this.objectSelector = new ObjectSelector(this.scene, this.camera, this.renderer);
             this.setupObjectSelection();
+            // Edit drag eventleri
+            this.renderer.domElement.addEventListener('pointerdown', (e)=>{ if(this.pathEditor && this.pathEditor.isEditing) this.pathEditor.pointerDown(e); });
+            this.renderer.domElement.addEventListener('pointermove', (e)=>{ if(this.pathEditor && this.pathEditor.isEditing) this.pathEditor.pointerMove(e); });
+            this.renderer.domElement.addEventListener('pointerup',   (e)=>{ if(this.pathEditor && this.pathEditor.isEditing) this.pathEditor.pointerUp(e); });
             
             // Load mine data
             console.log('[SimpleMine3DViewer] Loading mine data...');
@@ -1813,7 +2186,7 @@ class SimpleMine3DViewer {
         try {
             // Ground plane - sonsuz genişlikte (çok büyük) grid
             console.log('[SimpleMine3DViewer] Creating infinite ground plane...');
-            const planeSize = 1000; // Çok büyük bir alan
+            const planeSize = 20000; // Sonsuza yakın büyük alan
             const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 50, 50);
             
             // Daha gerçekçi malzeme - grid pattern
@@ -1947,6 +2320,19 @@ class SimpleMine3DViewer {
             if (this.controls) {
                 this.controls.update();
             }
+            // LOD güncellemesi
+            if (this.pathDrawer) {
+                this.pathDrawer.updateLOD();
+            }
+            // Billboard sprite etiketlerini kameraya çevir
+            if (this._measurementGroup && this.camera) {
+                const camQuat = this.camera.quaternion;
+                this._measurementGroup.traverse(ch => {
+                    if (ch.isSprite) {
+                        ch.quaternion.copy(camQuat);
+                    }
+                });
+            }
             
             if (this.renderer && this.scene && this.camera) {
                 this.renderer.render(this.scene, this.camera);
@@ -2008,6 +2394,10 @@ class SimpleMine3DViewer {
         } else {
             // Normal mod - obje seçimi
             this.handleObjectSelection(event);
+            // Herhangi bir seçim yoksa ve oluşturma modu aktif değilse kalan preview/hayalet objeyi temizle
+            if (!this.selectedObject && this.objectCreator && this.objectCreator.previewObject) {
+                this.objectCreator.removePreview();
+            }
         }
     }
 
@@ -2084,7 +2474,6 @@ class SimpleMine3DViewer {
             this.objectCreator.removePreview();
         }
     }
-
     addHighlight(object) {
         if (object.userData.originalMaterial) return; // Zaten highlight'lı
         
@@ -2098,6 +2487,36 @@ class SimpleMine3DViewer {
             object.material.dispose();
             object.material = object.userData.originalMaterial;
             delete object.userData.originalMaterial;
+        }
+    }
+
+    markPathDirty(pathId) {
+        if (!pathId) return;
+        // Debounce auto-save
+        clearTimeout(this._pathSaveTimer);
+        this.setPathDirtyVisual(true);
+        this._dirtyPaths.add(pathId);
+        this._pathSaveTimer = setTimeout(async () => {
+            const pathObj = this.pathDrawer.getPath(pathId);
+            if (!pathObj) return;
+            const data = pathObj.userData.pathData || {};
+            try {
+                await this.updatePathToServer(pathId, { points: data.points || data.path_points });
+                this._dirtyPaths.delete(pathId);
+                if (this._dirtyPaths.size === 0) this.setPathDirtyVisual(false);
+            } catch (e) {
+                // Sessiz geç; UI zaten error gösterir
+            }
+        }, 600);
+    }
+
+    setPathDirtyVisual(isDirty) {
+        if (!this._dirtyIndicatorEl) {
+            this._dirtyIndicatorEl = document.getElementById('save-path-btn');
+        }
+        if (this._dirtyIndicatorEl) {
+            if (isDirty) this._dirtyIndicatorEl.classList.add('dirty');
+            else this._dirtyIndicatorEl.classList.remove('dirty');
         }
     }
 
@@ -2140,7 +2559,37 @@ class SimpleMine3DViewer {
             if (this.selectedObject && this.transformControls.object) {
                 this.cycleTransformMode();
             }
+        } else if ((event.metaKey || event.ctrlKey) && (event.key === 'z' || event.key === 'Z')) {
+            event.preventDefault();
+            if (this.pathEditor && this.pathEditor.isEditing) this.pathEditor.undo();
+        } else if ((event.metaKey || event.ctrlKey) && event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
+            event.preventDefault();
+            if (this.pathEditor && this.pathEditor.isEditing) this.pathEditor.redo();
+        } else if (event.key === 'm' || event.key === 'M') {
+            event.preventDefault();
+            this.toggleMeasurements();
         }
+    }
+
+    toggleMeasurements(forceState=null) {
+        const newState = forceState === null ? !this.measurementsEnabled : !!forceState;
+        if (newState === this.measurementsEnabled) return;
+        this.measurementsEnabled = newState;
+        if (!newState) {
+            // kapat: varsa grubu temizle
+            if (this._measurementGroup) {
+                this._measurementGroup.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) ch.material.dispose(); });
+                this.scene.remove(this._measurementGroup);
+                this._measurementGroup = null;
+            }
+        } else {
+            // aç: son seçili tünel varsa yeniden oluştur
+            if (this._lastMeasuredTunnel) {
+                const { object, data } = this._lastMeasuredTunnel;
+                this.buildTunnelMeasurements(object, data);
+            }
+        }
+        console.log('[SimpleMine3DViewer] Measurements toggled ->', this.measurementsEnabled);
     }
 
     cycleTransformMode() {
@@ -2310,15 +2759,35 @@ class SimpleMine3DViewer {
     }
 
     onObjectSelected(object, data) {
-        console.log('[SimpleMine3DViewer] Object selected:', data);
+        // Bazı seçim yollarında callback 'data' boş gelebilir; obje üzerindeki userData.objectData'yı fallback olarak kullan
+        const meta = data || (object && object.userData && object.userData.objectData) || object.userData || {};
+        console.log('[SimpleMine3DViewer] Object selected:', meta);
         this.selectedObject = object;
-        this.showObjectInfo(data);
+        this.showObjectInfo(meta);
+        // Path ise edit modunu başlat
+        if (meta && (meta.pathType || meta.type === 'path') && this.pathEditor) {
+            const group = object.parent && object.parent.userData && object.parent.userData.pathData ? object.parent : object;
+            this.pathEditor.startEditing(group);
+        }
+        // Tünel (mesh) seçimi ise ölçüm çizgilerini oluştur
+        if (meta && meta.type === 'tunnel') {
+            this.buildTunnelMeasurements(object, meta);
+            this.showTunnelEditPanel(object, meta);
+        }
     }
 
     onObjectDeselected(object) {
         console.log('[SimpleMine3DViewer] Object deselected');
+        // Ölçüm çizgilerini temizle
+        if (this._measurementGroup) {
+            this._measurementGroup.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) ch.material.dispose(); });
+            this.scene.remove(this._measurementGroup);
+            this._measurementGroup = null;
+        }
         this.selectedObject = null;
         this.hideObjectInfo();
+        this.hideTunnelEditPanel();
+        if (this.pathEditor && this.pathEditor.isEditing) this.pathEditor.stopEditing();
     }
 
     async onObjectDelete(object) {
@@ -2464,6 +2933,337 @@ class SimpleMine3DViewer {
         }
     }
 
+    async updatePathToServer(pathId, data) {
+        try {
+            const payload = { ...data };
+            if (payload.points && !payload.path_points) {
+                payload.path_points = payload.points.map(p => ({ x: p.x, y: p.y, z: p.z }));
+                delete payload.points;
+            }
+            const response = await fetch(`/api/mines/${this.mineId}/paths/${pathId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+            const result = await response.json();
+            console.log('[SimpleMine3DViewer] Yol güncellendi:', result.data || result);
+            this.showSuccess('Yol güncellendi');
+            const btn = document.getElementById('save-path-btn');
+            if (btn) {
+                btn.classList.add('saved-once');
+                setTimeout(()=> btn.classList.remove('saved-once'), 400);
+            }
+            return result.data || result;
+        } catch (error) {
+            console.error('[SimpleMine3DViewer] Yol güncelleme hatası:', error);
+            this.showError('Yol güncellenemedi: ' + error.message);
+            throw error;
+        }
+    }
+
+    dispose() {
+        console.log('[SimpleMine3DViewer] Disposing viewer');
+        window.removeEventListener('resize', this._resizeHandler);
+        document.removeEventListener('keydown', this._keyHandler);
+        if (this.renderer && this.renderer.domElement) {
+            const el = this.renderer.domElement;
+            el.removeEventListener('click', this._clickHandler);
+            el.removeEventListener('mousemove', this._mouseMoveHandler);
+        }
+        if (this.scene) {
+            this.scene.traverse(obj => {
+                if (obj.isMesh) {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) obj.material.forEach(m=>m.dispose()); else obj.material.dispose();
+                    }
+                }
+            });
+        }
+        if (this.renderer) this.renderer.dispose();
+        this.scene = null; this.camera = null; this.renderer = null;
+    }
+
+    buildTunnelMeasurements(object, data) {
+        if (!this.measurementsEnabled) return;
+        if (!object || !object.geometry) return;
+        if (this._measurementGroup) {
+            this._measurementGroup.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) ch.material.dispose(); });
+            this.scene.remove(this._measurementGroup);
+        }
+        const group = new THREE.Group();
+        group.name = 'tunnel_measurements';
+        this._measurementGroup = group;
+        this.scene.add(group);
+        // Son referansı sakla
+        this._lastMeasuredTunnel = { object, data };
+
+        // Axis assumption: Cylinder was rotated for tunnel; treat its local Y as length if vertical else Z as length
+        const params = data.parameters || {}; // width,height,length
+        const width = params.width || 3;
+        const height = params.height || 3;
+        const length = params.length || 10;
+        const orientation = params.orientation || 'horizontal';
+        const lengthAxis = orientation === 'vertical' ? 'y' : 'z';
+        const basePos = object.position.clone();
+
+    // Görünürlüğü artırmak için depthTest/Write kapat
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false });
+    const minorMat = new THREE.LineBasicMaterial({ color: 0x0077cc, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false });
+        const textColor = '#00aaff';
+
+        const makeLine = (start, end, material) => {
+            const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+            return new THREE.Line(geo, material);
+        };
+
+        // Length markers every 5m
+        const lengthStep = 5;
+        for (let d = lengthStep; d < length + 0.001; d += lengthStep) {
+            const ratio = d / length - 0.5; // centered
+            const offset = ratio * length;
+            let p1, p2;
+            if (lengthAxis === 'z') {
+                // Çizgiyi tünelin üstünde hafif offset ile göster
+                const yTop = basePos.y + height/2 + 0.02;
+                p1 = new THREE.Vector3(basePos.x - width/2, yTop, basePos.z + offset);
+                p2 = new THREE.Vector3(basePos.x + width/2, yTop, basePos.z + offset);
+            } else { // vertical
+                // Dikeyde: X genişliği boyunca, Z tarafında hafif offset
+                const zFront = basePos.z - height/2 - 0.02;
+                p1 = new THREE.Vector3(basePos.x - width/2, basePos.y + offset, zFront);
+                p2 = new THREE.Vector3(basePos.x + width/2, basePos.y + offset, zFront);
+            }
+            const line = makeLine(p1, p2, lineMat);
+            group.add(line);
+            this._addSpriteLabel(`${d}m`, p2.clone().add(new THREE.Vector3(0.2,0.2,0)), textColor, group);
+        }
+
+        // Width & height minor grid every 0.5m at mid-length plane
+        const wStep = 0.5;
+        const hStep = 0.5;
+        const midOffset = 0; // center plane
+        for (let w = -width/2; w <= width/2 + 1e-3; w += wStep) {
+            let s, e;
+            if (lengthAxis === 'z') {
+                const zMid = basePos.z + midOffset;
+                s = new THREE.Vector3(basePos.x + w, basePos.y - height/2 + 0.01, zMid);
+                e = new THREE.Vector3(basePos.x + w, basePos.y + height/2 + 0.01, zMid);
+            } else {
+                const zStart = basePos.z - height/2;
+                s = new THREE.Vector3(basePos.x + w, basePos.y + midOffset, zStart + 0.01);
+                e = new THREE.Vector3(basePos.x + w, basePos.y + midOffset, basePos.z + height/2 + 0.01);
+            }
+            group.add(makeLine(s,e, minorMat));
+        }
+        for (let h = -height/2; h <= height/2 + 1e-3; h += hStep) {
+            let s, e;
+            if (lengthAxis === 'z') {
+                const zMid = basePos.z + midOffset;
+                s = new THREE.Vector3(basePos.x - width/2, basePos.y + h, zMid + 0.01);
+                e = new THREE.Vector3(basePos.x + width/2, basePos.y + h, zMid + 0.01);
+            } else {
+                const zFront = basePos.z - height/2 - 0.01;
+                s = new THREE.Vector3(basePos.x - width/2, basePos.y + midOffset, zFront + h);
+                e = new THREE.Vector3(basePos.x + width/2, basePos.y + midOffset, zFront + h);
+            }
+            group.add(makeLine(s,e, minorMat));
+        }
+    }
+
+    // ---- Tünel Düzenleme Paneli ----
+    ensureTunnelEditPanel() {
+        if (this._tunnelEditPanel) return this._tunnelEditPanel;
+        const panel = document.createElement('div');
+        panel.id = 'tunnel-edit-panel';
+                panel.style.cssText = `position:fixed;top:12px;right:12px;z-index:1200;background:rgba(0,0,0,0.85);color:#fff;padding:10px 12px 14px 12px;border-radius:8px;font:12px/1.4 Arial, sans-serif;min-width:220px;box-shadow:0 4px 14px rgba(0,0,0,0.4);display:none;cursor:default;`;        
+        panel.innerHTML = `
+                    <div id="te-drag-handle" style="font-weight:bold;margin-bottom:6px;cursor:move;display:flex;justify-content:space-between;align-items:center;">
+                        <span>Tünel Düzenle</span>
+                        <span style="font-size:10px;opacity:0.6;">(Sürükle)</span>
+                    </div>
+          <label style="display:block;margin-bottom:4px;">Genişlik <input type="number" step="0.1" min="0.5" id="te-width" style="width:70px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
+          <label style="display:block;margin-bottom:4px;">Yükseklik <input type="number" step="0.1" min="0.5" id="te-height" style="width:70px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
+          <label style="display:block;margin-bottom:4px;">Uzunluk <input type="number" step="0.5" min="1" id="te-length" style="width:80px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
+                    <label style="display:block;margin-bottom:4px;">Yön
+                        <select id="te-orientation" style="margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;">
+                            <option value="horizontal">Yatay</option>
+                            <option value="vertical">Dikey</option>
+                        </select>
+                    </label>
+          <label style="display:block;margin-bottom:6px;">Açı <input type="number" step="1" min="0" max="360" id="te-angle" style="width:60px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
+          <div style="display:flex;gap:6px;justify-content:space-between;margin-top:6px;">
+            <button id="te-save" style="flex:1;background:#1e7e34;border:none;color:#fff;padding:6px 4px;border-radius:4px;cursor:pointer;font-weight:bold;">Kaydet</button>
+            <button id="te-cancel" style="flex:1;background:#6c757d;border:none;color:#fff;padding:6px 4px;border-radius:4px;cursor:pointer;">İptal</button>
+          </div>
+          <div style="display:flex;gap:6px;justify-content:space-between;margin-top:6px;">
+            <button id="te-close" style="flex:1;background:#444;border:none;color:#ddd;padding:5px 4px;border-radius:4px;cursor:pointer;">Kapat</button>
+            <button id="te-reset" style="flex:1;background:#b54708;border:none;color:#fff;padding:5px 4px;border-radius:4px;cursor:pointer;">Geri Al</button>
+          </div>
+          <div id="te-status" style="margin-top:6px;font-size:11px;color:#8fd4ff;min-height:14px;"></div>
+        `;
+        document.body.appendChild(panel);
+        this._tunnelEditPanel = panel;
+        // Event listeners (delegated)
+        panel.querySelector('#te-close').addEventListener('click',()=>this.hideTunnelEditPanel());
+        panel.querySelector('#te-cancel').addEventListener('click',()=>this.revertTunnelTempChanges());
+        panel.querySelector('#te-reset').addEventListener('click',()=>this.revertTunnelTempChanges());
+        panel.querySelector('#te-save').addEventListener('click',()=>this.saveTunnelEdits());
+        ['te-width','te-height','te-length','te-angle','te-orientation'].forEach(id=>{
+            panel.querySelector('#'+id).addEventListener('input',()=>this.updateTunnelGeometryFromInputs());
+        });
+        // Draggable
+        const dragHandle = panel.querySelector('#te-drag-handle');
+        let dragOffX=0, dragOffY=0, dragging=false;
+        const onMove=(e)=>{ if(!dragging) return; panel.style.top=(e.clientY-dragOffY)+'px'; panel.style.left=(e.clientX-dragOffX)+'px'; panel.style.right='auto'; };
+        dragHandle.addEventListener('mousedown',(e)=>{ dragging=true; panel.style.userSelect='none'; dragOffX=e.clientX - panel.getBoundingClientRect().left; dragOffY=e.clientY - panel.getBoundingClientRect().top; window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',()=>{dragging=false;panel.style.userSelect='';window.removeEventListener('mousemove',onMove);},{once:true}); });
+        return panel;
+    }
+
+    showTunnelEditPanel(object, data) {
+        if (!object || !data || data.type !== 'tunnel') return;
+        try {
+            if (!data.parameters || typeof data.parameters !== 'object') {
+                // Parametre yoksa geometry'den tahmin et
+                const box = new THREE.Box3().setFromObject(object);
+                const size = new THREE.Vector3(); box.getSize(size);
+                data.parameters = {
+                    width: parseFloat(size.x.toFixed(2)) || 3,
+                    height: parseFloat(size.y.toFixed(2)) || 3,
+                    length: parseFloat(size.z.toFixed(2)) || 10,
+                    angle: 0,
+                    orientation: 'horizontal'
+                };
+            } else {
+                // Eksik alanları doldur
+                ['width','height','length'].forEach(k=>{ if (data.parameters[k]==null) data.parameters[k]= (k==='length'?10:3); });
+                if (data.parameters.angle==null) data.parameters.angle=0;
+            }
+            const panel = this.ensureTunnelEditPanel();
+            panel.style.display='block';
+            // Orijinal param yedeği
+            this._tunnelOriginalParams = JSON.parse(JSON.stringify(data.parameters||{}));
+            this._tunnelEditingObject = object;
+            this._tunnelEditingData = data;
+            // Input doldur
+        panel.querySelector('#te-width').value = data.parameters.width;
+        panel.querySelector('#te-height').value = data.parameters.height;
+        panel.querySelector('#te-length').value = data.parameters.length;
+        panel.querySelector('#te-angle').value = data.parameters.angle || 0;
+        panel.querySelector('#te-orientation').value = data.parameters.orientation || 'horizontal';
+            panel.querySelector('#te-status').textContent='';
+            console.log('[SimpleMine3DViewer] Tunnel edit panel opened with params:', data.parameters);
+        } catch(err) {
+            console.error('showTunnelEditPanel error', err);
+        }
+    }
+
+    hideTunnelEditPanel() {
+        if (this._tunnelEditPanel) this._tunnelEditPanel.style.display='none';
+        this._tunnelEditingObject = null;
+        this._tunnelEditingData = null;
+        this._tunnelOriginalParams = null;
+    }
+
+    revertTunnelTempChanges() {
+        if (!this._tunnelEditingObject || !this._tunnelOriginalParams) return;
+        Object.assign(this._tunnelEditingData.parameters, this._tunnelOriginalParams);
+        this.replaceTunnelGeometry(this._tunnelEditingObject, this._tunnelEditingData.parameters);
+        // Inputları geri set et
+        const p=this._tunnelOriginalParams;
+        this._tunnelEditPanel.querySelector('#te-width').value = p.width;
+        this._tunnelEditPanel.querySelector('#te-height').value = p.height;
+        this._tunnelEditPanel.querySelector('#te-length').value = p.length;
+        this._tunnelEditPanel.querySelector('#te-angle').value = p.angle||0;
+        if (this._tunnelEditPanel.querySelector('#te-orientation')) this._tunnelEditPanel.querySelector('#te-orientation').value = p.orientation || 'horizontal';
+        this._tunnelEditPanel.querySelector('#te-status').textContent='İptal edildi';
+    }
+
+    updateTunnelGeometryFromInputs() {
+        if (!this._tunnelEditingObject || !this._tunnelEditingData) return;
+        const w = parseFloat(this._tunnelEditPanel.querySelector('#te-width').value)||1;
+        const h = parseFloat(this._tunnelEditPanel.querySelector('#te-height').value)||1;
+        const l = parseFloat(this._tunnelEditPanel.querySelector('#te-length').value)||1;
+        const a = parseFloat(this._tunnelEditPanel.querySelector('#te-angle').value)||0;
+        const oSel = this._tunnelEditPanel.querySelector('#te-orientation');
+        const o = oSel ? oSel.value : 'horizontal';
+        // Clamp basit
+        const params = this._tunnelEditingData.parameters;
+        params.width = Math.max(0.5, w);
+        params.height = Math.max(0.5, h);
+        params.length = Math.max(1, l);
+        params.angle = a % 360;
+        params.orientation = (o === 'vertical') ? 'vertical' : 'horizontal';
+        this.replaceTunnelGeometry(this._tunnelEditingObject, params);
+        this._tunnelEditPanel.querySelector('#te-status').textContent='(Kaydedilmedi)';
+    }
+
+    replaceTunnelGeometry(mesh, params) {
+        if (!this.objectCreator) return; // objectCreator.createGeometry kullan
+        const newGeo = this.objectCreator.createGeometry('tunnel', params);
+        if (mesh.geometry) mesh.geometry.dispose();
+        mesh.geometry = newGeo;
+        mesh.userData.parameters = { ...params };
+        // Ölçüm çizgilerini yeniden kur
+        if (this.measurementsEnabled) this.buildTunnelMeasurements(mesh, { type:'tunnel', parameters: params });
+    }
+
+    async saveTunnelEdits() {
+        if (!this._tunnelEditingObject || !this._tunnelEditingData) return;
+        const params = this._tunnelEditingData.parameters;
+        try {
+            // Sunucuya güncelle (varsayım: models endpoint). serverId yoksa eklemeyi atla.
+            if (this._tunnelEditingObject.userData.serverId) {
+                const response = await fetch(`/api/mines/${this.mineId}/models/${this._tunnelEditingObject.userData.serverId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
+                    body: JSON.stringify({ parameters: params })
+                });
+                if (!response.ok) throw new Error('HTTP '+response.status);
+            }
+            this._tunnelOriginalParams = JSON.parse(JSON.stringify(params));
+            this._tunnelEditPanel.querySelector('#te-status').textContent='Kaydedildi';
+            this.showSuccess('Tünel güncellendi');
+        } catch(err) {
+            console.error('Tunnel save error', err);
+            this.showError('Tünel kaydedilemedi: '+err.message);
+            this._tunnelEditPanel.querySelector('#te-status').textContent='Hata';
+        }
+    }
+
+    _addSpriteLabel(text, position, color, parentGroup) {
+        const canvas = document.createElement('canvas');
+        const size = 256;
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.0)';
+        ctx.fillRect(0,0,size,size);
+        ctx.fillStyle = color || '#ffffff';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, size/2, size/2);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(1.5,1.5,1.5);
+        sprite.position.copy(position);
+        parentGroup.add(sprite);
+    }
+
     showPathDrawingUI(show) {
         console.log('[SimpleMine3DViewer] Path drawing UI:', show ? 'show' : 'hide');
         
@@ -2544,6 +3344,42 @@ class SimpleMine3DViewer {
                 </div>
             `;
 
+                        if (data.type === 'tunnel') {
+                                const p = data.parameters || {};
+                                infoHtml += `
+                                    <div class="mb-2">
+                                        <small class="text-muted">Tünel Parametreleri (Hızlı Düzenleme)</small>
+                                        <div class="row g-1 mt-1">
+                                            <div class="col-4">
+                                                <input type="number" step="0.1" min="0.5" class="form-control form-control-sm" id="ti-width" value="${p.width||3}" placeholder="Genişlik" title="Genişlik (m)">
+                                            </div>
+                                            <div class="col-4">
+                                                <input type="number" step="0.1" min="0.5" class="form-control form-control-sm" id="ti-height" value="${p.height||3}" placeholder="Yükseklik" title="Yükseklik (m)">
+                                            </div>
+                                            <div class="col-4">
+                                                <input type="number" step="0.5" min="1" class="form-control form-control-sm" id="ti-length" value="${p.length||10}" placeholder="Uzunluk" title="Uzunluk (m)">
+                                            </div>
+                                        </div>
+                                        <div class="row g-1 mt-1">
+                                            <div class="col-6">
+                                                <select id="ti-orientation" class="form-select form-select-sm">
+                                                    <option value="horizontal" ${p.orientation==='horizontal'?'selected':''}>Yatay</option>
+                                                    <option value="vertical" ${p.orientation==='vertical'?'selected':''}>Dikey</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="number" step="1" min="0" max="360" class="form-control form-control-sm" id="ti-angle" value="${p.angle||0}" placeholder="Açı" title="Açı (derece)">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 d-grid gap-1">
+                                            <button class="btn btn-sm btn-outline-success" id="ti-apply">Uygula</button>
+                                            <button class="btn btn-sm btn-outline-primary" id="ti-open-full">Gelişmiş Paneli Aç</button>
+                                        </div>
+                                        <div class="mt-1"><small id="ti-status" class="text-warning"></small></div>
+                                    </div>
+                                `;
+                        }
+
             if (data.type === 'path') {
                 infoHtml += `
                     <div class="mb-2">
@@ -2594,6 +3430,44 @@ class SimpleMine3DViewer {
 
             content.innerHTML = infoHtml;
             panel.style.display = 'block';
+
+            // Mini tünel form eventleri
+            if (data.type === 'tunnel') {
+                const applyBtn = document.getElementById('ti-apply');
+                const openBtn = document.getElementById('ti-open-full');
+                if (applyBtn) {
+                    applyBtn.addEventListener('click', () => {
+                        const w = parseFloat(document.getElementById('ti-width').value)||data.parameters.width;
+                        const h = parseFloat(document.getElementById('ti-height').value)||data.parameters.height;
+                        const l = parseFloat(document.getElementById('ti-length').value)||data.parameters.length;
+                        const a = parseFloat(document.getElementById('ti-angle').value)||0;
+                        const o = document.getElementById('ti-orientation').value;
+                        data.parameters.width = Math.max(0.5, w);
+                        data.parameters.height = Math.max(0.5, h);
+                        data.parameters.length = Math.max(1, l);
+                        data.parameters.angle = a % 360;
+                        data.parameters.orientation = o === 'vertical' ? 'vertical':'horizontal';
+                        if (this.selectedObject) {
+                            this.replaceTunnelGeometry(this.selectedObject, data.parameters);
+                            // Eğer üst panel açıksa inputları senkronize et
+                            if (this._tunnelEditPanel && this._tunnelEditPanel.style.display==='block') {
+                                this._tunnelEditPanel.querySelector('#te-width').value = data.parameters.width;
+                                this._tunnelEditPanel.querySelector('#te-height').value = data.parameters.height;
+                                this._tunnelEditPanel.querySelector('#te-length').value = data.parameters.length;
+                                this._tunnelEditPanel.querySelector('#te-angle').value = data.parameters.angle;
+                                this._tunnelEditPanel.querySelector('#te-orientation').value = data.parameters.orientation;
+                                this._tunnelEditPanel.querySelector('#te-status').textContent='(Kaydedilmedi)';
+                            }
+                            const st = document.getElementById('ti-status'); if (st) st.textContent='Uygulandı (Kaydetmeyi unutma)';
+                        }
+                    });
+                }
+                if (openBtn) {
+                    openBtn.addEventListener('click', () => {
+                        if (this.selectedObject) this.showTunnelEditPanel(this.selectedObject, data);
+                    });
+                }
+            }
         }
     }
 
@@ -2647,8 +3521,8 @@ class SimpleMine3DViewer {
                 this.controls.target.set(0, -3, 0);
                 break;
             case 'underground':
-                this.camera.position.set(10, -8, 15);
-                this.controls.target.set(0, -10, 0);
+                this.camera.position.set(10, -40, 25);
+                this.controls.target.set(0, -45, 0);
                 break;
             case 'close':
                 this.camera.position.set(8, 2, 12);
