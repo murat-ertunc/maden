@@ -15,6 +15,75 @@
                     </span>
                 </small>
             </div>
+            
+            <!-- Kamera Kontrolleri -->
+            <div class="d-flex align-items-center me-3">
+                <div class="me-4">
+                    <small class="text-muted d-block mb-1">Kamera Pozisyonu</small>
+                    <div class="d-flex gap-2">
+                        <div class="text-center" style="min-width: 60px;">
+                            <label class="form-label text-warning mb-1" style="font-size: 0.75rem;">X</label>
+                            <input type="range" id="camera-x" class="form-range" min="-50" max="50" value="15" step="1"
+                                   style="width: 60px; height: 20px;">
+                            <small class="text-light d-block" id="camera-x-value" style="font-size: 0.7rem;">15</small>
+                        </div>
+                        <div class="text-center" style="min-width: 60px;">
+                            <label class="form-label text-success mb-1" style="font-size: 0.75rem;">Y</label>
+                            <input type="range" id="camera-y" class="form-range" min="-10" max="30" value="5" step="1"
+                                   style="width: 60px; height: 20px;">
+                            <small class="text-light d-block" id="camera-y-value" style="font-size: 0.7rem;">5</small>
+                        </div>
+                        <div class="text-center" style="min-width: 60px;">
+                            <label class="form-label text-info mb-1" style="font-size: 0.75rem;">Z</label>
+                            <input type="range" id="camera-z" class="form-range" min="-50" max="50" value="25" step="1"
+                                   style="width: 60px; height: 20px;">
+                            <small class="text-light d-block" id="camera-z-value" style="font-size: 0.7rem;">25</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="me-4">
+                    <small class="text-muted d-block mb-1">Zoom & Hız</small>
+                    <div class="d-flex gap-2">
+                        <div class="text-center" style="min-width: 70px;">
+                            <label class="form-label text-primary mb-1" style="font-size: 0.75rem;">Zoom</label>
+                            <input type="range" id="camera-zoom" class="form-range" min="2" max="100" value="30" step="1"
+                                   style="width: 70px; height: 20px;">
+                            <small class="text-light d-block" id="camera-zoom-value" style="font-size: 0.7rem;">30</small>
+                        </div>
+                        <div class="text-center" style="min-width: 70px;">
+                            <label class="form-label text-secondary mb-1" style="font-size: 0.75rem;">Hız</label>
+                            <input type="range" id="camera-speed" class="form-range" min="0.1" max="2.0" value="1.0" step="0.1"
+                                   style="width: 70px; height: 20px;">
+                            <small class="text-light d-block" id="camera-speed-value" style="font-size: 0.7rem;">1.0</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="btn btn-outline-warning btn-sm mb-1" id="camera-reset-btn" title="Kamerayı Sıfırla">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" id="camera-auto-btn" title="Otomatik Döndür">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                
+                <div class="dropdown">
+                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-camera"></i> Presets
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item camera-preset" data-preset="default" href="#"><i class="fas fa-home me-2"></i>Varsayılan</a></li>
+                        <li><a class="dropdown-item camera-preset" data-preset="overview" href="#"><i class="fas fa-eye me-2"></i>Genel Görünüm</a></li>
+                        <li><a class="dropdown-item camera-preset" data-preset="side" href="#"><i class="fas fa-arrows-alt-h me-2"></i>Yan Görünüm</a></li>
+                        <li><a class="dropdown-item camera-preset" data-preset="top" href="#"><i class="fas fa-arrows-alt-v me-2"></i>Üst Görünüm</a></li>
+                        <li><a class="dropdown-item camera-preset" data-preset="underground" href="#"><i class="fas fa-hard-hat me-2"></i>Yeraltı</a></li>
+                        <li><a class="dropdown-item camera-preset" data-preset="close" href="#"><i class="fas fa-search-plus me-2"></i>Yakın Plan</a></li>
+                    </ul>
+                </div>
+            </div>
+            
             <div>
                 <span class="badge bg-{{ $mine->status === 'active' ? 'success' : ($mine->status === 'planning' ? 'warning' : 'secondary') }} me-2">
                     {{ ucfirst($mine->status) }}
@@ -45,74 +114,66 @@
         <!-- 3D Scene Container -->
         <div id="mine-3d-container" class="w-100 h-100"></div>
 
-        <!-- Quick Actions Panel -->
+        <!-- Mining Control Panel -->
         <div class="position-absolute top-0 start-0 m-3">
-            <div class="card shadow-sm" style="width: 250px;">
-                <div class="card-header py-2">
-                    <h6 class="mb-0">Hızlı İşlemler</h6>
+            <div class="card shadow-lg border-0" style="width: 280px; background: linear-gradient(145deg, #2a2a2a, #1a1a1a); color: #fff;">
+                <div class="card-header py-3 border-0" style="background: linear-gradient(145deg, #ff6b00, #cc5500);">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="fas fa-hard-hat me-2"></i>Maden Kontrol Paneli
+                    </h6>
                 </div>
-                <div class="card-body py-2">
-                    <div class="d-grid gap-1">
-                        <button class="btn btn-outline-primary btn-sm" id="add-layer-btn">
-                            <i class="fas fa-layer-group"></i> Katman Ekle
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm" id="add-model-btn">
-                            <i class="fas fa-cube"></i> Model Ekle
-                        </button>
-                        <button class="btn btn-outline-warning btn-sm" id="draw-path-btn">
-                            <i class="fas fa-route"></i> <span id="path-btn-text">Yol Çiz</span>
-                        </button>
-                        <button class="btn btn-outline-info btn-sm" id="reset-camera-btn">
-                            <i class="fas fa-video"></i> Kamerayı Sıfırla
-                        </button>
-                        <button class="btn btn-outline-success btn-sm" id="export-scene-btn">
-                            <i class="fas fa-download"></i> Sahneyi Dışa Aktar
-                        </button>
+                <div class="card-body py-3">
+                    <div class="mb-3">
+                        <h6 class="text-warning mb-2">
+                            <i class="fas fa-tools me-2"></i>Çizim Araçları
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-warning btn-sm mining-tool-btn" data-tool="tunnel">
+                                <i class="fas fa-mountain me-2"></i>Tünel Kaz
+                            </button>
+                            <button class="btn btn-outline-info btn-sm mining-tool-btn" data-tool="road">
+                                <i class="fas fa-road me-2"></i>Yol İnşa Et
+                            </button>
+                            <button class="btn btn-outline-success btn-sm mining-tool-btn" data-tool="rail">
+                                <i class="fas fa-train me-2"></i>Ray Döşe
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm mining-tool-btn" data-tool="conveyor">
+                                <i class="fas fa-conveyor-belt me-2"></i>Konveyör Kur
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-success mb-2">
+                            <i class="fas fa-eye me-2"></i>Görünüm Kontrolleri
+                        </h6>
+                        <div class="d-grid gap-1">
+                            <button class="btn btn-outline-primary btn-sm" id="reset-camera-btn">
+                                <i class="fas fa-video me-1"></i>Kamera Sıfırla
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h6 class="text-purple mb-2">
+                            <i class="fas fa-save me-2"></i>Dosya İşlemleri
+                        </h6>
+                        <div class="d-grid gap-1">
+                            <button class="btn btn-outline-success btn-sm" id="export-scene-btn">
+                                <i class="fas fa-download me-1"></i>Sahne Dışa Aktar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Path Drawing Controls -->
-            <div class="card shadow-sm mt-2" id="path-controls" style="width: 250px; display: none;">
-                <div class="card-header py-2">
-                    <h6 class="mb-0">Yol Ayarları</h6>
-                </div>
-                <div class="card-body py-2">
-                    <div class="mb-2">
-                        <label class="form-label form-label-sm">Yol Tipi</label>
-                        <select class="form-select form-select-sm" id="path-type">
-                            <option value="tunnel">Tünel</option>
-                            <option value="road">Yol</option>
-                            <option value="rail">Ray</option>
-                            <option value="conveyor">Konveyör</option>
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="form-label form-label-sm">Genişlik (m)</label>
-                            <input type="number" class="form-control form-control-sm" id="path-width" value="3" min="0.5" max="20" step="0.5">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label form-label-sm">Yükseklik (m)</label>
-                            <input type="number" class="form-control form-control-sm" id="path-height" value="3" min="0.5" max="20" step="0.5">
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <label class="form-label form-label-sm">Renk</label>
-                        <input type="color" class="form-control form-control-sm" id="path-color" value="#808080">
-                    </div>
-                    <div class="mt-2">
-                        <label class="form-label form-label-sm">İsim</label>
-                        <input type="text" class="form-control form-control-sm" id="path-name" placeholder="Yol adı">
-                    </div>
-                    <div class="d-grid gap-1 mt-2">
-                        <button class="btn btn-success btn-sm" id="finish-path-btn">
-                            <i class="fas fa-check"></i> Tamamla
-                        </button>
-                        <button class="btn btn-secondary btn-sm" id="cancel-path-btn">
-                            <i class="fas fa-times"></i> İptal
-                        </button>
-                    </div>
+        </div>
+
+        <!-- 3D Distance Display -->
+        <div class="position-absolute top-0 end-0 m-3">
+            <div class="card shadow-lg border-0" style="background: rgba(0,0,0,0.8); color: #fff; min-width: 200px;" id="distance-display" style="display: none;">
+                <div class="card-body py-2 px-3">
+                    <small class="text-warning">Mesafe</small>
+                    <div class="h5 mb-0 text-light" id="distance-value">0.0m</div>
                 </div>
             </div>
         </div>
@@ -323,6 +384,9 @@ window.mineData = {
             }
         });
 
+        // Yeni kamera kontrolleri
+        setupCameraControls(viewer);
+
         // Diğer butonlar için placeholder event handler'lar
         document.getElementById('add-layer-btn')?.addEventListener('click', () => {
             alert('Katman ekleme özelliği yakında gelecek!');
@@ -344,6 +408,131 @@ window.mineData = {
                     drawPathBtn.click();
                 }
             }
+        });
+    }
+
+    function setupCameraControls(viewer) {
+        if (!viewer || !viewer.camera || !viewer.controls) return;
+
+        // Range input referansları
+        const cameraX = document.getElementById('camera-x');
+        const cameraY = document.getElementById('camera-y');
+        const cameraZ = document.getElementById('camera-z');
+        const cameraZoom = document.getElementById('camera-zoom');
+        const cameraSpeed = document.getElementById('camera-speed');
+        
+        const cameraXValue = document.getElementById('camera-x-value');
+        const cameraYValue = document.getElementById('camera-y-value');
+        const cameraZValue = document.getElementById('camera-z-value');
+        const cameraZoomValue = document.getElementById('camera-zoom-value');
+        const cameraSpeedValue = document.getElementById('camera-speed-value');
+
+        const cameraResetBtn = document.getElementById('camera-reset-btn');
+        const cameraAutoBtn = document.getElementById('camera-auto-btn');
+
+        // İlk değerleri güncelle
+        updateCameraUI();
+
+        // X pozisyon kontrolü
+        cameraX?.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            cameraXValue.textContent = value;
+            viewer.camera.position.x = value;
+            viewer.controls.update();
+        });
+
+        // Y pozisyon kontrolü
+        cameraY?.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            cameraYValue.textContent = value;
+            viewer.camera.position.y = value;
+            viewer.controls.update();
+        });
+
+        // Z pozisyon kontrolü
+        cameraZ?.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            cameraZValue.textContent = value;
+            viewer.camera.position.z = value;
+            viewer.controls.update();
+        });
+
+        // Zoom kontrolü (kamera mesafesi)
+        cameraZoom?.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            cameraZoomValue.textContent = value;
+            
+            // Mevcut pozisyondan hedef pozisyona doğru normalize edilmiş vektör
+            const direction = viewer.camera.position.clone().sub(viewer.controls.target).normalize();
+            const newPosition = viewer.controls.target.clone().add(direction.multiplyScalar(value));
+            
+            viewer.camera.position.copy(newPosition);
+            viewer.controls.update();
+        });
+
+        // Hız kontrolü
+        cameraSpeed?.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            cameraSpeedValue.textContent = value;
+            
+            // OrbitControls hız ayarları
+            viewer.controls.rotateSpeed = value;
+            viewer.controls.zoomSpeed = value;
+            viewer.controls.panSpeed = value;
+            viewer.controls.dampingFactor = 0.1 * value; // Daha responsif
+        });
+
+        // Reset butonu
+        cameraResetBtn?.addEventListener('click', () => {
+            viewer.camera.position.set(15, 5, 25);
+            viewer.controls.target.set(0, -3, 0);
+            viewer.controls.update();
+            updateCameraUI();
+        });
+
+        // Auto-rotate toggle
+        let autoRotating = false;
+        cameraAutoBtn?.addEventListener('click', () => {
+            autoRotating = !autoRotating;
+            viewer.controls.autoRotate = autoRotating;
+            cameraAutoBtn.classList.toggle('btn-outline-info', !autoRotating);
+            cameraAutoBtn.classList.toggle('btn-info', autoRotating);
+        });
+
+        // UI'yi kamera pozisyonuyla senkronize et
+        function updateCameraUI() {
+            if (cameraX && cameraXValue) {
+                cameraX.value = Math.round(viewer.camera.position.x);
+                cameraXValue.textContent = Math.round(viewer.camera.position.x);
+            }
+            if (cameraY && cameraYValue) {
+                cameraY.value = Math.round(viewer.camera.position.y);
+                cameraYValue.textContent = Math.round(viewer.camera.position.y);
+            }
+            if (cameraZ && cameraZValue) {
+                cameraZ.value = Math.round(viewer.camera.position.z);
+                cameraZValue.textContent = Math.round(viewer.camera.position.z);
+            }
+            
+            // Zoom değerini hesapla (kamera ile target arası mesafe)
+            if (cameraZoom && cameraZoomValue) {
+                const distance = viewer.camera.position.distanceTo(viewer.controls.target);
+                cameraZoom.value = Math.round(distance);
+                cameraZoomValue.textContent = Math.round(distance);
+            }
+        }
+
+        // Kamera hareket ettiğinde UI'yi güncelle
+        viewer.controls.addEventListener('change', updateCameraUI);
+
+        // Kamera preset'leri
+        document.querySelectorAll('.camera-preset').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const preset = e.currentTarget.getAttribute('data-preset');
+                viewer.setCameraPreset(preset);
+                setTimeout(updateCameraUI, 100); // UI'yi güncelle
+            });
         });
     }
 </script>
