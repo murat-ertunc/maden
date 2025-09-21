@@ -248,6 +248,13 @@ class MineObjectCreator {
             } catch (e) {
                 console.warn('[MineObjectCreator] Selectable eklenemedi:', e);
             }
+            
+            // Tünel ise endpoint'leri oluştur
+            if (this.currentType === 'tunnel') {
+                setTimeout(() => {
+                    this.viewer.createTunnelEndpoints(finalObject, finalObject.userData);
+                }, 100);
+            }
         }
         
         this.removePreview();
@@ -851,6 +858,13 @@ class MinePathDrawer {
         this.paths.set(id, path);
         this.scene.add(path);
         
+        // Tünel path'i ise endpoint'leri oluştur
+        if (type === 'tunnel' && this.viewer && this.viewer.createTunnelEndpoints) {
+            setTimeout(() => {
+                this.viewer.createTunnelEndpoints(path, pathData);
+            }, 100);
+        }
+        
         console.log(`[MinePathDrawer] Yol oluşturuldu: ${id}, boyutlar: ${width}x${height}`);
         return path;
     }
@@ -945,8 +959,20 @@ class MinePathDrawer {
     createTubeGeometry(points, width, height, options = {}) {
         if (points.length < 2) return new THREE.BoxGeometry(1, 1, 1);
 
+        // Her noktayı Vector3'e normalleştir (distanceToSquared hatasını engelle)
+        const normalized = points.map(p => {
+            if (!p) return new THREE.Vector3();
+            if (p.isVector3) return p;
+            if (typeof p.x === 'number' && typeof p.y === 'number' && typeof p.z === 'number') {
+                return new THREE.Vector3(p.x, p.y, p.z);
+            }
+            // Beklenmeyen format logla
+            console.warn('[createTubeGeometry] Unexpected point format, coercing to (0,0,0):', p);
+            return new THREE.Vector3();
+        });
+
         // İyileştirilmiş curve sistemi
-        const curve = new THREE.CatmullRomCurve3(points);
+        const curve = new THREE.CatmullRomCurve3(normalized);
         curve.tension = 0.2; // Daha düzgün geçişler
         
         // Adaptif segment hesaplama
@@ -1258,575 +1284,6 @@ class MinePathDrawer {
     createConveyorGeometry(points, width) {
         const curve = new THREE.CatmullRomCurve3(points);
         return new THREE.TubeGeometry(curve, points.length * 2, width / 2, 6, false);
-    }
-}
-
-// Tünel birleştirme sistemi
-class TunnelMerger {
-    constructor(scene, pathDrawer, viewer = null) {
-        this.scene = scene;
-        this.pathDrawer = pathDrawer;
-        this.viewer = viewer;
-        this.selectedTunnels = new Set();
-        this.intersectionPoints = [];
-        this.mergePreview = null;
-        this.debugMode = false;
-        
-        // Tolerans ayarları
-        this.proximityThreshold = 1.5; // Tünellerin birbirinden ne kadar yakın olabileceği
-        this.angleThreshold = Math.PI / 6; // 30 derece - birleştirilebilir açı toleransı
-        this.segmentResolution = 50; // Her tünel için kaç segment kontrol edileceği
-        
-        console.log('[TunnelMerger] Initialized with proximity threshold:', this.proximityThreshold);
-    }
-
-    // Tünel seçimi için yöntemler
-    selectTunnel(tunnelObject) {
-        if (!tunnelObject || !tunnelObject.userData.pathData) {
-            console.warn('[TunnelMerger] Invalid tunnel object');
-            return false;
-        }
-
-        const tunnelId = tunnelObject.userData.pathData.id;
-        if (this.selectedTunnels.has(tunnelId)) {
-            console.log('[TunnelMerger] Tunnel already selected:', tunnelId);
-            return false;
-        }
-
-        this.selectedTunnels.add(tunnelId);
-        this.highlightTunnel(tunnelObject, true);
-        
-        console.log('[TunnelMerger] Selected tunnel:', tunnelId, 'Total selected:', this.selectedTunnels.size);
-        
-        // 2 veya daha fazla tünel seçilince birleştirme analizi yap
-        if (this.selectedTunnels.size >= 2) {
-            this.analyzeIntersections();
-        }
-        
-        return true;
-    }
-
-    deselectTunnel(tunnelObject) {
-        if (!tunnelObject || !tunnelObject.userData.pathData) return false;
-
-        const tunnelId = tunnelObject.userData.pathData.id;
-        if (this.selectedTunnels.has(tunnelId)) {
-            this.selectedTunnels.delete(tunnelId);
-            this.highlightTunnel(tunnelObject, false);
-            console.log('[TunnelMerger] Deselected tunnel:', tunnelId);
-            
-            // Analizi güncelle
-            if (this.selectedTunnels.size >= 2) {
-                this.analyzeIntersections();
-            } else {
-                this.clearIntersectionPreview();
-            }
-            return true;
-        }
-        return false;
-    }
-
-    clearSelection() {
-        // Tüm seçili tünellerin highlight'ını kaldır
-        this.selectedTunnels.forEach(tunnelId => {
-            const tunnel = this.pathDrawer.getPath(tunnelId);
-            if (tunnel) {
-                this.highlightTunnel(tunnel, false);
-            }
-        });
-        
-        this.selectedTunnels.clear();
-        this.clearIntersectionPreview();
-        console.log('[TunnelMerger] Cleared all selections');
-    }
-
-    // Tünel vurgulama
-    highlightTunnel(tunnelObject, highlight) {
-        tunnelObject.traverse(child => {
-            if (child.isMesh && child.material) {
-                if (highlight) {
-                    if (!child.userData.originalEmissive) {
-                        child.userData.originalEmissive = child.material.emissive.clone();
-                    }
-                    child.material.emissive.setHex(0x004400); // Yeşil vurgu
-                } else {
-                    if (child.userData.originalEmissive) {
-                        child.material.emissive.copy(child.userData.originalEmissive);
-                        delete child.userData.originalEmissive;
-                    }
-                }
-            }
-        });
-    }
-
-    // Kesişim analizi
-    analyzeIntersections() {
-        this.intersectionPoints = [];
-        const selectedTunnelObjects = [];
-        
-        // Seçili tünelleri al
-        this.selectedTunnels.forEach(tunnelId => {
-            const tunnel = this.pathDrawer.getPath(tunnelId);
-            if (tunnel) {
-                selectedTunnelObjects.push(tunnel);
-            }
-        });
-
-        if (selectedTunnelObjects.length < 2) {
-            console.log('[TunnelMerger] Need at least 2 tunnels for intersection analysis');
-            return;
-        }
-
-        console.log('[TunnelMerger] Analyzing intersections between', selectedTunnelObjects.length, 'tunnels');
-
-        // Tüm çiftler arası kesişim kontrolü
-        for (let i = 0; i < selectedTunnelObjects.length; i++) {
-            for (let j = i + 1; j < selectedTunnelObjects.length; j++) {
-                const intersections = this.findIntersectionsBetweenTunnels(
-                    selectedTunnelObjects[i], 
-                    selectedTunnelObjects[j]
-                );
-                this.intersectionPoints.push(...intersections);
-            }
-        }
-
-        console.log('[TunnelMerger] Found', this.intersectionPoints.length, 'intersection points');
-        
-        // Kesişim noktalarını görselleştir
-        this.visualizeIntersections();
-        
-        // Birleştirme önerileri oluştur
-        this.generateMergeOptions();
-    }
-
-    // İki tünel arasındaki kesişimleri bul
-    findIntersectionsBetweenTunnels(tunnel1, tunnel2) {
-        const data1 = tunnel1.userData.pathData;
-        const data2 = tunnel2.userData.pathData;
-        
-        const points1 = this.getTunnelPathPoints(data1);
-        const points2 = this.getTunnelPathPoints(data2);
-        
-        if (!points1 || !points2 || points1.length < 2 || points2.length < 2) {
-            return [];
-        }
-
-        const intersections = [];
-        
-        // Her segment için detaylı kontrol
-        for (let i = 0; i < points1.length - 1; i++) {
-            const seg1Start = new THREE.Vector3(points1[i].x, points1[i].y, points1[i].z);
-            const seg1End = new THREE.Vector3(points1[i + 1].x, points1[i + 1].y, points1[i + 1].z);
-            
-            for (let j = 0; j < points2.length - 1; j++) {
-                const seg2Start = new THREE.Vector3(points2[j].x, points2[j].y, points2[j].z);
-                const seg2End = new THREE.Vector3(points2[j + 1].x, points2[j + 1].y, points2[j + 1].z);
-                
-                const intersection = this.findSegmentIntersection(
-                    seg1Start, seg1End, seg2Start, seg2End
-                );
-                
-                if (intersection) {
-                    intersections.push({
-                        point: intersection,
-                        tunnel1: { id: data1.id, segmentIndex: i },
-                        tunnel2: { id: data2.id, segmentIndex: j },
-                        distance: this.getMinDistanceBetweenSegments(seg1Start, seg1End, seg2Start, seg2End)
-                    });
-                }
-            }
-        }
-
-        return intersections;
-    }
-
-    // İki segment arasındaki en yakın noktayı bul
-    findSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End) {
-        const dir1 = new THREE.Vector3().subVectors(seg1End, seg1Start).normalize();
-        const dir2 = new THREE.Vector3().subVectors(seg2End, seg2Start).normalize();
-        
-        // Paralel kontrol
-        const cross = new THREE.Vector3().crossVectors(dir1, dir2);
-        if (cross.length() < 0.01) {
-            // Paralel segmentler - en yakın noktayı bul
-            return this.findClosestPointOnParallelSegments(seg1Start, seg1End, seg2Start, seg2End);
-        }
-        
-        // 3D'de en yakın noktaları bul
-        const w0 = new THREE.Vector3().subVectors(seg1Start, seg2Start);
-        const a = dir1.dot(dir1);
-        const b = dir1.dot(dir2);
-        const c = dir2.dot(dir2);
-        const d = dir1.dot(w0);
-        const e = dir2.dot(w0);
-        
-        const denom = a * c - b * b;
-        if (Math.abs(denom) < 1e-10) return null;
-        
-        const t1 = (b * e - c * d) / denom;
-        const t2 = (a * e - b * d) / denom;
-        
-        // Segment sınırları içinde mi kontrol et
-        if (t1 < 0 || t1 > 1 || t2 < 0 || t2 > 1) return null;
-        
-        const point1 = new THREE.Vector3().addVectors(seg1Start, dir1.clone().multiplyScalar(t1 * seg1Start.distanceTo(seg1End)));
-        const point2 = new THREE.Vector3().addVectors(seg2Start, dir2.clone().multiplyScalar(t2 * seg2Start.distanceTo(seg2End)));
-        
-        const distance = point1.distanceTo(point2);
-        
-        // Yakınlık kontrolü
-        if (distance <= this.proximityThreshold) {
-            // Orta noktayı döndür
-            return new THREE.Vector3().addVectors(point1, point2).multiplyScalar(0.5);
-        }
-        
-        return null;
-    }
-
-    // Paralel segmentler için en yakın nokta
-    findClosestPointOnParallelSegments(seg1Start, seg1End, seg2Start, seg2End) {
-        const distances = [
-            { point: seg1Start, distance: this.pointToSegmentDistance(seg1Start, seg2Start, seg2End) },
-            { point: seg1End, distance: this.pointToSegmentDistance(seg1End, seg2Start, seg2End) },
-            { point: seg2Start, distance: this.pointToSegmentDistance(seg2Start, seg1Start, seg1End) },
-            { point: seg2End, distance: this.pointToSegmentDistance(seg2End, seg1Start, seg1End) }
-        ];
-        
-        const closest = distances.reduce((min, curr) => curr.distance < min.distance ? curr : min);
-        
-        if (closest.distance <= this.proximityThreshold) {
-            return closest.point.clone();
-        }
-        
-        return null;
-    }
-
-    // Nokta ile segment arası mesafe
-    pointToSegmentDistance(point, segStart, segEnd) {
-        const segVec = new THREE.Vector3().subVectors(segEnd, segStart);
-        const pointVec = new THREE.Vector3().subVectors(point, segStart);
-        
-        const segLength = segVec.length();
-        if (segLength === 0) return point.distanceTo(segStart);
-        
-        const t = Math.max(0, Math.min(1, pointVec.dot(segVec) / (segLength * segLength)));
-        const projection = new THREE.Vector3().addVectors(segStart, segVec.multiplyScalar(t));
-        
-        return point.distanceTo(projection);
-    }
-
-    // İki segment arası minimum mesafe
-    getMinDistanceBetweenSegments(seg1Start, seg1End, seg2Start, seg2End) {
-        const distances = [
-            this.pointToSegmentDistance(seg1Start, seg2Start, seg2End),
-            this.pointToSegmentDistance(seg1End, seg2Start, seg2End),
-            this.pointToSegmentDistance(seg2Start, seg1Start, seg1End),
-            this.pointToSegmentDistance(seg2End, seg1Start, seg1End)
-        ];
-        
-        return Math.min(...distances);
-    }
-
-    // Tünel path noktalarını al
-    getTunnelPathPoints(pathData) {
-        return pathData.points || pathData.path_points || [];
-    }
-
-    // Kesişim noktalarını görselleştir
-    visualizeIntersections() {
-        this.clearIntersectionPreview();
-        
-        if (this.intersectionPoints.length === 0) return;
-        
-        this.mergePreview = new THREE.Group();
-        this.mergePreview.name = 'tunnel_merge_preview';
-        
-        this.intersectionPoints.forEach((intersection, index) => {
-            // Kesişim noktası marker
-            const markerGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-            const markerMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff6600,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-            marker.position.copy(intersection.point);
-            marker.name = `intersection_marker_${index}`;
-            
-            this.mergePreview.add(marker);
-            
-            // Debug info için text label (opsiyonel)
-            if (this.debugMode) {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.width = 128;
-                canvas.height = 64;
-                context.fillStyle = 'rgba(0,0,0,0.8)';
-                context.fillRect(0, 0, 128, 64);
-                context.fillStyle = 'white';
-                context.font = '12px Arial';
-                context.fillText(`Intersection ${index + 1}`, 4, 20);
-                context.fillText(`Distance: ${intersection.distance.toFixed(2)}m`, 4, 40);
-                
-                const texture = new THREE.CanvasTexture(canvas);
-                const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-                const sprite = new THREE.Sprite(spriteMaterial);
-                sprite.position.copy(intersection.point);
-                sprite.position.y += 1;
-                sprite.scale.set(2, 1, 1);
-                
-                this.mergePreview.add(sprite);
-            }
-        });
-        
-        this.scene.add(this.mergePreview);
-        console.log('[TunnelMerger] Visualized', this.intersectionPoints.length, 'intersection points');
-    }
-
-    // Görselleştirmeyi temizle
-    clearIntersectionPreview() {
-        if (this.mergePreview) {
-            this.mergePreview.traverse(child => {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material) {
-                    if (child.material.map) child.material.map.dispose();
-                    child.material.dispose();
-                }
-            });
-            this.scene.remove(this.mergePreview);
-            this.mergePreview = null;
-        }
-    }
-
-    // Birleştirme seçenekleri oluştur
-    generateMergeOptions() {
-        if (this.intersectionPoints.length === 0) {
-            console.log('[TunnelMerger] No intersections found - cannot generate merge options');
-            return [];
-        }
-
-        const options = [];
-        
-        // Basit birleştirme: En yakın kesişim noktaları
-        if (this.intersectionPoints.length > 0) {
-            options.push({
-                type: 'simple_merge',
-                description: `${this.intersectionPoints.length} kesişim noktası ile basit birleştirme`,
-                intersections: this.intersectionPoints,
-                complexity: 'low'
-            });
-        }
-
-        // Akıllı birleştirme: Optimized routing
-        if (this.intersectionPoints.length >= 2) {
-            options.push({
-                type: 'smart_merge',
-                description: 'Optimized yönlendirme ile akıllı birleştirme',
-                intersections: this.intersectionPoints,
-                complexity: 'medium'
-            });
-        }
-
-        // T-Junction oluşturma
-        const tjunctionPoints = this.intersectionPoints.filter(i => i.distance < this.proximityThreshold * 0.5);
-        if (tjunctionPoints.length > 0) {
-            options.push({
-                type: 't_junction',
-                description: 'T-kavşak oluşturma ile birleştirme',
-                intersections: tjunctionPoints,
-                complexity: 'high'
-            });
-        }
-
-        console.log('[TunnelMerger] Generated', options.length, 'merge options');
-        return options;
-    }
-
-    // Birleştirme işlemini gerçekleştir
-    async performMerge(option) {
-        if (!option || !option.intersections || option.intersections.length === 0) {
-            throw new Error('Invalid merge option');
-        }
-
-        console.log('[TunnelMerger] Performing merge:', option.type);
-
-        try {
-            let mergedPath;
-            
-            switch (option.type) {
-                case 'simple_merge':
-                    mergedPath = await this.performSimpleMerge(option.intersections);
-                    break;
-                case 'smart_merge':
-                    mergedPath = await this.performSmartMerge(option.intersections);
-                    break;
-                case 't_junction':
-                    mergedPath = await this.performTJunctionMerge(option.intersections);
-                    break;
-                default:
-                    throw new Error(`Unknown merge type: ${option.type}`);
-            }
-
-            // Birleştirme sonrası temizlik
-            this.clearSelection();
-            
-            console.log('[TunnelMerger] Merge completed successfully');
-            return mergedPath;
-            
-        } catch (error) {
-            console.error('[TunnelMerger] Merge failed:', error);
-            throw error;
-        }
-    }
-
-    // Basit birleştirme
-    async performSimpleMerge(intersections) {
-        const selectedTunnelIds = Array.from(this.selectedTunnels);
-        const tunnelPaths = [];
-        
-        // Seçili tünellerin path noktalarını al
-        selectedTunnelIds.forEach(tunnelId => {
-            const tunnel = this.pathDrawer.getPath(tunnelId);
-            if (tunnel) {
-                const pathData = tunnel.userData.pathData;
-                const points = this.getTunnelPathPoints(pathData);
-                if (points.length > 0) {
-                    tunnelPaths.push({
-                        id: tunnelId,
-                        points: points.map(p => new THREE.Vector3(p.x, p.y, p.z)),
-                        data: pathData
-                    });
-                }
-            }
-        });
-
-        if (tunnelPaths.length < 2) {
-            throw new Error('Need at least 2 valid tunnel paths for merging');
-        }
-
-        // Yeni birleşik path oluştur
-        const mergedPoints = this.createMergedPath(tunnelPaths, intersections);
-        
-        // Yeni path özellikleri (ortalama değerler)
-        const avgWidth = tunnelPaths.reduce((sum, tp) => sum + (tp.data.width || 2.5), 0) / tunnelPaths.length;
-        const avgHeight = tunnelPaths.reduce((sum, tp) => sum + (tp.data.height || 2.5), 0) / tunnelPaths.length;
-        
-        // Yeni path oluştur
-        const mergedPathData = {
-            id: `merged_${Date.now()}`,
-            points: mergedPoints.map(p => ({ x: p.x, y: p.y, z: p.z })),
-            width: Math.round(avgWidth * 2) / 2, // 0.5 step
-            height: Math.round(avgHeight * 2) / 2,
-            color: '#888888',
-            type: 'tunnel',
-            name: `Birleşik Tünel (${selectedTunnelIds.length} tünel)`
-        };
-
-        // Eski tünelleri kaldır
-        selectedTunnelIds.forEach(tunnelId => {
-            this.pathDrawer.removePath(tunnelId);
-        });
-
-        // Yeni tüneli ekle
-        const mergedPath = this.pathDrawer.createPath(mergedPathData);
-        
-        // Viewer'a objekt olarak ekle
-        if (this.viewer && this.viewer.objectSelector) {
-            this.viewer.objectSelector.addSelectableObject(mergedPath, mergedPathData);
-        }
-
-        return mergedPath;
-    }
-
-    // Akıllı birleştirme (optimized)
-    async performSmartMerge(intersections) {
-        // Basit birleştirmeyi genişlet - gelecekte path optimization eklenebilir
-        return this.performSimpleMerge(intersections);
-    }
-
-    // T-kavşak birleştirme
-    async performTJunctionMerge(intersections) {
-        // T-kavşak mantığı - gelecekte implementasyonu yapılabilir
-        return this.performSimpleMerge(intersections);
-    }
-
-    // Birleşik path oluştur
-    createMergedPath(tunnelPaths, intersections) {
-        const allPoints = [];
-        
-        // Tüm tunnel noktalarını birleştir
-        tunnelPaths.forEach(tp => {
-            allPoints.push(...tp.points);
-        });
-
-        // Kesişim noktalarını ekle
-        intersections.forEach(intersection => {
-            allPoints.push(intersection.point);
-        });
-
-        // Duplicate noktaları kaldır ve sırala
-        const uniquePoints = this.removeDuplicatePoints(allPoints);
-        const sortedPoints = this.sortPointsForPath(uniquePoints);
-        
-        return sortedPoints;
-    }
-
-    // Duplicate noktaları kaldır
-    removeDuplicatePoints(points, threshold = 0.1) {
-        const unique = [];
-        
-        points.forEach(point => {
-            const isDuplicate = unique.some(existing => 
-                existing.distanceTo(point) < threshold
-            );
-            
-            if (!isDuplicate) {
-                unique.push(point);
-            }
-        });
-        
-        return unique;
-    }
-
-    // Noktaları path için sırala
-    sortPointsForPath(points) {
-        if (points.length <= 2) return points;
-        
-        const sorted = [points[0]];
-        const remaining = points.slice(1);
-        
-        while (remaining.length > 0) {
-            const lastPoint = sorted[sorted.length - 1];
-            
-            // En yakın noktayı bul
-            let closestIndex = 0;
-            let closestDistance = lastPoint.distanceTo(remaining[0]);
-            
-            for (let i = 1; i < remaining.length; i++) {
-                const distance = lastPoint.distanceTo(remaining[i]);
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestIndex = i;
-                }
-            }
-            
-            sorted.push(remaining[closestIndex]);
-            remaining.splice(closestIndex, 1);
-        }
-        
-        return sorted;
-    }
-
-    // Debug modunu aç/kapat
-    toggleDebugMode() {
-        this.debugMode = !this.debugMode;
-        console.log('[TunnelMerger] Debug mode:', this.debugMode ? 'ON' : 'OFF');
-        
-        // Mevcut görselleştirmeyi güncelle
-        if (this.selectedTunnels.size >= 2) {
-            this.analyzeIntersections();
-        }
     }
 }
 
@@ -2383,6 +1840,11 @@ class SimpleMine3DViewer {
             debugPerformance: false,
             ...options
         };
+        // Basit history yapısı (undo/redo)
+        this.actionHistory = { undo: [], redo: [] };
+    this.mergePersistEndpoint = options.mergePersistEndpoint || `/api/mines/${mineId}/merge-connections`;
+    this.enableMergePersistence = options.enableMergePersistence ?? false;
+    this.orientationAnimations = [];
         
         console.log('[SimpleMine3DViewer] Container element:', this.container);
         
@@ -2411,14 +1873,16 @@ class SimpleMine3DViewer {
         this.pathEditor = null; // Path düzenleme
         this.objectCreator = null; // Yeni oluşturucu
         this.transformControls = null; // Drag & Drop için
-        this.tunnelMerger = null; // Tunnel birleştirme sistemi
         
         // State management
         this.isPathDrawingMode = false;
         this.isCreatingMode = false; // Yeni mod
-        this.isTunnelMergeMode = false; // Tunnel merge mode
         this.selectedObject = null;
         this.objectSelector = null;
+        
+        // 📍 Tünel endpoint göstergesi sistemi
+        this.endpointIndicators = new Map(); // tunnelId -> {A: mesh, B: mesh}
+        this.showEndpoints = true; // Endpoint'leri göster/gizle
         
         console.log('[SimpleMine3DViewer] Starting initialization...');
         // Dirty tracking
@@ -2546,6 +2010,46 @@ class SimpleMine3DViewer {
                 html += this._buildNumberField('Açı (°)', 'sel-angle', p.angle||0, 0, 360, 1);
                 html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
                 html += this._buildNumberField('Ölçüm Adımı (m)', 'sel-meas-step', this.measurementStep, 1, 100, 1);
+                
+                // 🔗 Tünel Birleştirme Bölümü
+                // html += `
+                //     <div class="tunnel-merge-section" style="margin-top: 20px; padding: 15px; border: 1px solid #444; border-radius: 5px; background: rgba(255,255,255,0.05);">
+                //         <h6 style="color: #4CAF50; margin-bottom: 10px;"><i class="fas fa-link"></i> Tünel Birleştirme</h6>
+                //         <button id="start-tunnel-merge" class="btn btn-sm btn-outline-success" style="width: 100%; margin-bottom: 10px;">
+                //             <i class="fas fa-plus-circle"></i> Tünel Birleştirmeyi Başlat
+                //         </button>
+                //         <div id="tunnel-merge-ui" style="display: none;">
+                //             <div class="mb-2">
+                //                 <label class="form-label mb-1" style="font-size: 12px;">Bu Tünelin Ucu:</label>
+                //                 <select id="current-tunnel-endpoint" class="form-select form-select-sm bg-dark text-light">
+                //                     <option value="A">A Ucu (Başlangıç)</option>
+                //                     <option value="B">B Ucu (Bitiş)</option>
+                //                 </select>
+                //             </div>
+                //             <div class="mb-2">
+                //                 <label class="form-label mb-1" style="font-size: 12px;">Hedef Tünel:</label>
+                //                 <select id="target-tunnel-select" class="form-select form-select-sm bg-dark text-light">
+                //                     <option value="">Tünel seçin...</option>
+                //                 </select>
+                //             </div>
+                //             <div class="mb-2">
+                //                 <label class="form-label mb-1" style="font-size: 12px;">Hedef Tünelin Ucu:</label>
+                //                 <select id="target-tunnel-endpoint" class="form-select form-select-sm bg-dark text-light">
+                //                     <option value="A">A Ucu (Başlangıç)</option>
+                //                     <option value="B">B Ucu (Bitiş)</option>
+                //                 </select>
+                //             </div>
+                //             <div class="btn-group" style="width: 100%; margin-top: 10px;">
+                //                 <button id="execute-tunnel-merge" class="btn btn-sm btn-success" style="flex: 1;">
+                //                     <i class="fas fa-check"></i> Birleştir
+                //                 </button>
+                //                 <button id="cancel-tunnel-merge" class="btn btn-sm btn-secondary" style="flex: 1;">
+                //                     <i class="fas fa-times"></i> İptal
+                //                 </button>
+                //             </div>
+                //         </div>
+                //     </div>
+                // `;
             } else {
                 html += `<div class="text-muted small">Bu obje için düzenlenebilir alan yok.</div>`;
             }
@@ -2573,6 +2077,12 @@ class SimpleMine3DViewer {
                 }
             });
         }
+        
+        // 🔗 Tünel Birleştirme Event Listeners
+        if (isTunnelModel) {
+            this.setupTunnelMergeEvents(object, meta);
+        }
+        
         this.markSelectionDirty(false);
         if (els.status) els.status.textContent='';
     }
@@ -2646,12 +2156,6 @@ class SimpleMine3DViewer {
             }
             if (changed) {
                 this.replaceTunnelGeometry(this.selectedObject, p);
-                
-                // Ölçüm çizgilerini yeniden oluştur (özellikle yön değişiminde)
-                if (this.measurementsEnabled && this._measurementGroup) {
-                    this.buildTunnelMeasurements(this.selectedObject, meta);
-                }
-                
                 if (orientationChanged && this.camera && this.controls) {
                     // Basit easing ile yeni eksene göre kamerayı yeniden konumlandır
                     const target = this.selectedObject.position.clone();
@@ -3041,10 +2545,6 @@ class SimpleMine3DViewer {
                 }
             });
             
-            // Initialize tunnel merger
-            console.log('[SimpleMine3DViewer] Initializing tunnel merger...');
-            this.tunnelMerger = new TunnelMerger(this.scene, this.pathDrawer, this);
-            
             // Initialize object creator
             console.log('[SimpleMine3DViewer] Initializing object creator...');
             this.objectCreator = new MineObjectCreator(this.scene, this.camera, this.renderer, this);
@@ -3068,6 +2568,7 @@ class SimpleMine3DViewer {
             console.log('[SimpleMine3DViewer] Initializing object selector...');
             this.objectSelector = new ObjectSelector(this.scene, this.camera, this.renderer);
             this.setupObjectSelection();
+            this.ensureUndoRedoUI();
             // Edit drag eventleri
             this.renderer.domElement.addEventListener('pointerdown', (e)=>{ if(this.pathEditor && this.pathEditor.isEditing) this.pathEditor.pointerDown(e); });
             this.renderer.domElement.addEventListener('pointermove', (e)=>{ if(this.pathEditor && this.pathEditor.isEditing) this.pathEditor.pointerMove(e); });
@@ -3206,13 +2707,6 @@ class SimpleMine3DViewer {
             this.stopCreating();
         }
 
-        // Special handling for tunnel merge tool
-        if (toolType === 'merge') {
-            console.log('🔗 Tunnel merge mode başlatılıyor...');
-            this.startTunnelMergeMode();
-            return;
-        }
-
         // Start object creation mode instead of drawing
         console.log('🔧 Object creation mode başlatılıyor:', toolType);
         this.isCreatingMode = true;
@@ -3243,186 +2737,6 @@ class SimpleMine3DViewer {
         }
     }
 
-    // Tunnel merge mode methods
-    startTunnelMergeMode() {
-        console.log('[SimpleMine3DViewer] Starting tunnel merge mode');
-        
-        this.isTunnelMergeMode = true;
-        this.controls.enabled = true; // Allow camera movement in merge mode
-        
-        // Clear any existing selection
-        this.tunnelMerger.clearSelection();
-        
-        // Update UI to show merge instructions
-        this.updateToolIndicator('merge');
-        this.updateToolButtonStates('merge');
-        
-        // Show tunnel merge instructions
-        this.showTunnelMergeInstructions();
-        
-        console.log('[SimpleMine3DViewer] Tunnel merge mode started - Click tunnels to select them for merging');
-    }
-
-    stopTunnelMergeMode() {
-        if (this.isTunnelMergeMode) {
-            console.log('[SimpleMine3DViewer] Stopping tunnel merge mode');
-            
-            this.isTunnelMergeMode = false;
-            this.tunnelMerger.clearSelection();
-            
-            // Hide merge instructions
-            this.hideTunnelMergeInstructions();
-            
-            // Reset button states
-            this.updateToolButtonStates(null);
-            
-            console.log('[SimpleMine3DViewer] Tunnel merge mode stopped');
-        }
-    }
-
-    showTunnelMergeInstructions() {
-        // Create or show merge instruction panel
-        let mergePanel = document.getElementById('tunnel-merge-panel');
-        if (!mergePanel) {
-            mergePanel = document.createElement('div');
-            mergePanel.id = 'tunnel-merge-panel';
-            mergePanel.className = 'merge-instructions-panel';
-            mergePanel.innerHTML = `
-                <div style="
-                    position: fixed;
-                    top: 50%;
-                    left: 20px;
-                    transform: translateY(-50%);
-                    background: rgba(0,0,0,0.9);
-                    color: white;
-                    padding: 20px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                    max-width: 300px;
-                    z-index: 1000;
-                    font-family: Arial, sans-serif;
-                ">
-                    <h4 style="margin: 0 0 15px 0; color: #ffa500;">🔗 Tünel Birleştirme</h4>
-                    <div style="font-size: 14px; line-height: 1.4;">
-                        <p style="margin: 0 0 10px 0;">
-                            <strong>Adım 1:</strong> Birleştirmek istediğiniz tünellere tıklayın
-                        </p>
-                        <p style="margin: 0 0 10px 0;">
-                            <strong>Adım 2:</strong> 2 veya daha fazla tünel seçin
-                        </p>
-                        <p style="margin: 0 0 15px 0;">
-                            <strong>Adım 3:</strong> Birleştirme seçeneklerini görün
-                        </p>
-                        <div id="merge-status" style="
-                            padding: 10px;
-                            background: rgba(255,255,255,0.1);
-                            border-radius: 5px;
-                            margin-bottom: 15px;
-                        ">
-                            Seçili tünel: <span id="selected-count">0</span>
-                        </div>
-                        <div id="merge-options" style="display: none;">
-                            <button id="perform-merge" class="btn btn-success" style="
-                                width: 100%;
-                                margin-bottom: 10px;
-                                padding: 8px;
-                                border: none;
-                                border-radius: 5px;
-                                background: #28a745;
-                                color: white;
-                                cursor: pointer;
-                            ">
-                                ✅ Birleştir
-                            </button>
-                        </div>
-                        <button id="cancel-merge" class="btn btn-secondary" style="
-                            width: 100%;
-                            padding: 8px;
-                            border: none;
-                            border-radius: 5px;
-                            background: #6c757d;
-                            color: white;
-                            cursor: pointer;
-                        ">
-                            ❌ İptal
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(mergePanel);
-            
-            // Merge button events
-            const performMergeBtn = mergePanel.querySelector('#perform-merge');
-            const cancelMergeBtn = mergePanel.querySelector('#cancel-merge');
-            
-            if (performMergeBtn) {
-                performMergeBtn.addEventListener('click', () => this.performSelectedTunnelMerge());
-            }
-            
-            if (cancelMergeBtn) {
-                cancelMergeBtn.addEventListener('click', () => this.stopTunnelMergeMode());
-            }
-        }
-        
-        mergePanel.style.display = 'block';
-    }
-
-    hideTunnelMergeInstructions() {
-        const mergePanel = document.getElementById('tunnel-merge-panel');
-        if (mergePanel) {
-            mergePanel.style.display = 'none';
-        }
-    }
-
-    updateMergeStatus() {
-        const selectedCountSpan = document.getElementById('selected-count');
-        const mergeOptionsDiv = document.getElementById('merge-options');
-        
-        if (selectedCountSpan) {
-            selectedCountSpan.textContent = this.tunnelMerger.selectedTunnels.size;
-        }
-        
-        if (mergeOptionsDiv) {
-            mergeOptionsDiv.style.display = this.tunnelMerger.selectedTunnels.size >= 2 ? 'block' : 'none';
-        }
-    }
-
-    async performSelectedTunnelMerge() {
-        if (this.tunnelMerger.selectedTunnels.size < 2) {
-            alert('En az 2 tünel seçmelisiniz!');
-            return;
-        }
-
-        try {
-            // Get merge options
-            const options = this.tunnelMerger.generateMergeOptions();
-            if (options.length === 0) {
-                alert('Seçili tüneller arasında birleştirilebilir kesişim bulunamadı!');
-                return;
-            }
-
-            // Use the first (simple) merge option
-            const selectedOption = options[0];
-            
-            console.log('[SimpleMine3DViewer] Performing tunnel merge with option:', selectedOption.type);
-            
-            const mergedTunnel = await this.tunnelMerger.performMerge(selectedOption);
-            
-            if (mergedTunnel) {
-                console.log('[SimpleMine3DViewer] Tunnel merge successful!');
-                alert('Tüneller başarıyla birleştirildi!');
-                
-                // Exit merge mode
-                this.stopTunnelMergeMode();
-            }
-            
-        } catch (error) {
-            console.error('[SimpleMine3DViewer] Tunnel merge failed:', error);
-            alert(`Tünel birleştirme hatası: ${error.message}`);
-        }
-    }
-
     updateToolIndicator(toolType) {
         const toolIndicator = document.getElementById('tool-indicator');
         const toolName = document.getElementById('tool-name');
@@ -3432,8 +2746,7 @@ class SimpleMine3DViewer {
                 tunnel: { icon: 'fas fa-mountain', name: 'Tünel Kazma' },
                 road: { icon: 'fas fa-road', name: 'Yol İnşaası' },
                 rail: { icon: 'fas fa-train', name: 'Ray Döşeme' },
-                conveyor: { icon: 'fas fa-conveyor-belt', name: 'Konveyör Kurma' },
-                merge: { icon: 'fas fa-link', name: 'Tünel Birleştirme' }
+                conveyor: { icon: 'fas fa-conveyor-belt', name: 'Konveyör Kurma' }
             };
             
             const info = toolInfo[toolType] || { icon: 'fas fa-tools', name: 'Bilinmeyen Araç' };
@@ -3471,8 +2784,7 @@ class SimpleMine3DViewer {
             tunnel: 'warning',
             road: 'info', 
             rail: 'success',
-            conveyor: 'danger',
-            merge: 'primary'
+            conveyor: 'danger'
         };
         return colors[toolType] || 'secondary';
     }
@@ -3567,6 +2879,11 @@ class SimpleMine3DViewer {
             console.log('[SimpleMine3DViewer] Test geometry added successfully');
             console.log('[SimpleMine3DViewer] Scene children count:', this.scene.children.length);
             
+            // 📍 Test geometrisi sonrası endpoint'leri güncelle
+            setTimeout(() => {
+                this.updateAllTunnelEndpoints();
+            }, 500);
+            
         } catch (error) {
             console.error('[SimpleMine3DViewer] Error adding test geometry:', error);
             throw error;
@@ -3606,6 +2923,11 @@ class SimpleMine3DViewer {
                 console.log('[SimpleMine3DViewer] Processing', data.paths.length, 'paths');
                 this.loadPaths(data.paths);
             }
+            
+            // 📍 Tüm tünellerin endpoint'lerini oluştur
+            setTimeout(() => {
+                this.updateAllTunnelEndpoints();
+            }, 1000); // Tüm objeler yüklendikten sonra
             
         } catch (error) {
             console.warn('[SimpleMine3DViewer] Could not load mine data:', {
@@ -3752,9 +3074,6 @@ class SimpleMine3DViewer {
         } else if (this.isCreatingMode) {
             // Creating mode'da tıklama ile pozisyon güncelleme
             this.updateCreationPosition(event);
-        } else if (this.isTunnelMergeMode) {
-            // Tunnel merge mode - handle tunnel selection
-            this.handleTunnelMergeClick(event);
         } else {
             // Normal mod - unified selection: objectSelector kullan
             if (this.objectSelector) {
@@ -3811,57 +3130,6 @@ class SimpleMine3DViewer {
             this.selectObject(selectedObject);
         } else {
             this.deselectObject();
-        }
-    }
-
-    handleTunnelMergeClick(event) {
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        const mouse = new THREE.Vector2();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(mouse, this.camera);
-        
-        // Find all tunnel objects
-        const tunnelObjects = [];
-        this.scene.traverse((child) => {
-            if (child.userData && child.userData.pathData && child.userData.pathData.type === 'tunnel') {
-                // Get the main tunnel mesh
-                child.traverse((subChild) => {
-                    if (subChild.isMesh && subChild.material) {
-                        tunnelObjects.push(subChild);
-                    }
-                });
-            }
-        });
-
-        const intersects = raycaster.intersectObjects(tunnelObjects);
-
-        if (intersects.length > 0) {
-            const clickedMesh = intersects[0].object;
-            
-            // Find the parent tunnel object
-            let tunnelObject = clickedMesh;
-            while (tunnelObject && (!tunnelObject.userData.pathData || tunnelObject.userData.pathData.type !== 'tunnel')) {
-                tunnelObject = tunnelObject.parent;
-            }
-            
-            if (tunnelObject && tunnelObject.userData.pathData) {
-                console.log('[SimpleMine3DViewer] Clicked tunnel:', tunnelObject.userData.pathData.id);
-                
-                // Toggle tunnel selection
-                const wasSelected = this.tunnelMerger.selectedTunnels.has(tunnelObject.userData.pathData.id);
-                
-                if (wasSelected) {
-                    this.tunnelMerger.deselectTunnel(tunnelObject);
-                } else {
-                    this.tunnelMerger.selectTunnel(tunnelObject);
-                }
-                
-                // Update merge UI
-                this.updateMergeStatus();
-            }
         }
     }
 
@@ -3986,6 +3254,11 @@ class SimpleMine3DViewer {
         } else if (event.key === 'm' || event.key === 'M') {
             event.preventDefault();
             this.toggleMeasurements();
+        } else if (event.key === 'e' || event.key === 'E') {
+            event.preventDefault();
+            // E tuşu: Endpoint'leri güncelle
+            this.updateAllTunnelEndpoints();
+            console.log('[SimpleMine3DViewer] Endpoint update triggered by E key');
         }
     }
 
@@ -4694,7 +3967,7 @@ class SimpleMine3DViewer {
             const modal = new bootstrap.Modal(document.getElementById('errorModal'));
             modal.show();
         } else {
-            alert(message);
+            console.error(message); // Alert yerine console.error
         }
     }
 
@@ -4715,7 +3988,7 @@ class SimpleMine3DViewer {
             const data = this.selectedObject.userData.objectData;
             console.log('[SimpleMine3DViewer] Editing object:', data);
             // TODO: Edit modal açılabilir
-            alert('Düzenleme özelliği yakında gelecek!');
+            console.info('Düzenleme özelliği yakında gelecek!'); // Alert kaldırıldı
         }
     }
 
@@ -4757,6 +4030,1077 @@ class SimpleMine3DViewer {
         this.controls.update();
     }
 
+    // 🔗 TÜNEL BİRLEŞTİRME SİSTEMİ
+
+    setupTunnelMergeEvents(currentTunnel, currentMeta) {
+        // Birleştirme başlat butonu
+        const startBtn = document.getElementById('start-tunnel-merge');
+        const mergeUI = document.getElementById('tunnel-merge-ui');
+        const targetSelect = document.getElementById('target-tunnel-select');
+        const executeBtn = document.getElementById('execute-tunnel-merge');
+        const cancelBtn = document.getElementById('cancel-tunnel-merge');
+
+        if (!startBtn) return;
+
+        startBtn.addEventListener('click', () => {
+            this.populateTargetTunnels(currentTunnel, currentMeta);
+            startBtn.style.display = 'none';
+            mergeUI.style.display = 'block';
+        });
+
+        if (executeBtn) {
+            executeBtn.addEventListener('click', () => {
+                this.executeTunnelMerge(currentTunnel, currentMeta);
+            });
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.cancelTunnelMerge();
+            });
+        }
+    }
+
+    populateTargetTunnels(currentTunnel, currentMeta) {
+        const targetSelect = document.getElementById('target-tunnel-select');
+        if (!targetSelect) return;
+
+        // Mevcut tünel hariç tüm tünelleri listele
+        targetSelect.innerHTML = '<option value="">Tünel seçin...</option>';
+        
+        // Scene'deki tüm tünel objelerini bul
+        const tunnels = [];
+        this.scene.traverse((child) => {
+            if (child.userData && child.userData.selectable && 
+                child.userData.type === 'tunnel' && 
+                child !== currentTunnel) {
+                tunnels.push({
+                    object: child,
+                    data: child.userData
+                });
+            }
+        });
+
+        // Paths (yollar) içinde de tünel tipini ara
+        if (this.pathDrawer && this.pathDrawer.paths) {
+            for (const [pathId, pathGroup] of this.pathDrawer.paths) {
+                const pathData = pathGroup.userData.pathData;
+                if (pathData && pathData.type === 'tunnel' && pathGroup !== currentTunnel) {
+                    tunnels.push({
+                        object: pathGroup,
+                        data: pathData,
+                        isPath: true
+                    });
+                }
+            }
+        }
+
+        tunnels.forEach((tunnel, index) => {
+            const name = tunnel.data.name || `Tünel ${tunnel.data.id || index + 1}`;
+            const option = document.createElement('option');
+            option.value = tunnel.isPath ? `path_${tunnel.data.id}` : `tunnel_${tunnel.data.id}`;
+            option.textContent = name;
+            option.dataset.tunnelType = tunnel.isPath ? 'path' : 'tunnel';
+            targetSelect.appendChild(option);
+        });
+
+        console.log(`[TunnelMerge] Found ${tunnels.length} target tunnels`);
+    }
+
+    executeTunnelMerge(currentTunnel, currentMeta) {
+        const currentEndpoint = document.getElementById('current-tunnel-endpoint')?.value;
+        const targetTunnelValue = document.getElementById('target-tunnel-select')?.value;
+        const targetEndpoint = document.getElementById('target-tunnel-endpoint')?.value;
+
+        if (!currentEndpoint || !targetTunnelValue || !targetEndpoint) {
+            this.showError('Lütfen tüm alanları doldurun!');
+            return;
+        }
+
+        // Hedef tüneli bul
+        const targetTunnel = this.findTunnelById(targetTunnelValue);
+        if (!targetTunnel) {
+            this.showError('Hedef tünel bulunamadı!');
+            return;
+        }
+
+        console.log('[TunnelMerge] Merging tunnels:', {
+            current: { tunnel: currentTunnel, endpoint: currentEndpoint, meta: currentMeta },
+            target: { tunnel: targetTunnel.object, endpoint: targetEndpoint, data: targetTunnel.data }
+        });
+
+        // Uç noktaları hesapla ve birleştir
+        this.performTunnelMerge(
+            { tunnel: currentTunnel, endpoint: currentEndpoint, meta: currentMeta },
+            { tunnel: targetTunnel.object, endpoint: targetEndpoint, data: targetTunnel.data }
+        );
+    }
+
+    findTunnelById(value) {
+        const [type, id] = value.split('_');
+        
+        if (type === 'path' && this.pathDrawer && this.pathDrawer.paths) {
+            const pathGroup = this.pathDrawer.paths.get(parseInt(id));
+            if (pathGroup) {
+                return { object: pathGroup, data: pathGroup.userData.pathData, isPath: true };
+            }
+        } else if (type === 'tunnel') {
+            // Scene'deki tunnel objelerini ara
+            let foundTunnel = null;
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.selectable && 
+                    child.userData.type === 'tunnel' && 
+                    child.userData.id == id) {
+                    foundTunnel = { object: child, data: child.userData, isPath: false };
+                }
+            });
+            return foundTunnel;
+        }
+        
+        return null;
+    }
+
+    performTunnelMerge(source, target) {
+        try {
+            console.log('[TunnelMerge] Starting merge operation:', { source, target });
+
+            // Her iki tünelin uç noktalarını hesapla
+            const sourceEndpoint = this.calculateTunnelEndpoint(source.tunnel, source.endpoint, source.meta);
+            const targetEndpoint = this.calculateTunnelEndpoint(target.tunnel, target.endpoint, target.data);
+
+            console.log('[TunnelMerge] Calculated endpoints:', { sourceEndpoint, targetEndpoint });
+
+            if (!sourceEndpoint || !targetEndpoint) {
+                this.showError('Tünel uç noktaları hesaplanamadı!');
+                console.error('[TunnelMerge] Failed to calculate endpoints');
+                return;
+            }
+
+            const distance = sourceEndpoint.position.distanceTo(targetEndpoint.position);
+            console.log('[TunnelMerge] Distance between endpoints:', distance);
+
+            // Birleştirme noktasını göster
+            this.visualizeMergeConnection(sourceEndpoint, targetEndpoint);
+
+            // Kısa mesafe kontrolü
+            if (distance < 2.0) {
+                console.log('[TunnelMerge] Endpoints are very close, creating simple connection');
+                this.createDirectConnection(sourceEndpoint, targetEndpoint, source, target);
+            } else {
+                // Gerçek birleştirme işlemi
+                this.createTunnelConnection(sourceEndpoint, targetEndpoint, source, target);
+            }
+
+            this.showSuccess(`Tüneller başarıyla birleştirildi! (Mesafe: ${distance.toFixed(2)}m)`);
+            
+            // 3 saniye sonra görselleştirmeyi temizle
+            setTimeout(() => {
+                this.cancelTunnelMerge();
+            }, 3000);
+
+        } catch (error) {
+            console.error('[TunnelMerge] Merge failed:', error);
+            this.showError('Birleştirme işlemi başarısız: ' + error.message);
+        }
+    }
+
+    createDirectConnection(endpoint1, endpoint2, source, target) {
+        // Çok yakın tüneller için basit çizgi
+        const extendMode = this.options?.mergeStrategy === 'extend-and-fuse' || this.options?.mergeStrategy === undefined;
+        if (extendMode) {
+            console.log('[TunnelMerge] Skipping direct path because extend-and-fuse mode active');
+            // Extend modunda yakın bile olsalar tam füzyon yap
+            this.createTunnelConnection(endpoint1, endpoint2, source, target);
+            return;
+        }
+        const connectionPoints = [endpoint1.position.clone(), endpoint2.position.clone()];
+        this.createConnectionPath(connectionPoints, source, target, 'direct');
+    }
+
+    calculateTunnelEndpoint(tunnel, endpoint, metadata) {
+        let position, direction;
+
+        console.log('[TunnelEndpoint] Calculating for:', { endpoint, metadata, tunnel });
+
+        // Path türü tünel kontrolü
+        if (metadata.type === 'path' || metadata.pathType === 'tunnel') {
+            const points = metadata.points || metadata.path_points || [];
+            console.log('[TunnelEndpoint] Path points:', points);
+            
+            if (points.length < 2) {
+                console.warn('[TunnelEndpoint] Not enough points for path tunnel');
+                return null;
+            }
+
+            if (endpoint === 'A') {
+                // İlk nokta
+                position = new THREE.Vector3(points[0].x, points[0].y, points[0].z);
+                if (points.length > 1) {
+                    direction = new THREE.Vector3(
+                        points[1].x - points[0].x,
+                        points[1].y - points[0].y,
+                        points[1].z - points[0].z
+                    ).normalize();
+                } else {
+                    direction = new THREE.Vector3(1, 0, 0); // Default direction
+                }
+            } else { // endpoint === 'B'
+                // Son nokta
+                const lastIdx = points.length - 1;
+                position = new THREE.Vector3(points[lastIdx].x, points[lastIdx].y, points[lastIdx].z);
+                if (lastIdx > 0) {
+                    direction = new THREE.Vector3(
+                        points[lastIdx].x - points[lastIdx - 1].x,
+                        points[lastIdx].y - points[lastIdx - 1].y,
+                        points[lastIdx].z - points[lastIdx - 1].z
+                    ).normalize();
+                } else {
+                    direction = new THREE.Vector3(1, 0, 0); // Default direction
+                }
+            }
+
+            // Direction anormal küçükse (ör. üst üste binen nokta) fallback
+            if (direction.lengthSq() < 1e-6 && points.length >= 3) {
+                // Ortalama ilk üç veya son üç nokta ile alternatif yön
+                if (endpoint === 'A') {
+                    const p0 = points[0], p1 = points[1], p2 = points[2];
+                    direction = new THREE.Vector3(p2.x - p0.x, p2.y - p0.y, p2.z - p0.z).normalize();
+                } else {
+                    const n = points.length; const p0 = points[n-3], p2 = points[n-1];
+                    direction = new THREE.Vector3(p2.x - p0.x, p2.y - p0.y, p2.z - p0.z).normalize();
+                }
+            }
+            // Yatay çok küçük vertikal drift'i sıfırla (görsel stabilite)
+            if (Math.abs(direction.y) < 1e-3) direction.y = 0;
+            direction.normalize();
+        } else {
+            // Parametrik tünel - gerçek uç noktaları daha doğru bul
+            const params = metadata.parameters || metadata;
+            const declaredLength = params.length || 10;
+            const orientation = (params.orientation || 'horizontal').toLowerCase();
+
+            // 1) Bounding box üzerinden gerçek world boyutu
+            const box = new THREE.Box3();
+            box.setFromObject(tunnel);
+            const size = new THREE.Vector3();
+            box.getSize(size); // world space boyutlar
+
+            // 2) Tünelin ana eksenini belirle (en büyük boyut)
+            let axisIndex = 0; // 0:x,1:y,2:z
+            if (size.y >= size.x && size.y >= size.z) axisIndex = 1; else if (size.z >= size.x && size.z >= size.y) axisIndex = 2;
+
+            // 3) Local eksen vektörlerini world space'e çıkar (rotation’dan)
+            const rot = tunnel.rotation ? tunnel.rotation.clone() : new THREE.Euler();
+            const xAxis = new THREE.Vector3(1,0,0).applyEuler(rot).normalize();
+            const yAxis = new THREE.Vector3(0,1,0).applyEuler(rot).normalize();
+            const zAxis = new THREE.Vector3(0,0,1).applyEuler(rot).normalize();
+            const axes = [xAxis, yAxis, zAxis];
+            let mainAxis = axes[axisIndex];
+
+            // Özel durum: "horizontal" tünel CylinderGeometry rotateX(PI/2) ile Z eksenine taşınmıştı.
+            if (orientation === 'horizontal' && axisIndex === 0) {
+                // Eğer X yanlış seçildiyse Z boyutu daha yakınsa zorla Z
+                if (Math.abs(size.z - declaredLength) < Math.abs(size.x - declaredLength)) {
+                    mainAxis = zAxis;
+                }
+            }
+            if (orientation === 'horizontal' && axisIndex === 1) {
+                // Y ekseni en büyük çıkmışsa ama horizontal ise Z veya X'e bak
+                if (size.z > size.x) mainAxis = zAxis; else mainAxis = xAxis;
+            }
+            if (orientation === 'vertical') {
+                mainAxis = yAxis; // dikeyde Y zorunlu
+            }
+
+            // 4) Gerçek uzunluk: bounding box ana eksen boyutu (fallback declaredLength)
+            const realLength = [size.x, size.y, size.z][axes.indexOf(mainAxis)] || declaredLength;
+            const half = realLength / 2;
+
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+
+            if (endpoint === 'A') {
+                position = center.clone().add(mainAxis.clone().multiplyScalar(-half));
+                direction = mainAxis.clone();
+            } else {
+                position = center.clone().add(mainAxis.clone().multiplyScalar(half));
+                direction = mainAxis.clone();
+            }
+
+            console.log('[TunnelEndpoint] Improved parametric endpoint:', {
+                orientation, realLength, chosenAxis: mainAxis.toArray(), position: position.toArray()
+            });
+        }
+
+        const result = { position, direction, tunnel, metadata };
+        console.log('[TunnelEndpoint] Final calculated result:', result);
+        return result;
+    }
+
+    visualizeMergeConnection(endpoint1, endpoint2) {
+        // Önceki görselleştirmeleri temizle
+        this.clearMergeVisualization();
+
+        // 🌊 Kıvrımlı bağlantı çizgisi oluştur
+        const curvedPoints = this.generateCurvedConnection(endpoint1, endpoint2);
+        
+        const connectionGeometry = new THREE.BufferGeometry().setFromPoints(curvedPoints);
+        const connectionMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x00ff00, 
+            linewidth: 4,
+            transparent: true,
+            opacity: 0.8
+        });
+        this.mergeConnectionLine = new THREE.Line(connectionGeometry, connectionMaterial);
+        this.scene.add(this.mergeConnectionLine);
+
+        // Uç nokta göstergeleri (daha büyük ve belirgin)
+        const endpointGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+        const endpointMaterial1 = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.9
+        });
+        const endpointMaterial2 = new THREE.MeshBasicMaterial({ 
+            color: 0x0000ff,
+            transparent: true,
+            opacity: 0.9
+        });
+
+        this.mergeEndpoint1 = new THREE.Mesh(endpointGeometry, endpointMaterial1);
+        this.mergeEndpoint1.position.copy(endpoint1.position);
+        this.scene.add(this.mergeEndpoint1);
+
+        this.mergeEndpoint2 = new THREE.Mesh(endpointGeometry, endpointMaterial2);
+        this.mergeEndpoint2.position.copy(endpoint2.position);
+        this.scene.add(this.mergeEndpoint2);
+
+        // Animasyonlu pulse efekti
+        this.animateEndpoints();
+
+        console.log('[TunnelMerge] Visualized curved connection with', curvedPoints.length, 'points');
+    }
+
+    createTunnelConnection(endpoint1, endpoint2, source, target) {
+        const distance = endpoint1.position.distanceTo(endpoint2.position);
+        console.log('[TunnelConnection] Creating connection with distance:', distance);
+        const strategy = this.options?.mergeStrategy || 'extend-gap-fill';
+        console.log('[TunnelConnection] Strategy:', strategy);
+
+        if (strategy === 'extend-gap-fill') {
+            try {
+                this.extendAndFillGap(endpoint1, endpoint2, source, target);
+                this.clearMergeVisualization();
+                this.updateAllTunnelEndpoints?.();
+                this.showSuccess('Tüneller uzatılarak boşluk dolduruldu');
+                this.persistMergeRecord('extend-gap-fill', endpoint1, endpoint2, source, target);
+                return;
+            } catch (e) {
+                console.error('[TunnelConnection] extend-gap-fill failed, fallback curved:', e);
+            }
+        } else if (strategy === 'segment-blend') {
+            try {
+                this.createSegmentBlend(endpoint1, endpoint2, source, target);
+                this.clearMergeVisualization();
+                this.updateAllTunnelEndpoints?.();
+                this.showSuccess('Parametrik blend segmentleri oluşturuldu');
+                this.persistMergeRecord('segment-blend', endpoint1, endpoint2, source, target);
+                return;
+            } catch (err) {
+                console.error('[TunnelConnection] segment-blend failed, fallback curved:', err);
+            }
+        } else if (strategy === 'extend-and-fuse' || strategy === 'fuse-single') {
+            try {
+                this.fuseTunnels(endpoint1, endpoint2, source, target);
+                this.clearMergeVisualization();
+                this.updateAllTunnelEndpoints?.();
+                this.showSuccess('Tüneller tek bir tünelde birleştirildi');
+                this.persistMergeRecord('fuse', endpoint1, endpoint2, source, target);
+                return;
+            } catch (err) {
+                console.error('[TunnelConnection] Fuse failed, fallback curved path:', err);
+            }
+        } else {
+            console.log('[TunnelConnection] Using curved path strategy (no extend)');
+        }
+
+        // Varsayılan: eğrisel bağlantı
+        const connectionPoints = this.generateCurvedConnection(endpoint1, endpoint2);
+        this.createConnectionPath(connectionPoints, source, target, 'curved');
+    }
+
+    // İki ucu orta noktaya doğru uzatma
+    extendTunnelToPoint(tunnel, meta, endpointData, targetPoint, whichEnd) {
+        if (!tunnel || !meta || !endpointData) return;
+        const params = meta.parameters ? { ...meta.parameters } : { ...meta };
+
+        // Yön vektörü güvenli elde et
+        let dir = endpointData.direction ? endpointData.direction.clone() : null;
+        if (!dir || dir.lengthSq() === 0) {
+            // fallback: hedef - kaynak
+            dir = targetPoint.clone().sub(endpointData.position).normalize();
+        } else {
+            dir.normalize();
+        }
+        if (dir.lengthSq() === 0) return;
+
+        const originalLength = params.length || meta.length || 10;
+        const extra = endpointData.position.distanceTo(targetPoint);
+        if (extra < 0.001) return; // anlamsız küçük uzatma
+        const newLength = originalLength + extra;
+
+        // Merkez kaydırma: uzatma yapılan uç yönünde yarım extra
+        const centerShift = dir.clone().multiplyScalar(extra / 2 * (whichEnd === 'B' ? 1 : -1));
+
+        params.length = newLength;
+
+        const radius = (params.height || params.width || 3) / 2;
+
+        // Geometri güncelleme stratejisi
+        if (typeof this.replaceTunnelGeometry === 'function') {
+            this.replaceTunnelGeometry(tunnel, params, { direction: dir });
+        } else {
+            if (tunnel.geometry) tunnel.geometry.dispose();
+            // Varsayılan: Z ekseni boyunca hizalanmış bir silindir (rotateX ile)
+            const cyl = new THREE.CylinderGeometry(radius, radius, newLength, 16, 1, false);
+            cyl.rotateX(Math.PI/2); // ekseni Z'ye çevir
+            tunnel.geometry = cyl;
+        }
+
+        // Oryantasyon: Z ekseninden dir yönüne
+        const zAxis = new THREE.Vector3(0, 0, 1);
+        const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir.clone().normalize());
+        tunnel.setRotationFromQuaternion(quat);
+
+        tunnel.position.add(centerShift);
+        tunnel.userData.parameters = { ...params };
+        if (tunnel.userData.objectData) {
+            tunnel.userData.objectData.parameters = { ...params };
+        }
+    }
+
+    extendAndFillGap(endpoint1, endpoint2, source, target) {
+        if (!source?.tunnel || !target?.tunnel) throw new Error('Missing tunnels');
+        const tunnelA = source.tunnel;
+        const tunnelB = target.tunnel;
+        const metaA = source.meta; const metaB = target.data;
+        const posA = endpoint1.position.clone();
+        const posB = endpoint2.position.clone();
+        const gapVec = posB.clone().sub(posA);
+        const gap = gapVec.length();
+        if (gap < 0.01) return; // zaten birleşik
+        const mid = posA.clone().add(posB).multiplyScalar(0.5);
+        const gapDir = gapVec.clone().normalize();
+        const halfGap = gap / 2;
+
+        // Snapshot before (geometri + meta)
+        const before = [tunnelA, tunnelB].map(t=> this.serializeTunnel(t));
+        const metaBefore = before.map(b=>({ id: b.id, connected: (this.findSelectableById(b.id)?.userData?.objectData?.connectedTunnels||[]).slice() }));
+
+        // Her iki tüneli eksenini gapDir yönüne tam hizala ve sadece bağlanan ucu yarım gap kadar ileri taşı (diğer ucu sabit tut)
+        this.extendTunnelHalfGapPrecise(tunnelA, metaA, endpoint1.endpoint, gapDir, halfGap);
+        this.extendTunnelHalfGapPrecise(tunnelB, metaB, endpoint2.endpoint, gapDir.clone().negate(), halfGap); // ters yönde
+
+        // Bağlanan uçların tam orta noktada olduğundan emin olmak için küçük düzeltme
+        const endA = this.calculateTunnelEndpoint(tunnelA, endpoint1.endpoint, metaA).position;
+        const endB = this.calculateTunnelEndpoint(tunnelB, endpoint2.endpoint, metaB).position;
+        const adjustA = mid.clone().sub(endA);
+        const adjustB = mid.clone().sub(endB);
+        // Çok küçük hataları toplu konum düzeltmesi ile gider (1cm tolerans)
+        if (adjustA.length() < 0.2) tunnelA.position.add(adjustA.multiplyScalar(0.5));
+        if (adjustB.length() < 0.2) tunnelB.position.add(adjustB.multiplyScalar(0.5));
+
+        // Sleeve uzunluğu sabit kısa (görsel seam kapama)
+        const sleeveLength = Math.min(gap * 0.15, 1.0);
+        let sleeve = null;
+        if (sleeveLength > 0.02) {
+            const avgWidth = ( (metaA.width||metaA.parameters?.width||3) + (metaB.width||metaB.parameters?.width||3) ) /2;
+            const avgHeight = ( (metaA.height||metaA.parameters?.height||3) + (metaB.height||metaB.parameters?.height||3) ) /2;
+            const radius = Math.max(avgWidth, avgHeight)/2 * 1.03;
+            const sleeveGeom = new THREE.CylinderGeometry(radius, radius, sleeveLength, 24, 1, false);
+            sleeveGeom.rotateX(Math.PI/2);
+            const sleeveMat = new THREE.MeshPhongMaterial({ color: 0x333333, transparent:true, opacity:0.9 });
+            sleeve = new THREE.Mesh(sleeveGeom, sleeveMat);
+            const zAxis = new THREE.Vector3(0,0,1); const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, gapDir);
+            sleeve.setRotationFromQuaternion(quat);
+            sleeve.position.copy(mid);
+            sleeve.userData = { selectable:false, helper:true, type:'merge-sleeve' };
+            this.scene.add(sleeve);
+        }
+
+        // Bağlantı meta ekle (ID koruma)
+        this.addConnectionMeta(tunnelA, metaA, metaB);
+        this.addConnectionMeta(tunnelB, metaB, metaA);
+
+        const after = [tunnelA, tunnelB].map(t=> this.serializeTunnel(t));
+        this.pushHistory({ type:'extend-gap-fill', before, after, helperSleeve: sleeve, metaBefore });
+    }
+
+    extendTunnelHalfGapPrecise(tunnel, meta, endpointLabel, gapDir, halfGap) {
+        if (!tunnel) return;
+        const params = meta.parameters || meta;
+        const lengthOld = params.length || meta.length || 10;
+        // Mevcut eksen
+        const zAxis = new THREE.Vector3(0,0,1);
+        const currentAxis = zAxis.clone().applyQuaternion(tunnel.quaternion).normalize();
+        // Hiza quaternion (tam hizalama)
+        const targetQuat = new THREE.Quaternion().setFromUnitVectors(zAxis, gapDir.clone());
+        this.animateQuaternionSlerp(tunnel, targetQuat, 400);
+        // Yalnızca bağlanan uç ilerlesin; diğer uç sabit kalmalı
+        const d = halfGap;
+        const newLength = lengthOld + d;
+        // Merkez kayması: d/2 bağlanan uç yönünde
+        const sign = (endpointLabel === 'B') ? 1 : -1;
+        const centerShift = gapDir.clone().multiplyScalar(sign * d/2);
+
+        params.length = newLength;
+        if (typeof this.replaceTunnelGeometry === 'function') {
+            this.replaceTunnelGeometry(tunnel, params, { direction: gapDir });
+        } else {
+            if (tunnel.geometry) tunnel.geometry.dispose();
+            const radius = (params.width || params.height || 3)/2;
+            const cyl = new THREE.CylinderGeometry(radius, radius, newLength, 16,1,false);
+            cyl.rotateX(Math.PI/2);
+            tunnel.geometry = cyl;
+        }
+        tunnel.position.add(centerShift);
+        tunnel.userData.parameters = { ...params };
+        if (tunnel.userData.objectData) tunnel.userData.objectData.parameters = { ...params };
+    }
+
+    addConnectionMeta(tunnel, meta, otherMeta) {
+        if (!tunnel?.userData?.objectData) return;
+        const od = tunnel.userData.objectData;
+        if (!od.connectedTunnels) od.connectedTunnels = [];
+        if (!od.connectedTunnels.includes(otherMeta.id)) od.connectedTunnels.push(otherMeta.id);
+    }
+
+    // --------------------------------------
+    // Parametric blend (segment-blend strategy)
+    // --------------------------------------
+    createSegmentBlend(endpoint1, endpoint2, source, target) {
+        const tunnelA = source.tunnel; const tunnelB = target.tunnel;
+        if (!tunnelA || !tunnelB) throw new Error('Missing tunnels');
+        const posA = endpoint1.position.clone();
+        const posB = endpoint2.position.clone();
+        const gapVec = posB.clone().sub(posA); const gap = gapVec.length();
+        if (gap < 0.05) return; // çok yakın
+        const dir = gapVec.clone().normalize();
+        const mid = posA.clone().add(posB).multiplyScalar(0.5);
+        const wA = source.meta.width || source.meta.parameters?.width || 3;
+        const hA = source.meta.height || source.meta.parameters?.height || wA;
+        const wB = target.data.width || target.data.parameters?.width || 3;
+        const hB = target.data.height || target.data.parameters?.height || wB;
+        const rA = Math.max(wA, hA)/2; const rB = Math.max(wB, hB)/2;
+        const segmentCount = 6; // even number
+        const group = new THREE.Group();
+        group.userData = { selectable:false, type:'blend-group', connects:[source.meta.id, target.data.id] };
+        const zAxis = new THREE.Vector3(0,0,1);
+        const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir);
+        const half = gap/2;
+        const perHalf = segmentCount/2;
+        const makeSegment = (startPos, len, rStart, rEnd) => {
+            const geom = new THREE.CylinderGeometry(rEnd, rStart, len, 20, 1, false);
+            geom.rotateX(Math.PI/2);
+            const mat = new THREE.MeshPhongMaterial({ color: 0x444444, shininess:30, specular:0x222222 });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            mesh.setRotationFromQuaternion(quat);
+            mesh.position.copy(startPos.clone().add(dir.clone().multiplyScalar(len/2)));
+            return mesh;
+        };
+        // Left half from A->mid
+        for (let i=0;i<perHalf;i++) {
+            const t0 = i / perHalf; const t1 = (i+1)/perHalf;
+            const rStart = THREE.MathUtils.lerp(rA, (rA+rB)/2, t0);
+            const rEnd = THREE.MathUtils.lerp(rA, (rA+rB)/2, t1);
+            const len = half / perHalf;
+            const startPos = posA.clone().add(dir.clone().multiplyScalar(len*i));
+            group.add(makeSegment(startPos, len, rStart, rEnd));
+        }
+        // Right half from mid->B
+        for (let i=0;i<perHalf;i++) {
+            const t0 = i / perHalf; const t1 = (i+1)/perHalf;
+            const rStart = THREE.MathUtils.lerp((rA+rB)/2, rB, t0);
+            const rEnd = THREE.MathUtils.lerp((rA+rB)/2, rB, t1);
+            const len = half / perHalf;
+            const startPos = mid.clone().add(dir.clone().multiplyScalar(len*i));
+            group.add(makeSegment(startPos, len, rStart, rEnd));
+        }
+        this.scene.add(group);
+        this.addConnectionMeta(tunnelA, source.meta, target.data);
+        this.addConnectionMeta(tunnelB, target.data, source.meta);
+        this.pushHistory({ type:'segment-blend', groupRef: group, data: { posA, posB, rA, rB, segmentCount } });
+    }
+
+    // Orientation animation via quaternion slerp
+    animateQuaternionSlerp(object, targetQuat, duration=400) {
+        const startQuat = object.quaternion.clone();
+        const start = performance.now();
+        const anim = { object, startQuat, targetQuat: targetQuat.clone(), duration, start, done:false };
+        const step = (now)=> {
+            if (anim.done) return;
+            const t = Math.min(1, (now - start)/duration);
+            THREE.Quaternion.slerp(startQuat, targetQuat, object.quaternion, t);
+            if (t < 1) requestAnimationFrame(step); else anim.done = true;
+        };
+        requestAnimationFrame(step);
+    }
+
+    // Persistence
+    async persistMergeRecord(strategy, endpoint1, endpoint2, source, target) {
+        if (!this.enableMergePersistence) return;
+        try {
+            const payload = {
+                strategy,
+                mine_id: this.mineId,
+                tunnels: [source.meta.id, target.data.id],
+                endpoint_a: { x:endpoint1.position.x, y:endpoint1.position.y, z:endpoint1.position.z },
+                endpoint_b: { x:endpoint2.position.x, y:endpoint2.position.y, z:endpoint2.position.z },
+                timestamp: Date.now()
+            };
+            const res = await fetch(this.mergePersistEndpoint, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error('HTTP '+res.status);
+            console.log('[MergePersist] Saved:', await res.json().catch(()=> 'ok'));
+        } catch (e) {
+            console.warn('[MergePersist] Failed:', e);
+        }
+    }
+
+    ensureUndoRedoUI() {
+        if (document.getElementById('undo-redo-panel')) return;
+        const panel = document.createElement('div');
+        panel.id = 'undo-redo-panel';
+        panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:9999;display:flex;gap:6px;font-family:Arial;';
+        const mkBtn = (id, txt, cb)=> { const b=document.createElement('button'); b.id=id; b.textContent=txt; b.style.cssText='padding:6px 10px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:12px;'; b.onclick=cb; return b; };
+        panel.appendChild(mkBtn('btn-undo','Undo',()=>{ this.undo(); }));
+        panel.appendChild(mkBtn('btn-redo','Redo',()=>{ this.redo(); }));
+        this.container.style.position = this.container.style.position || 'relative';
+        this.container.appendChild(panel);
+    }
+
+    // İki tüneli tek fiziksel mesh'e kaynaştır
+    fuseTunnels(endpoint1, endpoint2, source, target) {
+        if (!source?.tunnel || !target?.tunnel) throw new Error('Missing tunnel references');
+        const srcTunnel = source.tunnel; const tgtTunnel = target.tunnel;
+        const srcMeta = source.meta; const tgtMeta = target.data;
+
+        // Orijinal state snapshot'ı (undo için)
+        const originals = [srcTunnel, tgtTunnel].map(t => this.serializeTunnel(t));
+
+        // Kaynak ve hedefin öteki uçlarını bul - yeni birleşik tünelin gerçek uçları bunlar olacak
+        const otherEndpointA = endpoint1.endpoint === 'A' ? 'B' : 'A';
+        const otherEndpointB = endpoint2.endpoint === 'A' ? 'B' : 'A';
+        const srcOther = this.calculateTunnelEndpoint(srcTunnel, otherEndpointA, srcMeta);
+        const tgtOther = this.calculateTunnelEndpoint(tgtTunnel, otherEndpointB, tgtMeta);
+        const startPos = srcOther.position.clone();
+        const endPos = tgtOther.position.clone();
+        const totalLength = startPos.distanceTo(endPos);
+        if (totalLength < 0.05) throw new Error('Too short to fuse');
+        const dir = endPos.clone().sub(startPos).normalize();
+
+        // Boyutları harmanla (blend): merkezde linear interpolate
+        const srcW = srcMeta.width || srcMeta.parameters?.width || 3;
+        const tgtW = tgtMeta.width || tgtMeta.parameters?.width || 3;
+        const srcH = srcMeta.height || srcMeta.parameters?.height || srcW;
+        const tgtH = tgtMeta.height || tgtMeta.parameters?.height || tgtW;
+
+        // Basit blend için konik silindir (CylinderGeometry radiusTop, radiusBottom)
+        const radiusStart = Math.max(srcW, srcH) / 2;
+        const radiusEnd = Math.max(tgtW, tgtH) / 2;
+        const geom = new THREE.CylinderGeometry(radiusEnd, radiusStart, totalLength, 32, 1, false);
+        geom.rotateX(Math.PI/2);
+
+        // Orta bölümde pürüzsüzlük: hafif vertex yumuşatma (opsiyonel basit laplacian benzeri)
+        const posAttr = geom.attributes.position;
+        for (let i=0;i<posAttr.count;i++) {
+            const y = posAttr.getY(i); // CylinderGeometry'de Y ekseni uzunluk ekseni (rotateX öncesi) olduğu için burada Z oldu -> rotate sonrası X/Y/Z karışımı var; basit yaklaşım: dokunma.
+            // Şimdilik no-op; ileride gelişmiş smoothing eklenebilir.
+        }
+
+        const material = new THREE.MeshPhongMaterial({ color: 0x555555, shininess: 35, specular: 0x333333 });
+        const fused = new THREE.Mesh(geom, material);
+        fused.castShadow = true; fused.receiveShadow = true;
+        const zAxis = new THREE.Vector3(0,0,1);
+        const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir);
+        fused.setRotationFromQuaternion(quat);
+        fused.position.copy(startPos.clone().add(endPos).multiplyScalar(0.5));
+
+        const fusedId = `fused_${srcMeta.id}_${tgtMeta.id}`;
+        const fusedParams = { length: totalLength, width: Math.min(srcW, tgtW), height: Math.min(srcH, tgtH) };
+        fused.userData = { selectable: true, objectData: { id: fusedId, type: 'tunnel', parameters: fusedParams, width: fusedParams.width, height: fusedParams.height } };
+        this.scene.add(fused);
+        if (this.objectSelector?.addSelectableObject) this.objectSelector.addSelectableObject(fused, fused.userData.objectData);
+
+        // Orijinalleri görünmez yap (tamamen kaldırmıyoruz ki undo hızlı olsun)
+        [srcTunnel, tgtTunnel].forEach(t => { t.visible = false; t.userData.selectable = false; });
+
+        // History entry
+        this.pushHistory({ type: 'merge-fuse', resultId: fusedId, originals });
+    }
+
+    serializeTunnel(tunnel) {
+        const od = tunnel.userData?.objectData || {};
+        const params = od.parameters || tunnel.userData?.parameters || {};
+        return {
+            id: od.id,
+            width: od.width || params.width,
+            height: od.height || params.height,
+            length: params.length,
+            position: tunnel.position.clone(),
+            quaternion: tunnel.quaternion.clone(),
+            color: tunnel.material?.color?.getHex ? tunnel.material.color.getHex() : 0x666666
+        };
+    }
+
+    recreateTunnel(data) {
+        const radius = Math.max(data.width || 3, data.height || 3) / 2;
+        const geom = new THREE.CylinderGeometry(radius, radius, data.length, 24, 1, false);
+        geom.rotateX(Math.PI/2);
+        const mesh = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color: data.color }));
+        mesh.position.copy(data.position);
+        mesh.setRotationFromQuaternion(data.quaternion);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.userData = { selectable: true, objectData: { id: data.id, type: 'tunnel', parameters: { length: data.length, width: data.width, height: data.height }, width: data.width, height: data.height } };
+        this.scene.add(mesh);
+        if (this.objectSelector?.addSelectableObject) this.objectSelector.addSelectableObject(mesh, mesh.userData.objectData);
+        return mesh;
+    }
+
+    pushHistory(entry) { this.actionHistory.undo.push(entry); this.actionHistory.redo.length = 0; }
+    undo() {
+        const entry = this.actionHistory.undo.pop(); if (!entry) return;
+        if (entry.type === 'merge-fuse') {
+            const fused = this.findSelectableById(entry.resultId);
+            if (fused) { this.scene.remove(fused); fused.geometry?.dispose(); }
+            entry.originals.forEach(o => this.recreateTunnel(o));
+            this.updateAllTunnelEndpoints?.();
+        } else if (entry.type === 'extend-gap-fill') {
+            // Orijinal tünelleri eski haline getir
+            entry.after.forEach(a => { const obj = this.findSelectableById(a.id); if (obj) this.scene.remove(obj); });
+            entry.before.forEach(b => this.recreateTunnel(b));
+            if (entry.helperSleeve) { this.scene.remove(entry.helperSleeve); entry.helperSleeve.geometry.dispose(); }
+            this.updateAllTunnelEndpoints?.();
+        } else if (entry.type === 'segment-blend') {
+            if (entry.groupRef && entry.groupRef.parent) {
+                entry.groupRef.parent.remove(entry.groupRef);
+                entry.groupRef.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); c.material.dispose(); }});
+            }
+        }
+        this.actionHistory.redo.push(entry);
+    }
+    redo() {
+        const entry = this.actionHistory.redo.pop(); if (!entry) return;
+        if (entry.type === 'merge-fuse') {
+            // Remove originals again
+            entry.originals.forEach(o => { const obj = this.findSelectableById(o.id); if (obj) this.scene.remove(obj); });
+            // Recreate fused
+            const a = entry.originals[0]; const b = entry.originals[1];
+            if (a && b) {
+                // Reconstruct endpoints for direction
+                const start = a.position.clone();
+                const end = b.position.clone();
+                const dir = end.clone().sub(start).normalize();
+                const total = start.distanceTo(end);
+                const geom = new THREE.CylinderGeometry(Math.max(b.width,b.height)/2, Math.max(a.width,a.height)/2, total, 32,1,false);
+                geom.rotateX(Math.PI/2);
+                const fused = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color: 0x555555 }));
+                const zAxis = new THREE.Vector3(0,0,1); const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir);
+                fused.setRotationFromQuaternion(quat);
+                fused.position.copy(start.clone().add(end).multiplyScalar(0.5));
+                fused.userData = { selectable: true, objectData:{ id: entry.resultId, type:'tunnel', parameters:{ length: total, width: Math.min(a.width,b.width), height: Math.min(a.height,b.height) }, width: Math.min(a.width,b.width), height: Math.min(a.height,b.height) } };
+                this.scene.add(fused);
+                if (this.objectSelector?.addSelectableObject) this.objectSelector.addSelectableObject(fused, fused.userData.objectData);
+            }
+            this.updateAllTunnelEndpoints?.();
+        } else if (entry.type === 'extend-gap-fill') {
+            // before durumundaki tünelleri kaldır
+            entry.before.forEach(b => { const obj = this.findSelectableById(b.id); if (obj) this.scene.remove(obj); });
+            // after durumunu yeniden inşa et (uzatılmış tüneller)
+            entry.after.forEach(a => this.recreateTunnel(a));
+            if (entry.helperSleeve && !entry.helperSleeve.parent) {
+                this.scene.add(entry.helperSleeve);
+            }
+            this.updateAllTunnelEndpoints?.();
+        } else if (entry.type === 'segment-blend') {
+            // Recreate blend group
+            const { posA, posB, rA, rB, segmentCount } = entry.data;
+            const gapVec = posB.clone().sub(posA); const gap = gapVec.length(); const dir = gapVec.clone().normalize(); const mid = posA.clone().add(posB).multiplyScalar(0.5);
+            const group = new THREE.Group();
+            const zAxis = new THREE.Vector3(0,0,1); const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir);
+            const half = gap/2; const perHalf = segmentCount/2;
+            const makeSegment = (startPos, len, rStart, rEnd) => { const geom = new THREE.CylinderGeometry(rEnd, rStart, len, 20,1,false); geom.rotateX(Math.PI/2); const mat = new THREE.MeshPhongMaterial({ color:0x444444 }); const m=new THREE.Mesh(geom,mat); m.setRotationFromQuaternion(quat); m.position.copy(startPos.clone().add(dir.clone().multiplyScalar(len/2))); return m; };
+            for (let i=0;i<perHalf;i++){ const t0=i/perHalf,t1=(i+1)/perHalf; const rStart=THREE.MathUtils.lerp(rA,(rA+rB)/2,t0); const rEnd=THREE.MathUtils.lerp(rA,(rA+rB)/2,t1); const len=half/perHalf; const start=posA.clone().add(dir.clone().multiplyScalar(len*i)); group.add(makeSegment(start,len,rStart,rEnd)); }
+            for (let i=0;i<perHalf;i++){ const t0=i/perHalf,t1=(i+1)/perHalf; const rStart=THREE.MathUtils.lerp((rA+rB)/2,rB,t0); const rEnd=THREE.MathUtils.lerp((rA+rB)/2,rB,t1); const len=half/perHalf; const start=mid.clone().add(dir.clone().multiplyScalar(len*i)); group.add(makeSegment(start,len,rStart,rEnd)); }
+            this.scene.add(group); entry.groupRef = group;
+        }
+        this.actionHistory.undo.push(entry);
+    }
+
+    findSelectableById(id) {
+        let found = null; this.scene.traverse(o => { if (!found && o.userData?.objectData?.id === id) found = o; }); return found;
+    }
+
+    createConnectionPath(points, source, target, type) {
+        if (!this.pathDrawer) {
+            console.error('[TunnelConnection] PathDrawer not available');
+            return;
+        }
+
+        try {
+            // Plain obje dizisi gelmiş olabilir; Vector3'e dönüştür.
+            const vectorPoints = points.map(p => p && p.isVector3 ? p : new THREE.Vector3(p.x, p.y, p.z));
+            // Kaynak ve hedef meta width/height fallback hesapla
+            const w1 = source.meta.width || source.meta.parameters?.width || 3;
+            const w2 = target.data.width || target.data.parameters?.width || 3;
+            const h1 = source.meta.height || source.meta.parameters?.height || 3;
+            const h2 = target.data.height || target.data.parameters?.height || 3;
+            const mergedWidth = Math.min(w1, w2);
+            const mergedHeight = Math.min(h1, h2);
+
+            // Stabil bir ID üret (iki tünelin ID'sinin birleşik hash'i)
+            const baseIdStr = `${source.meta.id}-${target.data.id}-${type}`;
+            let hash = 0; for (let i=0;i<baseIdStr.length;i++){ hash = ((hash<<5)-hash)+baseIdStr.charCodeAt(i); hash |=0; }
+            const stableId = `merge_${Math.abs(hash)}`;
+
+            // Aynı merge daha önce oluşturulduysa tekrar etme
+            if (this.pathDrawer.paths.has(stableId)) {
+                console.warn('[TunnelConnection] Merge path already exists, skipping duplicate.');
+                return this.pathDrawer.paths.get(stableId);
+            }
+
+            const pathPayload = {
+                id: stableId,
+                points: vectorPoints.map(p=>({x:p.x,y:p.y,z:p.z})),
+                width: mergedWidth,
+                height: mergedHeight,
+                color: type === 'curved' ? '#00ff88' : '#ffaa00',
+                type: 'tunnel',
+                name: `Birleştirme Tüneli (${type})`,
+                path_points: vectorPoints.map(p=>({x:p.x,y:p.y,z:p.z}))
+            };
+
+            const connectionPath = this.pathDrawer.createPath(pathPayload);
+
+            console.log('[TunnelConnection] Created connection path:', connectionPath);
+
+            // Birleştirme path'ini seçilebilir yap
+            if (this.objectSelector && connectionPath) {
+                const selectableMeta = {
+                    id: stableId,
+                    type: 'path',
+                    pathType: 'tunnel',
+                    name: `Birleştirme Tüneli (${type})`,
+                    isConnection: true,
+                    connectionType: type,
+                    connectedTunnels: [source.meta.id, target.data.id],
+                    width: mergedWidth,
+                    height: mergedHeight,
+                    points: vectorPoints.map(p=>({x:p.x,y:p.y,z:p.z}))
+                };
+                this.objectSelector.addSelectableObject(connectionPath, selectableMeta);
+
+                // Endpointleri tutarlı metadata ile oluştur
+                setTimeout(() => {
+                    this.createTunnelEndpoints(connectionPath, selectableMeta);
+                }, 50);
+            }
+
+            // Kaynak ve hedef tünellerin endpointlerini yeniden hesapla (rotasyon/dönüşüm değişmiş olabilir)
+            setTimeout(()=>{
+                this.updateAllTunnelEndpoints?.();
+            }, 80);
+
+            // Persist opsiyonel
+            if (this.mineId && this.options?.enableMergePersistence) {
+                const persistBody = {
+                    name: pathPayload.name,
+                    type: 'tunnel',
+                    path_points: pathPayload.points,
+                    width: mergedWidth,
+                    height: mergedHeight,
+                    color: pathPayload.color,
+                    description: 'Auto-created merge tunnel',
+                    material: 'concrete'
+                };
+                fetch(`/api/mines/${this.mineId}/paths`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: JSON.stringify(persistBody)
+                })
+                .then(r=> r.ok ? r.json() : Promise.reject(r))
+                .then(json => {
+                    if (json?.data?.id) {
+                        const serverId = json.data.id;
+                        if (serverId !== stableId) {
+                            if (this.pathDrawer.paths.has(stableId)) {
+                                const obj = this.pathDrawer.paths.get(stableId);
+                                this.pathDrawer.paths.delete(stableId);
+                                obj.userData.id = serverId;
+                                this.pathDrawer.paths.set(serverId, obj);
+                            }
+                            if (this.objectSelector && this.objectSelector.selectableObjects) {
+                                this.objectSelector.selectableObjects.forEach((val) => {
+                                    if (val?.data?.id === stableId) {
+                                        val.data.id = serverId;
+                                    }
+                                });
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.warn('[TunnelConnection] Persist failed', err));
+            }
+
+            return connectionPath;
+
+        } catch (error) {
+            console.error('[TunnelConnection] Failed to create connection path:', error);
+            throw error;
+        }
+    }
+
+    // 🌊 KIVRILAN BAĞLANTI NOKTALARI OLUŞTUR
+    generateCurvedConnection(endpoint1, endpoint2) {
+        const start = endpoint1.position.clone();
+        const end = endpoint2.position.clone();
+        let startDir = endpoint1.direction ? endpoint1.direction.clone() : new THREE.Vector3().subVectors(end, start).normalize();
+        let endDir = endpoint2.direction ? endpoint2.direction.clone().negate() : new THREE.Vector3().subVectors(start, end).normalize();
+
+        // Eğer yönler uçlar arasındaki doğrultuya çok dik ise, doğrultuyu baz al
+        const mainVec = new THREE.Vector3().subVectors(end, start).normalize();
+        if (Math.abs(startDir.dot(mainVec)) < 0.3) startDir = mainVec.clone();
+        if (Math.abs(endDir.clone().negate().dot(mainVec)) < 0.3) endDir = mainVec.clone().negate();
+
+        // Mesafe ve yön hesapları
+        const distance = start.distanceTo(end);
+        const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        
+        // Kontrol noktaları için uzaklık (mesafeye göre ayarla)
+        const controlDistance = Math.max(distance * 0.3, 5.0);
+        
+        // İlk kontrol noktası (başlangıç yönünde)
+        const control1 = start.clone().add(startDir.clone().multiplyScalar(controlDistance));
+        
+        // İkinci kontrol noktası (bitiş yönünün tersinde)
+        const control2 = end.clone().add(endDir.clone().multiplyScalar(controlDistance));
+        
+        // Cubic Bézier eğrisi oluştur
+        const points = [];
+    const segments = Math.max(8, Math.floor(distance / 3)); // Daha az segment = daha temiz eğri
+        
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const point = this.calculateBezierPoint(start, control1, control2, end, t);
+            points.push(point);
+        }
+
+        // Eğriyi optimize et (çok yakın noktaları kaldır)
+        return this.optimizeCurve(points);
+    }
+
+    // 📐 Cubic Bézier noktası hesapla
+    calculateBezierPoint(p0, p1, p2, p3, t) {
+        const u = 1 - t;
+        const tt = t * t;
+        const uu = u * u;
+        const uuu = uu * u;
+        const ttt = tt * t;
+
+        // B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+        const point = new THREE.Vector3();
+        
+        point.addScaledVector(p0, uuu);                    // (1-t)³P₀
+        point.addScaledVector(p1, 3 * uu * t);            // 3(1-t)²tP₁
+        point.addScaledVector(p2, 3 * u * tt);            // 3(1-t)t²P₂
+        point.addScaledVector(p3, ttt);                    // t³P₃
+
+        return point;
+    }
+
+    // 🔧 Eğriyi optimize et
+    optimizeCurve(points, minDistance = 0.5) {
+        if (points.length <= 2) return points;
+        
+        const optimized = [points[0]]; // İlk nokta her zaman dahil
+        
+        for (let i = 1; i < points.length - 1; i++) {
+            const lastPoint = optimized[optimized.length - 1];
+            const currentPoint = points[i];
+            
+            // Minimum mesafeden uzaksa ekle
+            if (lastPoint.distanceTo(currentPoint) >= minDistance) {
+                optimized.push(currentPoint);
+            }
+        }
+        
+        optimized.push(points[points.length - 1]); // Son nokta her zaman dahil
+        
+        return optimized;
+    }
+
+    // ✨ Endpoint animasyonu
+    animateEndpoints() {
+        if (!this.mergeEndpoint1 || !this.mergeEndpoint2) return;
+        
+        const startTime = Date.now();
+        const duration = 2000; // 2 saniye
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = (elapsed % duration) / duration;
+            
+            // Pulse efekti (0.8 - 1.2 arası scale)
+            const scale = 0.8 + 0.4 * (Math.sin(progress * Math.PI * 2) * 0.5 + 0.5);
+            
+            if (this.mergeEndpoint1) {
+                this.mergeEndpoint1.scale.setScalar(scale);
+            }
+            if (this.mergeEndpoint2) {
+                this.mergeEndpoint2.scale.setScalar(scale);
+            }
+            
+            // Devam et (temizlenene kadar)
+            if (this.mergeEndpoint1 && this.mergeEndpoint2) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+
+    clearMergeVisualization() {
+        if (this.mergeConnectionLine) {
+            this.scene.remove(this.mergeConnectionLine);
+            this.mergeConnectionLine.geometry.dispose();
+            this.mergeConnectionLine.material.dispose();
+            this.mergeConnectionLine = null;
+        }
+        if (this.mergeEndpoint1) {
+            this.scene.remove(this.mergeEndpoint1);
+            this.mergeEndpoint1.geometry.dispose();
+            this.mergeEndpoint1.material.dispose();
+            this.mergeEndpoint1 = null;
+        }
+        if (this.mergeEndpoint2) {
+            this.scene.remove(this.mergeEndpoint2);
+            this.mergeEndpoint2.geometry.dispose();
+            this.mergeEndpoint2.material.dispose();
+            this.mergeEndpoint2 = null;
+        }
+    }
+
+    cancelTunnelMerge() {
+        const startBtn = document.getElementById('start-tunnel-merge');
+        const mergeUI = document.getElementById('tunnel-merge-ui');
+        
+        if (startBtn) startBtn.style.display = 'block';
+        if (mergeUI) mergeUI.style.display = 'none';
+        
+        this.clearMergeVisualization();
+        console.log('[TunnelMerge] Merge operation cancelled');
+    }
+
     // Smooth camera transition
     animateCameraTo(position, target, duration = 1500) {
         if (!this.camera || !this.controls) return;
@@ -4789,6 +5133,214 @@ class SimpleMine3DViewer {
         };
 
         requestAnimationFrame(animate);
+    }
+
+    // 🔧 YARDIMCI METODLAR
+
+    showError(message) {
+        console.error('[TunnelMerge] Error:', message);
+        // Toast mesajı göster
+        if (window.toastr) {
+            toastr.error(message);
+        }
+        // Alert kaldırıldı - sadece console log
+    }
+
+    showSuccess(message) {
+        console.log('[TunnelMerge] Success:', message);
+        // Toast mesajı göster
+        if (window.toastr) {
+            toastr.success(message);
+        }
+        // Alert kaldırıldı - sadece console log
+    }
+
+    showInfo(message) {
+        console.info('[TunnelMerge] Info:', message);
+        if (window.toastr) {
+            toastr.info(message);
+        }
+    }
+
+    // 📍 TÜNEL ENDPOINT GÖSTERGE SİSTEMİ
+
+    createTunnelEndpoints(tunnel, metadata) {
+        if (!tunnel || !metadata) return;
+        
+        const tunnelId = metadata.id;
+        console.log('[EndpointSystem] Creating endpoints for tunnel:', tunnelId, metadata);
+        
+        if (this.endpointIndicators.has(tunnelId)) {
+            this.removeTunnelEndpoints(tunnelId);
+        }
+        
+        // Tünelin gerçek sınırlarını zorla hesapla
+        if (tunnel.geometry) {
+            tunnel.geometry.computeBoundingBox();
+            tunnel.updateMatrixWorld(true); // World matrix'i güncelle
+        }
+        
+        // A ve B uç noktalarını hesapla
+        const endpointA = this.calculateTunnelEndpoint(tunnel, 'A', metadata);
+        const endpointB = this.calculateTunnelEndpoint(tunnel, 'B', metadata);
+        
+        console.log('[EndpointSystem] Calculated endpoints:', { endpointA, endpointB });
+        
+        if (!endpointA || !endpointB) {
+            console.warn('[EndpointSystem] Could not calculate endpoints');
+            return;
+        }
+        
+        // A ucu göstergesi (Kırmızı)
+        const endpointAMesh = this.createEndpointMesh('A', 0xff4444);
+        endpointAMesh.position.copy(endpointA.position);
+        this.scene.add(endpointAMesh);
+        
+        // B ucu göstergesi (Mavi)
+        const endpointBMesh = this.createEndpointMesh('B', 0x4444ff);
+        endpointBMesh.position.copy(endpointB.position);
+        this.scene.add(endpointBMesh);
+        
+        // Map'e kaydet
+        this.endpointIndicators.set(tunnelId, {
+            A: endpointAMesh,
+            B: endpointBMesh,
+            tunnel: tunnel,
+            metadata: metadata
+        });
+        
+        console.log(`[EndpointSystem] Created endpoints for tunnel ${tunnelId} at:`, {
+            A: endpointA.position.toArray(),
+            B: endpointB.position.toArray()
+        });
+    }
+
+    createEndpointMesh(label, color) {
+        // Ana sphere (daha büyük ve belirgin)
+        const geometry = new THREE.SphereGeometry(1.0, 32, 32);
+        const material = new THREE.MeshBasicMaterial({ 
+            color: color,
+            transparent: true,
+            opacity: 0.9
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        
+        // Wire frame outline
+        const wireGeometry = new THREE.SphereGeometry(1.1, 16, 16);
+        const wireMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.8
+        });
+        const wireFrame = new THREE.Mesh(wireGeometry, wireMaterial);
+        mesh.add(wireFrame);
+        
+        // Text label (daha büyük ve net)
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 128;
+        canvas.height = 128;
+        
+        // Arka plan circle
+        context.fillStyle = label === 'A' ? '#ff4444' : '#4444ff';
+        context.beginPath();
+        context.arc(64, 64, 60, 0, 2 * Math.PI);
+        context.fill();
+        
+        // Beyaz border
+        context.strokeStyle = '#ffffff';
+        context.lineWidth = 4;
+        context.stroke();
+        
+        // Text
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 72px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(label, 64, 64);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ 
+            map: texture,
+            transparent: true,
+            alphaTest: 0.1
+        });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(3, 3, 1);
+        sprite.position.set(0, 2.5, 0); // Label üstte
+        
+        mesh.add(sprite);
+        mesh.userData = { 
+            isEndpoint: true, 
+            label: label,
+            originalScale: mesh.scale.clone()
+        };
+        
+        return mesh;
+    }
+
+    removeTunnelEndpoints(tunnelId) {
+        const endpoints = this.endpointIndicators.get(tunnelId);
+        if (endpoints) {
+            if (endpoints.A) {
+                this.scene.remove(endpoints.A);
+                endpoints.A.geometry.dispose();
+                endpoints.A.material.dispose();
+            }
+            if (endpoints.B) {
+                this.scene.remove(endpoints.B);
+                endpoints.B.geometry.dispose();
+                endpoints.B.material.dispose();
+            }
+            this.endpointIndicators.delete(tunnelId);
+        }
+    }
+
+    updateAllTunnelEndpoints() {
+        console.log('[EndpointSystem] Updating all tunnel endpoints...');
+        
+        // Önce tüm mevcut endpoint'leri temizle
+        for (const [tunnelId, endpoints] of this.endpointIndicators) {
+            this.removeTunnelEndpoints(tunnelId);
+        }
+        
+        let tunnelCount = 0;
+        
+        // Scene'deki tüm tünelleri tara
+        this.scene.traverse((object) => {
+            if (object.userData && object.userData.selectable) {
+                const metadata = object.userData.objectData || object.userData;
+                if (metadata.type === 'tunnel' || metadata.pathType === 'tunnel') {
+                    console.log('[EndpointSystem] Found scene tunnel:', metadata);
+                    this.createTunnelEndpoints(object, metadata);
+                    tunnelCount++;
+                }
+            }
+        });
+        
+        // Path'lerdeki tünelleri de kontrol et
+        if (this.pathDrawer && this.pathDrawer.paths) {
+            for (const [pathId, pathGroup] of this.pathDrawer.paths) {
+                const pathData = pathGroup.userData.pathData;
+                if (pathData && pathData.type === 'tunnel') {
+                    console.log('[EndpointSystem] Found path tunnel:', pathData);
+                    this.createTunnelEndpoints(pathGroup, pathData);
+                    tunnelCount++;
+                }
+            }
+        }
+        
+        console.log(`[EndpointSystem] Updated endpoints for ${tunnelCount} tunnels`);
+    }
+
+    toggleEndpointVisibility() {
+        this.showEndpoints = !this.showEndpoints;
+        for (const [tunnelId, endpoints] of this.endpointIndicators) {
+            if (endpoints.A) endpoints.A.visible = this.showEndpoints;
+            if (endpoints.B) endpoints.B.visible = this.showEndpoints;
+        }
+        console.log(`[EndpointSystem] Endpoints ${this.showEndpoints ? 'shown' : 'hidden'}`);
     }
 }
 

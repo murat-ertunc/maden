@@ -18,6 +18,10 @@
 
     <!-- Scripts -->
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
+    
+    <!-- Tunnel Merge CSS -->
+    <link rel="stylesheet" href="{{ asset('css/tunnel-merge.css') }}">
+    
     @stack('styles')
 </head>
 <body>

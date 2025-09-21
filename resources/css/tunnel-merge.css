@@ -1,0 +1,245 @@
+/* 🔗 Tünel Birleştirme Sistemi CSS */
+
+.tunnel-merge-section {
+    margin-top: 15px;
+    padding: 15px;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+.tunnel-merge-title {
+    color: #007bff;
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tunnel-merge-title::before {
+    content: "🔗";
+    font-size: 18px;
+}
+
+.merge-form-group {
+    margin-bottom: 12px;
+}
+
+.merge-form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #495057;
+    font-size: 13px;
+}
+
+.merge-form-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.merge-form-group select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.merge-endpoints-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.merge-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.btn-merge {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-merge-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.btn-merge-primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.btn-merge-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.btn-merge-success:hover {
+    background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+}
+
+.btn-merge-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.btn-merge-secondary:hover {
+    background: linear-gradient(135deg, #545b62 0%, #383d41 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.btn-merge:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-merge:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Endpoint göstergeleri */
+.endpoint-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 6px;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.endpoint-a {
+    background-color: #dc3545; /* Kırmızı */
+}
+
+.endpoint-b {
+    background-color: #007bff; /* Mavi */
+}
+
+/* Tünel seçim kutusu özel stilleri */
+.tunnel-select-wrapper {
+    position: relative;
+}
+
+.tunnel-select-wrapper::after {
+    content: "▼";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #6c757d;
+    font-size: 12px;
+}
+
+.tunnel-select-wrapper select {
+    appearance: none;
+    padding-right: 35px;
+}
+
+/* Animasyonlar */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tunnel-merge-ui {
+    animation: slideInDown 0.3s ease-out;
+}
+
+/* Responsive tasarım */
+@media (max-width: 768px) {
+    .merge-endpoints-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .merge-actions {
+        flex-direction: column;
+    }
+    
+    .btn-merge {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+}
+
+/* Dark mode desteği */
+@media (prefers-color-scheme: dark) {
+    .tunnel-merge-section {
+        background: linear-gradient(135deg, #2d3436 0%, #636e72 100%);
+        border-color: #4a90e2;
+    }
+    
+    .tunnel-merge-title {
+        color: #74b9ff;
+    }
+    
+    .merge-form-group label {
+        color: #ddd;
+    }
+    
+    .merge-form-group select {
+        background-color: #2d3436;
+        border-color: #636e72;
+        color: #ddd;
+    }
+    
+    .merge-form-group select:focus {
+        border-color: #74b9ff;
+        box-shadow: 0 0 0 0.2rem rgba(116, 185, 255, 0.25);
+    }
+}
+
+/* Toast mesajları için ek stiller */
+.tunnel-merge-toast {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.tunnel-merge-toast.toast-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.tunnel-merge-toast.toast-error {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+}
+
+.tunnel-merge-toast.toast-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #3498db 100%);
+}
