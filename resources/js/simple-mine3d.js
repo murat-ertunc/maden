@@ -19,9 +19,20 @@ class MineObjectCreator {
         this.currentType = 'tunnel';
         this.currentPosition = new THREE.Vector3(0, -2, 0);
         
-        // Default parametreler
+        // Default parametreler - Enhanced 3D Direction Support
         this.parameters = {
-            tunnel: { width: 3, height: 3, length: 10, orientation: 'horizontal', angle: 0 },
+            tunnel: { 
+                width: 3, 
+                height: 3, 
+                length: 10, 
+                orientation: 'horizontal', 
+                angle: 0,
+                // 3D Direction Vector Support
+                direction: { x: 0, y: 0, z: 1 }, // Forward direction
+                pitch: 0,    // Up/Down angle (-90 to 90 degrees)
+                yaw: 0,      // Left/Right angle (0 to 360 degrees)
+                roll: 0      // Twist angle (0 to 360 degrees)
+            },
             road: { width: 4, height: 0.5, length: 15, orientation: 'horizontal', angle: 0 },
             rail: { width: 1.5, height: 0.3, length: 20, orientation: 'horizontal', angle: 0 },
             conveyor: { width: 1, height: 0.8, length: 12, orientation: 'horizontal', angle: 0 }
@@ -45,20 +56,41 @@ class MineObjectCreator {
         this.isCreating = false;
         this.hideCreationUI();
         this.removePreview();
+        
+        // Clean up interactive mode
+        if (this.interactiveClickHandler && this.viewer && this.viewer.renderer) {
+            this.viewer.renderer.domElement.removeEventListener('click', this.interactiveClickHandler);
+            this.interactiveClickHandler = null;
+        }
+        
+        // Reset interactive state
+        if (this.interactiveState) {
+            this.interactiveState = {
+                mode: 'waiting-start',
+                startPoint: null,
+                endPoint: null
+            };
+        }
+        
         console.log('[MineObjectCreator] Stopped creating');
     }
 
     updateParameter(paramName, value) {
         if (this.parameters[this.currentType]) {
-            // Orientation parametresi string olarak saklanmalı
+            // Handle different parameter types
             if (paramName === 'orientation') {
+                // Orientation is stored as string
+                this.parameters[this.currentType][paramName] = value;
+            } else if (paramName === 'direction') {
+                // Direction is stored as vector object
                 this.parameters[this.currentType][paramName] = value;
             } else {
-                // Diğer tüm parametreler sayısal
+                // All other parameters are numeric
                 this.parameters[this.currentType][paramName] = parseFloat(value);
             }
+            
             this.updatePreview();
-            console.log(`[MineObjectCreator] Updated ${paramName}: ${value}`);
+            console.log(`[MineObjectCreator] Updated ${paramName}:`, value);
         }
     }
 
@@ -75,12 +107,46 @@ class MineObjectCreator {
     }
 
     updatePreview() {
-        if (this.previewObject) {
-            const params = this.parameters[this.currentType];
-            const newGeometry = this.createGeometry(this.currentType, params);
+        if (!this.previewObject) return;
+        
+        const params = this.parameters[this.currentType];
+        
+        try {
+            let newGeometry;
             
+            if (this.currentType === 'tunnel') {
+                // Use new 3D tunnel creation system
+                newGeometry = this.create3DTunnel(
+                    params.width || 5,
+                    params.height || 5,
+                    params.length || 10,
+                    {
+                        orientation: params.orientation || 'horizontal',
+                        angle: params.angle || 0,
+                        pitch: params.pitch || 0,
+                        yaw: params.yaw || 0,
+                        roll: params.roll || 0,
+                        direction: params.direction || { x: 0, y: 0, z: 1 }
+                    }
+                );
+            } else {
+                // Legacy geometry for other object types
+                newGeometry = this.createGeometry(this.currentType, params);
+            }
+            
+            // Update geometry
             this.previewObject.geometry.dispose();
             this.previewObject.geometry = newGeometry;
+            
+            // Update position
+            this.previewObject.position.copy(this.currentPosition);
+            
+        } catch (error) {
+            console.error('Preview update error:', error);
+            // Fallback to basic geometry
+            const fallbackGeometry = this.createGeometry(this.currentType, params);
+            this.previewObject.geometry.dispose();
+            this.previewObject.geometry = fallbackGeometry;
         }
     }
 
@@ -103,43 +169,8 @@ class MineObjectCreator {
         
         switch (type) {
             case 'tunnel':
-                if (params.orientation === 'vertical') {
-                    // Dikey tünel (CylinderGeometry Y ekseni boyunca)
-                    geometry = new THREE.CylinderGeometry(
-                        params.width / 2,  // top radius (genişlik)
-                        params.width / 2,  // bottom radius (genişlik)
-                        params.length,     // height (uzunluk Y ekseni boyunca)
-                        16,                // radial segments
-                        1,                 // height segments
-                        false              // open ended
-                    );
-                    
-                    // Dikey modda açı uygulaması
-                    if (params.angle && params.angle !== 0) {
-                        geometry.rotateY(params.angle * Math.PI / 180);
-                    }
-                } else {
-                    // Yatay tünel (CylinderGeometry'yi Z ekseni boyunca döndür)
-                    geometry = new THREE.CylinderGeometry(
-                        params.height / 2, // top radius (yükseklik)
-                        params.height / 2, // bottom radius (yükseklik) 
-                        params.length,     // height (uzunluk)
-                        16,                // radial segments
-                        1,                 // height segments
-                        false              // open ended
-                    );
-                    
-                    // Yatay modda önce açı döndür (Y ekseni etrafında)
-                    if (params.angle && params.angle !== 0) {
-                        geometry.rotateY(params.angle * Math.PI / 180);
-                    }
-                    
-                    // Sonra 90 derece X ekseni etrafında döndür (yatay hale getir)
-                    geometry.rotateX(Math.PI / 2);
-                    
-                    // Width'i scale ile ayarla
-                    geometry.scale(params.width / params.height, 1, 1);
-                }
+                // Enhanced 3D Direction Tunnel Creation
+                geometry = this.create3DTunnel(params);
                 break;
                 
             case 'road':
@@ -170,6 +201,126 @@ class MineObjectCreator {
         }
         
         return geometry;
+    }
+
+    // 🚀 NEW: Enhanced 3D Direction Tunnel Creation
+    create3DTunnel(params) {
+        // Create base cylindrical tunnel geometry
+        const baseGeometry = new THREE.CylinderGeometry(
+            Math.max(params.width, params.height) / 2,  // top radius
+            Math.max(params.width, params.height) / 2,  // bottom radius
+            params.length,                              // height (length along Y-axis initially)
+            24,                                         // radial segments (higher quality)
+            1,                                          // height segments
+            false                                       // not open ended
+        );
+
+        // Apply elliptical cross-section if width != height
+        if (params.width !== params.height) {
+            this.applyEllipticalCrossSection(baseGeometry, params.width, params.height);
+        }
+
+        // Apply 3D rotation based on direction vector or pitch/yaw/roll
+        if (params.direction && (params.direction.x !== 0 || params.direction.y !== 0 || params.direction.z !== 1)) {
+            this.apply3DDirectionRotation(baseGeometry, params.direction);
+        } else if (params.pitch !== 0 || params.yaw !== 0 || params.roll !== 0) {
+            this.applyPitchYawRollRotation(baseGeometry, params.pitch, params.yaw, params.roll);
+        } else {
+            // Fallback to legacy orientation system
+            this.applyLegacyOrientation(baseGeometry, params);
+        }
+
+        return baseGeometry;
+    }
+
+    // Apply elliptical cross-section to tunnel
+    applyEllipticalCrossSection(geometry, width, height) {
+        const positions = geometry.attributes.position;
+        const vertex = new THREE.Vector3();
+        
+        for (let i = 0; i < positions.count; i++) {
+            vertex.fromBufferAttribute(positions, i);
+            
+            // Only modify X and Z coordinates (cross-section)
+            const distance = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
+            if (distance > 0) {
+                const angle = Math.atan2(vertex.z, vertex.x);
+                
+                // Calculate elliptical radius
+                const ellipseRadius = (width * height) / (2 * Math.sqrt(
+                    (height * Math.cos(angle) / 2) ** 2 + (width * Math.sin(angle) / 2) ** 2
+                ));
+                
+                const scale = ellipseRadius / (Math.max(width, height) / 2);
+                
+                vertex.x *= scale;
+                vertex.z *= scale;
+                
+                positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+            }
+        }
+        
+        positions.needsUpdate = true;
+        geometry.computeVertexNormals();
+    }
+
+    // Apply 3D direction using direction vector
+    apply3DDirectionRotation(geometry, direction) {
+        // Normalize direction vector
+        const dir = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
+        
+        // Default forward direction (Y-axis for cylinder)
+        const defaultDir = new THREE.Vector3(0, 1, 0);
+        
+        // Calculate rotation quaternion to align defaultDir with desired direction
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromUnitVectors(defaultDir, dir);
+        
+        // Apply rotation to geometry
+        geometry.applyQuaternion(quaternion);
+    }
+
+    // Apply rotation using Euler angles (Pitch, Yaw, Roll)
+    applyPitchYawRollRotation(geometry, pitch, yaw, roll) {
+        // Convert degrees to radians
+        const pitchRad = pitch * Math.PI / 180;
+        const yawRad = yaw * Math.PI / 180;
+        const rollRad = roll * Math.PI / 180;
+        
+        // Apply rotations in order: Yaw (Y), Pitch (X), Roll (Z)
+        // Start with default orientation (tunnel along Y-axis)
+        
+        // 1. Pitch: Rotate around X-axis (up/down)
+        if (pitchRad !== 0) {
+            geometry.rotateX(pitchRad);
+        }
+        
+        // 2. Yaw: Rotate around Y-axis (left/right)  
+        if (yawRad !== 0) {
+            geometry.rotateY(yawRad);
+        }
+        
+        // 3. Roll: Rotate around Z-axis (twist)
+        if (rollRad !== 0) {
+            geometry.rotateZ(rollRad);
+        }
+    }
+
+    // Legacy orientation system for backward compatibility
+    applyLegacyOrientation(geometry, params) {
+        if (params.orientation === 'vertical') {
+            // Keep default Y-axis orientation for vertical
+            if (params.angle && params.angle !== 0) {
+                geometry.rotateY(params.angle * Math.PI / 180);
+            }
+        } else {
+            // Horizontal: rotate to Z-axis direction
+            geometry.rotateX(Math.PI / 2);
+            
+            if (params.angle && params.angle !== 0) {
+                geometry.rotateY(params.angle * Math.PI / 180);
+            }
+        }
     }
 
     createPreviewMaterial(type) {
@@ -317,69 +468,162 @@ class MineObjectCreator {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             color: white;
             padding: 20px;
             border-radius: 10px;
-            min-width: 280px;
+            min-width: 320px;
+            max-width: 380px;
             z-index: 1000;
             display: none;
             font-family: Arial, sans-serif;
+            border: 2px solid #444;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+            max-height: 80vh;
+            overflow-y: auto;
         `;
         
         panel.innerHTML = `
-            <h4 id="creation-title" style="margin-top: 0; color: #fff;">Tünel Oluştur</h4>
+            <h4 id="creation-title" style="margin-top: 0; color: #fff; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                🚇 Gelişmiş Tünel Oluştur
+            </h4>
             
+            <!-- Basic Parameters -->
             <div class="parameter-group" style="margin-bottom: 15px;">
-                <label for="param1" style="display: block; margin-bottom: 5px;">
-                    Genişlik: <span id="param1-value" style="color: #4CAF50; font-weight: bold;">3</span>m
+                <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                    <i class="fas fa-arrows-alt-h"></i> Genişlik: <span id="param1-value" style="color: #4CAF50; font-weight: bold;">3</span>m
                 </label>
                 <input type="range" id="param1" min="1" max="10" step="0.5" value="3" 
                        style="width: 100%; margin-bottom: 5px;">
                 <input type="number" id="param1-number" min="1" max="10" step="0.5" value="3"
                        style="width: 100%; padding: 4px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
                 
-                <label for="param2" style="display: block; margin-bottom: 5px;">
-                    Yükseklik: <span id="param2-value" style="color: #4CAF50; font-weight: bold;">3</span>m
+                <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                    <i class="fas fa-arrows-alt-v"></i> Yükseklik: <span id="param2-value" style="color: #4CAF50; font-weight: bold;">3</span>m
                 </label>
                 <input type="range" id="param2" min="1" max="8" step="0.5" value="3"
                        style="width: 100%; margin-bottom: 5px;">
                 <input type="number" id="param2-number" min="1" max="8" step="0.5" value="3"
                        style="width: 100%; padding: 4px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
                 
-                <label for="param3" style="display: block; margin-bottom: 5px;">
-                    Uzunluk: <span id="param3-value" style="color: #4CAF50; font-weight: bold;">10</span>m
+                <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                    <i class="fas fa-ruler"></i> Uzunluk: <span id="param3-value" style="color: #4CAF50; font-weight: bold;">10</span>m
                 </label>
-                <input type="range" id="param3" min="5" max="5000" step="1" value="10"
+                <input type="range" id="param3" min="5" max="100" step="1" value="10"
                        style="width: 100%; margin-bottom: 5px;">
-                <input type="number" id="param3-number" min="5" max="5000" step="1" value="10"
+                <input type="number" id="param3-number" min="5" max="100" step="1" value="10"
                        style="width: 100%; padding: 4px; margin-bottom: 15px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
             </div>
             
-            <div id="tunnel-controls" class="tunnel-specific" style="margin-bottom: 15px; border-top: 1px solid #444; padding-top: 15px;">
-                <label for="orientation" style="display: block; margin-bottom: 5px;">
-                    Yönelim:
-                </label>
-                <select id="orientation" style="width: 100%; padding: 5px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555;">
-                    <option value="horizontal">Yatay</option>
-                    <option value="vertical">Dikey</option>
-                </select>
+            <!-- 3D Direction Controls -->
+            <div id="tunnel-3d-controls" class="tunnel-specific" style="margin-bottom: 15px; border-top: 1px solid #444; padding-top: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: #ffd700;">
+                    🎯 3D Yön Kontrolleri
+                </h5>
                 
-                <label for="angle" style="display: block; margin-bottom: 5px;">
-                    Açı: <span id="angle-value" style="color: #4CAF50; font-weight: bold;">0</span>°
-                </label>
-                <input type="range" id="angle" min="0" max="360" step="5" value="0"
-                       style="width: 100%; margin-bottom: 10px;">
+                <!-- Direction Mode Selection -->
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-cog"></i> Kontrol Modu:
+                    </label>
+                    <select id="direction-mode" style="width: 100%; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
+                        <option value="legacy">Basit (Yatay/Dikey)</option>
+                        <option value="angles">Gelişmiş (Pitch/Yaw/Roll)</option>
+                        <option value="vector">Uzman (Direction Vector)</option>
+                        <option value="interactive">İnteraktif (Click-to-Aim)</option>
+                    </select>
+                </div>
+
+                <!-- Legacy Controls -->
+                <div id="legacy-controls" style="display: block;">
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        Yönelim:
+                    </label>
+                    <select id="orientation" style="width: 100%; padding: 5px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555;">
+                        <option value="horizontal">Yatay</option>
+                        <option value="vertical">Dikey</option>
+                    </select>
+                    
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        Açı: <span id="angle-value" style="color: #4CAF50; font-weight: bold;">0</span>°
+                    </label>
+                    <input type="range" id="angle" min="0" max="360" step="5" value="0"
+                           style="width: 100%; margin-bottom: 10px;">
+                </div>
+
+                <!-- Advanced Angle Controls -->
+                <div id="angle-controls" style="display: none;">
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-level-up-alt"></i> Pitch (Yukarı/Aşağı): <span id="pitch-value" style="color: #4CAF50; font-weight: bold;">0</span>°
+                    </label>
+                    <input type="range" id="pitch" min="-90" max="90" step="5" value="0"
+                           style="width: 100%; margin-bottom: 8px;">
+                    
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-undo"></i> Yaw (Sol/Sağ): <span id="yaw-value" style="color: #4CAF50; font-weight: bold;">0</span>°
+                    </label>
+                    <input type="range" id="yaw" min="0" max="360" step="5" value="0"
+                           style="width: 100%; margin-bottom: 8px;">
+                    
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-redo"></i> Roll (Döndürme): <span id="roll-value" style="color: #4CAF50; font-weight: bold;">0</span>°
+                    </label>
+                    <input type="range" id="roll" min="0" max="360" step="5" value="0"
+                           style="width: 100%; margin-bottom: 10px;">
+                </div>
+
+                <!-- Vector Controls -->
+                <div id="vector-controls" style="display: none;">
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-vector-square"></i> Yön Vektörü (X, Y, Z):
+                    </label>
+                    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                        <input type="number" id="dir-x" value="0" step="0.1" min="-1" max="1" 
+                               style="flex: 1; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;"
+                               placeholder="X">
+                        <input type="number" id="dir-y" value="0" step="0.1" min="-1" max="1"
+                               style="flex: 1; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;"
+                               placeholder="Y">
+                        <input type="number" id="dir-z" value="1" step="0.1" min="-1" max="1"
+                               style="flex: 1; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;"
+                               placeholder="Z">
+                    </div>
+                    <button id="normalize-vector" style="padding: 4px 8px; background: #555; color: white; border: none; border-radius: 3px; font-size: 12px;">
+                        Normalize
+                    </button>
+                </div>
+
+                <!-- Interactive Controls -->
+                <div id="interactive-controls" style="display: none;">
+                    <p style="color: #ddd; font-size: 13px; margin: 10px 0;">
+                        <i class="fas fa-mouse-pointer"></i> <strong>İnteraktif Mod:</strong><br>
+                        1. 3D sahnede başlangıç noktasını tıklayın<br>
+                        2. Bitiş noktasını tıklayın (yön otomatik hesaplanır)
+                    </p>
+                    <div id="interactive-status" style="padding: 8px; background: #444; border-radius: 4px; font-size: 12px; color: #ddd;">
+                        Başlangıç noktası bekleniyor...
+                    </div>
+                </div>
+
+                <!-- Direction Preview -->
+                <div style="margin-top: 10px; padding: 8px; background: #444; border-radius: 4px;">
+                    <div style="font-size: 12px; color: #ddd;">
+                        <strong>Önizleme:</strong><br>
+                        Yön: <span id="direction-preview">→ İleri (Z+)</span><br>
+                        Eğim: <span id="slope-preview">0°</span>
+                    </div>
+                </div>
             </div>
             
+            <!-- Action Buttons -->
             <div class="button-group" style="margin-top: 15px;">
                 <button id="create-confirm" class="btn btn-success" 
-                        style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer;">
-                    Oluştur
+                        style="background: #4CAF50; color: white; border: none; padding: 10px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-plus"></i> Oluştur
                 </button>
                 <button id="create-cancel" class="btn btn-secondary"
-                        style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                    İptal
+                        style="background: #666; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-times"></i> İptal
                 </button>
             </div>
         `;
@@ -399,10 +643,31 @@ class MineObjectCreator {
         const param1Number = document.getElementById('param1-number');
         const param2Number = document.getElementById('param2-number');
         const param3Number = document.getElementById('param3-number');
+        
+        // Legacy controls
         const orientation = document.getElementById('orientation');
         const angle = document.getElementById('angle');
+        
+        // Advanced controls
+        const directionMode = document.getElementById('direction-mode');
+        const pitch = document.getElementById('pitch');
+        const yaw = document.getElementById('yaw');
+        const roll = document.getElementById('roll');
+        const dirX = document.getElementById('dir-x');
+        const dirY = document.getElementById('dir-y');
+        const dirZ = document.getElementById('dir-z');
+        const normalizeBtn = document.getElementById('normalize-vector');
+        
+        // Action buttons
         const confirmBtn = document.getElementById('create-confirm');
         const cancelBtn = document.getElementById('create-cancel');
+
+        // Interactive state
+        this.interactiveState = {
+            mode: 'waiting-start',
+            startPoint: null,
+            endPoint: null
+        };
 
         // Range input events
         param1.addEventListener('input', (e) => {
@@ -448,17 +713,86 @@ class MineObjectCreator {
             this.updateParameter('length', value);
         });
 
-        // Yönelim değişikliğini dinle
-        orientation.addEventListener('change', (e) => {
-            this.updateParameter('orientation', e.target.value);
+        // Direction mode change
+        directionMode.addEventListener('change', (e) => {
+            this.switchDirectionMode(e.target.value);
         });
 
-        // Açı değişikliğini dinle
+        // Legacy controls
+        orientation.addEventListener('change', (e) => {
+            this.updateParameter('orientation', e.target.value);
+            this.updateDirectionPreview();
+        });
+
         angle.addEventListener('input', (e) => {
             document.getElementById('angle-value').textContent = e.target.value;
             this.updateParameter('angle', e.target.value);
+            this.updateDirectionPreview();
         });
 
+        // Advanced angle controls
+        if (pitch) {
+            pitch.addEventListener('input', (e) => {
+                document.getElementById('pitch-value').textContent = e.target.value;
+                this.updateParameter('pitch', e.target.value);
+                this.updateDirectionPreview();
+            });
+        }
+
+        if (yaw) {
+            yaw.addEventListener('input', (e) => {
+                document.getElementById('yaw-value').textContent = e.target.value;
+                this.updateParameter('yaw', e.target.value);
+                this.updateDirectionPreview();
+            });
+        }
+
+        if (roll) {
+            roll.addEventListener('input', (e) => {
+                document.getElementById('roll-value').textContent = e.target.value;
+                this.updateParameter('roll', e.target.value);
+                this.updateDirectionPreview();
+            });
+        }
+
+        // Vector controls
+        if (dirX && dirY && dirZ) {
+            [dirX, dirY, dirZ].forEach(input => {
+                input.addEventListener('input', () => {
+                    this.updateParameter('direction', {
+                        x: parseFloat(dirX.value) || 0,
+                        y: parseFloat(dirY.value) || 0,
+                        z: parseFloat(dirZ.value) || 1
+                    });
+                    this.updateDirectionPreview();
+                });
+            });
+        }
+
+        // Normalize vector button
+        if (normalizeBtn) {
+            normalizeBtn.addEventListener('click', () => {
+                const x = parseFloat(dirX.value) || 0;
+                const y = parseFloat(dirY.value) || 0;
+                const z = parseFloat(dirZ.value) || 1;
+                
+                const length = Math.sqrt(x*x + y*y + z*z);
+                if (length > 0) {
+                    dirX.value = (x / length).toFixed(3);
+                    dirY.value = (y / length).toFixed(3);
+                    dirZ.value = (z / length).toFixed(3);
+                    
+                    this.updateParameter('direction', {
+                        x: x / length,
+                        y: y / length,
+                        z: z / length
+                    });
+                    this.updateDirectionPreview();
+                }
+            });
+        }
+
+        // Action buttons
         confirmBtn.addEventListener('click', () => {
             const created = this.finalizeCreation();
             if (created) {
@@ -473,6 +807,235 @@ class MineObjectCreator {
         cancelBtn.addEventListener('click', () => {
             this.stopCreating();
         });
+
+        // Interactive mode click handler
+        this.setupInteractiveMode();
+    }
+
+    // 🎯 NEW: Direction mode switching
+    switchDirectionMode(mode) {
+        // Hide all control groups first
+        const controlGroups = ['legacy-controls', 'angle-controls', 'vector-controls', 'interactive-controls'];
+        controlGroups.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.style.display = 'none';
+        });
+
+        // Show selected control group
+        const targetGroup = mode + '-controls';
+        const element = document.getElementById(targetGroup);
+        if (element) element.style.display = 'block';
+
+        // Update tunnel parameters based on mode
+        this.updateDirectionMode(mode);
+        this.updateDirectionPreview();
+    }
+
+    // 🎯 NEW: Update tunnel parameters based on direction mode
+    updateDirectionMode(mode) {
+        const params = this.parameters[this.currentType];
+        
+        switch (mode) {
+            case 'legacy':
+                // Reset to legacy mode
+                params.pitch = 0;
+                params.yaw = 0;
+                params.roll = 0;
+                params.direction = { x: 0, y: 0, z: 1 };
+                break;
+                
+            case 'angles':
+                // Reset angles
+                params.pitch = params.pitch || 0;
+                params.yaw = params.yaw || 0;
+                params.roll = params.roll || 0;
+                break;
+                
+            case 'vector':
+                // Ensure direction vector exists
+                if (!params.direction) {
+                    params.direction = { x: 0, y: 0, z: 1 };
+                }
+                break;
+                
+            case 'interactive':
+                // Initialize interactive mode
+                this.initializeInteractiveMode();
+                break;
+        }
+        
+        this.updatePreview();
+    }
+
+    // 🎯 NEW: Interactive mode setup
+    setupInteractiveMode() {
+        if (!this.viewer || !this.viewer.renderer) return;
+
+        this.interactiveClickHandler = (event) => {
+            if (document.getElementById('direction-mode')?.value !== 'interactive') return;
+            if (!this.isCreating) return;
+
+            const point = this.getClickPoint(event);
+            if (!point) return;
+
+            if (this.interactiveState.mode === 'waiting-start') {
+                this.setInteractiveStartPoint(point);
+            } else if (this.interactiveState.mode === 'waiting-end') {
+                this.setInteractiveEndPoint(point);
+            }
+        };
+
+        // Add click listener to renderer canvas
+        this.viewer.renderer.domElement.addEventListener('click', this.interactiveClickHandler);
+    }
+
+    // 🎯 NEW: Initialize interactive mode
+    initializeInteractiveMode() {
+        this.interactiveState = {
+            mode: 'waiting-start',
+            startPoint: null,
+            endPoint: null
+        };
+        
+        const statusEl = document.getElementById('interactive-status');
+        if (statusEl) {
+            statusEl.textContent = 'Başlangıç noktası için 3D sahnede bir yere tıklayın...';
+            statusEl.style.background = '#444';
+        }
+    }
+
+    // 🎯 NEW: Get click point in 3D space
+    getClickPoint(event) {
+        if (!this.viewer || !this.viewer.camera || !this.viewer.raycaster) return null;
+
+        const rect = this.viewer.renderer.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.viewer.raycaster.setFromCamera(mouse, this.viewer.camera);
+        
+        // Intersect with ground plane or existing objects
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const intersection = new THREE.Vector3();
+        
+        if (this.viewer.raycaster.ray.intersectPlane(groundPlane, intersection)) {
+            return intersection;
+        }
+        
+        return null;
+    }
+
+    // 🎯 NEW: Set interactive start point
+    setInteractiveStartPoint(point) {
+        this.interactiveState.startPoint = point.clone();
+        this.interactiveState.mode = 'waiting-end';
+        
+        // Update position
+        this.currentPosition.copy(point);
+        if (this.previewObject) {
+            this.previewObject.position.copy(point);
+        }
+        
+        const statusEl = document.getElementById('interactive-status');
+        if (statusEl) {
+            statusEl.textContent = 'Bitiş noktası için başka bir yere tıklayın...';
+            statusEl.style.background = '#445';
+        }
+    }
+
+    // 🎯 NEW: Set interactive end point and calculate direction
+    setInteractiveEndPoint(point) {
+        this.interactiveState.endPoint = point.clone();
+        
+        // Calculate direction vector
+        const direction = point.clone().sub(this.interactiveState.startPoint).normalize();
+        
+        // Update tunnel parameters
+        this.updateParameter('direction', {
+            x: direction.x,
+            y: direction.y,
+            z: direction.z
+        });
+        
+        // Calculate distance and update length
+        const distance = this.interactiveState.startPoint.distanceTo(point);
+        this.updateParameter('length', Math.max(5, Math.round(distance)));
+        
+        // Update UI
+        const lengthSlider = document.getElementById('param3');
+        const lengthNumber = document.getElementById('param3-number');
+        const lengthValue = document.getElementById('param3-value');
+        
+        if (lengthSlider) lengthSlider.value = Math.round(distance);
+        if (lengthNumber) lengthNumber.value = Math.round(distance);
+        if (lengthValue) lengthValue.textContent = Math.round(distance);
+        
+        const statusEl = document.getElementById('interactive-status');
+        if (statusEl) {
+            statusEl.textContent = `✅ Yön ayarlandı! Uzunluk: ${Math.round(distance)}m`;
+            statusEl.style.background = '#446644';
+        }
+        
+        this.updateDirectionPreview();
+        this.updatePreview();
+    }
+
+    // 🎯 NEW: Update direction preview display
+    updateDirectionPreview() {
+        const directionPreview = document.getElementById('direction-preview');
+        const slopePreview = document.getElementById('slope-preview');
+        
+        if (!directionPreview || !slopePreview) return;
+        
+        const params = this.parameters[this.currentType];
+        const mode = document.getElementById('direction-mode')?.value || 'legacy';
+        
+        let directionText = '';
+        let slopeText = '';
+        
+        switch (mode) {
+            case 'legacy':
+                if (params.orientation === 'vertical') {
+                    directionText = '↑ Dikey';
+                    slopeText = '90°';
+                } else {
+                    directionText = `→ Yatay (${params.angle || 0}°)`;
+                    slopeText = '0°';
+                }
+                break;
+                
+            case 'angles':
+                const pitch = params.pitch || 0;
+                const yaw = params.yaw || 0;
+                directionText = `Yaw: ${yaw}°, Pitch: ${pitch}°`;
+                slopeText = `${pitch}°`;
+                break;
+                
+            case 'vector':
+                if (params.direction) {
+                    const dir = params.direction;
+                    directionText = `(${dir.x.toFixed(2)}, ${dir.y.toFixed(2)}, ${dir.z.toFixed(2)})`;
+                    const slope = Math.asin(dir.y) * 180 / Math.PI;
+                    slopeText = `${slope.toFixed(1)}°`;
+                }
+                break;
+                
+            case 'interactive':
+                if (this.interactiveState.startPoint && this.interactiveState.endPoint) {
+                    const dir = this.interactiveState.endPoint.clone().sub(this.interactiveState.startPoint).normalize();
+                    directionText = `İnteraktif: (${dir.x.toFixed(2)}, ${dir.y.toFixed(2)}, ${dir.z.toFixed(2)})`;
+                    const slope = Math.asin(dir.y) * 180 / Math.PI;
+                    slopeText = `${slope.toFixed(1)}°`;
+                } else {
+                    directionText = 'Noktalar bekleniyor...';
+                    slopeText = '-';
+                }
+                break;
+        }
+        
+        directionPreview.textContent = directionText;
+        slopePreview.textContent = slopeText;
     }
 
     updateUIForType(type) {
