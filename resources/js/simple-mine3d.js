@@ -91,6 +91,11 @@ class MineObjectCreator {
 
     createGeometry(type, params) {
         let geometry;
+        // Orientation normalize: 'yatay' -> 'horizontal', 'dikey' -> 'vertical'
+        if (params && params.orientation) {
+            if (params.orientation === 'yatay') params.orientation = 'horizontal';
+            else if (params.orientation === 'dikey') params.orientation = 'vertical';
+        }
         
         switch (type) {
             case 'tunnel':
@@ -216,9 +221,17 @@ class MineObjectCreator {
         this.removePreview();
         console.log(`[MineObjectCreator] Created ${this.currentType} with ID: ${finalObject.userData.id}`);
         if (!this.autoMultiPlace) {
-            // Tek yerleştirme modunda otomatik çık
+            // Tek yerleştirme modunda otomatik çık (escape'e gerek kalmasın)
             this.isCreating = false;
             this.hideCreationUI?.();
+            // Viewer üzerindeki creation mode varsa kapat
+            if (this.viewer) {
+                this.viewer.isCreatingMode = false;
+                // Olası preview/artık referansları temizle
+                if (typeof this.viewer.removePreview === 'function') {
+                    try { this.viewer.removePreview(); } catch(e) {}
+                }
+            }
         } else {
             // Çoklu mod: yeni önizleme üret (konum sabit kalır)
             this.createPreview();
@@ -1751,6 +1764,11 @@ class SimpleMine3DViewer {
         this.measurementsEnabled = true;
         this.measurementStep = 5; // metre aralığı (dinamik)
         this._lastMeasuredTunnel = null;
+        // Auto-save ayarları
+        this.autoSaveSelection = true;
+        this.autoSaveDelay = 800; // ms
+        this._autoSaveTimer = null;
+        this._autoSaveInFlight = false;
         this.init();
     }
 
@@ -1811,6 +1829,21 @@ class SimpleMine3DViewer {
         if (dirty) {
             els.saveBtn.disabled = false;
             els.saveBtn.classList.add('btn-warning');
+            // Otomatik kaydet aktifse debounce et
+            if (this.autoSaveSelection) {
+                clearTimeout(this._autoSaveTimer);
+                this._autoSaveTimer = setTimeout(async () => {
+                    if (this._autoSaveInFlight) return; // re-entrancy guard
+                    this._autoSaveInFlight = true;
+                    try {
+                        await this.saveSelectionEdits();
+                    } catch (e) {
+                        console.warn('[AutoSave] Selection auto-save failed:', e.message);
+                    } finally {
+                        this._autoSaveInFlight = false;
+                    }
+                }, this.autoSaveDelay);
+            }
         } else {
             els.saveBtn.disabled = true;
             els.saveBtn.classList.remove('btn-warning');
@@ -1845,7 +1878,7 @@ class SimpleMine3DViewer {
                 html += this._buildNumberField('Genişlik (m)', 'sel-width', p.width, 0.5, 50, 0.1);
                 html += this._buildNumberField('Yükseklik (m)', 'sel-height', p.height, 0.5, 50, 0.1);
                 html += this._buildNumberField('Uzunluk (m)', 'sel-length', p.length, 1, 10000, 0.5);
-                html += this._buildSelectField('Yön', 'sel-orientation', ['horizontal','vertical'], p.orientation);
+                html += this._buildSelectField('Yön', 'sel-orientation', ['yatay','dikey'], p.orientation);
                 html += this._buildNumberField('Açı (°)', 'sel-angle', p.angle||0, 0, 360, 1);
                 html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
                 html += this._buildNumberField('Ölçüm Adımı (m)', 'sel-meas-step', this.measurementStep, 1, 100, 1);
@@ -1861,7 +1894,10 @@ class SimpleMine3DViewer {
         // Event binding (change -> dirty)
         ['sel-width','sel-height','sel-length','sel-angle','sel-orientation','sel-color'].forEach(id=>{
             const el = document.getElementById(id);
-            if (el) el.addEventListener('input', ()=> this.markSelectionDirty(true));
+            if (el) el.addEventListener('input', ()=> {
+                this.markSelectionDirty(true);
+                this._liveSelectionChange(id);
+            });
         });
         const stepEl = document.getElementById('sel-meas-step');
         if (stepEl) {
@@ -1877,6 +1913,103 @@ class SimpleMine3DViewer {
         if (els.status) els.status.textContent='';
     }
 
+    _liveSelectionChange(changedId) {
+        if (!this.selectedObject) return;
+        const meta = (this.selectedObject.userData && (this.selectedObject.userData.objectData || this.selectedObject.userData)) || {};
+        const isPath = meta.type === 'path';
+        const isTunnelModel = meta.type === 'tunnel' || meta.pathType === 'tunnel';
+
+        // Canlı görsel güncelleme (persist ETME) – sadece lokal state.
+        if (isPath) {
+            const pathGroup = this.selectedObject; // group veya mesh olabilir
+            const widthEl = document.getElementById('sel-width');
+            const heightEl = document.getElementById('sel-height');
+            const colorEl = document.getElementById('sel-color');
+            const width = parseFloat(widthEl?.value);
+            const height = parseFloat(heightEl?.value);
+            const color = colorEl?.value;
+            const data = pathGroup.userData.objectData || meta;
+            let dirty = false;
+            if (!isNaN(width) && width > 0 && width !== data.width) { data.width = width; dirty = true; }
+            if (!isNaN(height) && height > 0 && height !== data.height) { data.height = height; dirty = true; }
+            if (color && color !== data.color) { data.color = color; dirty = true; }
+            if (dirty) {
+                // Rebuild geometry (pathDrawer.createPathMesh kullanımı için orijinal noktalar gerekli)
+                const points = (data.points || data.path_points || []).map(p=> new THREE.Vector3(p.x,p.y,p.z));
+                if (points.length >= 2 && this.pathDrawer) {
+                    // Eski çocukları sil ve yeni meshleri ekle (edit sırasında PathEditor zaten rebuild yapıyor olabilir)
+                    const widthVal = data.width || 2.5;
+                    const heightVal = data.height || 2.5;
+                    const colorVal = data.color || '#808080';
+                    const typeVal = data.pathType || data.type || 'tunnel';
+                    // Aktif path editor devredeyse onun rebuild mekanizmasıyla çakışmayı önlemek için guard
+                    if (!(this.pathEditor && this.pathEditor.isEditing && this.pathEditor.activePath === pathGroup)) {
+                        // Manuel rebuild
+                        while (pathGroup.children.length) {
+                            const ch = pathGroup.children.pop();
+                            if (ch.geometry) ch.geometry.dispose();
+                            if (ch.material) { if (Array.isArray(ch.material)) ch.material.forEach(m=>m.dispose()); else ch.material.dispose(); }
+                            pathGroup.remove(ch);
+                        }
+                        const newGroup = this.pathDrawer.createPathMesh(points, widthVal, heightVal, colorVal, typeVal);
+                        newGroup.children.forEach(c=> pathGroup.add(c));
+                        data.length = this.pathDrawer.calculatePathLength(points.map(p=>({x:p.x,y:p.y,z:p.z})));
+                        // Selection kartındaki uzunluk alanını güncelle
+                        const dyn = document.getElementById('sel-dynamic-fields');
+                        if (dyn && dyn.innerHTML.includes('Uzunluk')) {
+                            const lenMatch = dyn.querySelectorAll('div'); // hızlı basit yaklaşım
+                        }
+                    }
+                }
+            }
+        } else if (isTunnelModel) {
+            const p = { ...(this.selectedObject.userData.parameters || {}) };
+            const wEl = document.getElementById('sel-width');
+            const hEl = document.getElementById('sel-height');
+            const lEl = document.getElementById('sel-length');
+            const aEl = document.getElementById('sel-angle');
+            const oEl = document.getElementById('sel-orientation');
+            const cEl = document.getElementById('sel-color');
+            let changed = false;
+            let orientationChanged = false;
+            if (wEl && !isNaN(parseFloat(wEl.value)) && parseFloat(wEl.value) !== p.width) { p.width = parseFloat(wEl.value); changed = true; }
+            if (hEl && !isNaN(parseFloat(hEl.value)) && parseFloat(hEl.value) !== p.height) { p.height = parseFloat(hEl.value); changed = true; }
+            if (lEl && !isNaN(parseFloat(lEl.value)) && parseFloat(lEl.value) !== p.length) { p.length = parseFloat(lEl.value); changed = true; }
+            if (aEl && !isNaN(parseFloat(aEl.value)) && parseFloat(aEl.value) !== p.angle) { p.angle = parseFloat(aEl.value); changed = true; }
+            if (oEl && oEl.value && oEl.value !== p.orientation) { orientationChanged = true; p.orientation = oEl.value; changed = true; }
+            if (cEl && cEl.value && this.selectedObject.material && '#' + this.selectedObject.material.color.getHexString() !== cEl.value) {
+                this.selectedObject.material.color.set(cEl.value);
+            }
+            if (changed) {
+                this.replaceTunnelGeometry(this.selectedObject, p);
+                if (orientationChanged && this.camera && this.controls) {
+                    // Basit easing ile yeni eksene göre kamerayı yeniden konumlandır
+                    const target = this.selectedObject.position.clone();
+                    const radius = this.camera.position.distanceTo(target);
+                    // Yeni hedef offset: dikey ise kamerayı hafif eğimli yukardan bakacak konuma al
+                    let desired;
+                    if (p.orientation === 'dikey' || p.orientation === 'vertical') {
+                        desired = new THREE.Vector3(target.x + radius * 0.6, target.y + radius * 0.8, target.z + radius * 0.3);
+                    } else {
+                        desired = new THREE.Vector3(target.x + radius * 0.6, target.y + radius * 0.3, target.z + radius * 0.8);
+                    }
+                    const startPos = this.camera.position.clone();
+                    const startTime = performance.now();
+                    const duration = 650;
+                    const animate = (now)=>{
+                        const t = Math.min(1, (now - startTime)/duration);
+                        const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOutQuad
+                        this.camera.position.lerpVectors(startPos, desired, ease);
+                        this.controls.target.lerpVectors(this.controls.target.clone(), target, ease);
+                        if (t < 1) requestAnimationFrame(animate);
+                        else { this.controls.update(); }
+                    };
+                    requestAnimationFrame(animate);
+                }
+            }
+        }
+    }
+
     _buildNumberField(label, id, value, min, max, step) {
         if (value == null) value = '';
         return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><input type=\"number\" class=\"form-control form-control-sm bg-dark text-light\" id=\"${id}\" value=\"${value}\" min=\"${min}\" max=\"${max}\" step=\"${step}\"></div>`;
@@ -1885,7 +2018,22 @@ class SimpleMine3DViewer {
         return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><input type=\"color\" class=\"form-control form-control-color form-control-sm p-0 bg-dark border-0\" id=\"${id}\" value=\"${value}\" title=\"Renk seç\"></div>`;
     }
     _buildSelectField(label, id, options, current) {
-        const opts = options.map(o=>`<option value=\"${o}\" ${o===current?'selected':''}>${o}</option>`).join('');
+        // Özel durum: orientation alanını Türkçeleştir
+        let translate = (val)=>val;
+        if (id === 'sel-orientation') {
+            const map = { 'horizontal':'Yatay', 'vertical':'Dikey', 'yatay':'Yatay', 'dikey':'Dikey' };
+            translate = (val)=> map[val] || val;
+            // Eski kayıtlar horizontal/vertical olabilir; current eşlemesini normalize et
+            if (current === 'horizontal') current = 'yatay';
+            if (current === 'vertical') current = 'dikey';
+            // Options da Türkçeleşsin (value da Türkçe olacak istek gereği)
+            options = options.map(o=>{
+                if (o === 'horizontal') return 'yatay';
+                if (o === 'vertical') return 'dikey';
+                return o;
+            });
+        }
+        const opts = options.map(o=>`<option value=\"${o}\" ${o===current?'selected':''}>${translate(o)}</option>`).join('');
         return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><select class=\"form-select form-select-sm bg-dark text-light\" id=\"${id}\">${opts}</select></div>`;
     }
 
@@ -2107,7 +2255,19 @@ class SimpleMine3DViewer {
             // Path editor
             this.pathEditor = new MinePathEditor(this.scene, this.camera, this.renderer, this.pathDrawer);
             this.pathEditor.setCallbacks({
-                onPointChange: (points, data) => { this.markPathDirty(data.id || data.pathId); }
+                onPointChange: (points, data) => {
+                    this.markPathDirty(data.id || data.pathId);
+                    // Eğer seçili obje bu path ise selection kartını güncelle (nokta sayısı / uzunluk)
+                    if (this.selectedObject && (this.selectedObject.userData.objectData?.id === data.id || this.selectedObject.userData.objectData?.pathId === data.id)) {
+                        const meta = this.selectedObject.userData.objectData;
+                        if (meta) {
+                            meta.points = points;
+                            meta.path_points = points;
+                            meta.length = this.pathDrawer.calculatePathLength(points);
+                            this.populateSelectionCard(this.selectedObject, meta);
+                        }
+                    }
+                }
             });
             
             // Initialize object creator
@@ -2846,6 +3006,8 @@ class SimpleMine3DViewer {
                 object.userData.serverId = savedData.data?.id;
                 console.log('[SimpleMine3DViewer] Successfully saved object to server:', savedData);
                 this.showSuccess('Obje başarıyla kaydedildi!');
+                // Kaydetme bitince creation moddan tamamen çık
+                if (this.forceExitCreationMode) this.forceExitCreationMode();
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -2853,6 +3015,21 @@ class SimpleMine3DViewer {
             console.error('[SimpleMine3DViewer] Error saving object to server:', error);
             this.showError('Obje kaydedilemedi: ' + error.message);
         }
+    }
+
+    forceExitCreationMode() {
+        // ObjectCreator üzerinden mod kapatma
+        if (this.objectCreator) {
+            this.objectCreator.isCreating = false;
+            try { this.objectCreator.hideCreationUI?.(); } catch(e) {}
+            try { this.objectCreator.removePreview(); } catch(e) {}
+        }
+        this.isCreatingMode = false;
+        // Creation paneli açık kalmışsa kaldır
+        const panel = document.getElementById('creation-panel');
+        if (panel) panel.style.display = 'none';
+        // Cursor state vs. ileride eklenebilir
+        console.log('[SimpleMine3DViewer] Force exited creation mode');
     }
 
     showSuccess(message) {
@@ -3211,10 +3388,33 @@ class SimpleMine3DViewer {
 
         // Axis assumption: Cylinder was rotated for tunnel; treat its local Y as length if vertical else Z as length
         const params = data.parameters || {}; // width,height,length
-        const width = params.width || 3;
-        const height = params.height || 3;
-        const length = params.length || 10;
-        const orientation = params.orientation || 'horizontal';
+        // Normalize orientation
+        if (params.orientation === 'yatay') params.orientation = 'horizontal';
+        if (params.orientation === 'dikey') params.orientation = 'vertical';
+        let width = params.width || 3;
+        let height = params.height || 3;
+        let length = params.length || 10;
+        let orientation = params.orientation || 'horizontal';
+        // Bounding box'tan gerçek değerleri türet (özellikle orientation değişiminden sonra doğru eksenleri al)
+        try {
+            object.geometry.computeBoundingBox();
+            const bb = object.geometry.boundingBox; // local space
+            const size = new THREE.Vector3();
+            bb.getSize(size); // X,Y,Z boyutları
+            // Silindir horizontal iken: length ~ XZ düzleminde ? Biz X eksen scale ile width, Y eksen height (rotasyon sonrası) -> pratikçe: 
+            // createGeometry yatay tünelde geometry.rotateX(Math.PI/2) yaptığı için length -> Z, height -> ? (cylinder height paramı -> length), scale ile X genişletiliyor.
+            // Dikey tünelde length -> Y.
+            if (orientation === 'vertical') {
+                length = size.y; // dikey uzunluk
+                width = size.x;  // çap ~ x
+                height = size.z; // yanal varyasyon (yaklaşık aynı)
+            } else { // horizontal
+                length = size.z; // uzunluk Z
+                // width orijinalde X ekseni boyunca scale edildi
+                width = size.x; 
+                height = size.y; // silindirin kalınlığı
+            }
+        } catch(e) {}
         const lengthAxis = orientation === 'vertical' ? 'y' : 'z';
         const basePos = object.position.clone();
 
@@ -3295,12 +3495,23 @@ class SimpleMine3DViewer {
             }
             group.add(makeLine(s,e, minorMat));
         }
+
+        // Eksen etiketi (uzunluk ekseni)
+        try {
+            const axisLabel = lengthAxis === 'z' ? 'Z Ekseni' : 'Y Ekseni';
+            const axisPos = lengthAxis === 'z'
+                ? new THREE.Vector3(basePos.x + width/2 + 0.6, basePos.y + height/2 + 0.4, basePos.z)
+                : new THREE.Vector3(basePos.x + width/2 + 0.6, basePos.y, basePos.z - height/2 - 0.6);
+            this._addSpriteLabel(axisLabel, axisPos, '#ffaa00', group);
+        } catch(e) { /* sessiz */ }
     }
 
     // Legacy tunnel edit panel methods removed (ensure/show/hide/revert/update/save).
 
     replaceTunnelGeometry(mesh, params) {
         if (!this.objectCreator) return; // objectCreator.createGeometry kullan
+        if (params.orientation === 'yatay') params.orientation = 'horizontal';
+        if (params.orientation === 'dikey') params.orientation = 'vertical';
         const newGeo = this.objectCreator.createGeometry('tunnel', params);
         if (mesh.geometry) mesh.geometry.dispose();
         mesh.geometry = newGeo;
