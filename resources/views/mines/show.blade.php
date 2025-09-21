@@ -190,22 +190,25 @@
                     <div class="h5 mb-0 text-light" id="distance-value">0.0m</div>
                 </div>
             </div>
-        </div>
-
-        <!-- Object Info Panel -->
-        <div class="position-absolute bottom-0 start-0 m-3" id="object-info-panel" style="display: none;">
-            <div class="card shadow-sm" style="width: 320px; max-height: 400px; overflow-y: auto;">
-                <div class="card-header py-2">
-                    <h6 class="mb-0">
-                        <i class="fas fa-info-circle"></i> Seçili Obje
-                        <button type="button" class="btn-close btn-sm float-end" onclick="window.mineViewer?.hideObjectInfo()"></button>
-                    </h6>
+            <!-- Selection Detail Card -->
+            <div class="card shadow border-0 mt-2" id="selection-detail-card" style="display:none; background: rgba(0,0,0,0.85); color:#fff; min-width:260px;">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background: rgba(255,255,255,0.05);">
+                    <small class="fw-bold mb-0" id="sel-title"><i class="fas fa-cube me-1"></i>Seçili Obje</small>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" id="sel-save-btn" title="Kaydet" disabled><i class="fas fa-save"></i></button>
+                        <button class="btn btn-outline-danger" id="sel-delete-btn" title="Sil"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-secondary" id="sel-close-btn" title="Kapat"><i class="fas fa-times"></i></button>
+                    </div>
                 </div>
-                <div class="card-body" id="object-info-content">
-                    <!-- Object details will be populated here -->
+                <div class="card-body py-2 px-3" style="max-height:300px; overflow-y:auto; font-size:0.8rem;">
+                    <div id="sel-meta" class="mb-2 text-muted small"></div>
+                    <div id="sel-dynamic-fields"></div>
+                    <div class="mt-2" id="sel-generic-fields"></div>
+                    <div class="mt-2 border-top pt-2" id="sel-status" style="min-height:16px;font-size:0.7rem;color:#ffc107;"></div>
                 </div>
             </div>
         </div>
+
 
         <!-- Help Panel -->
         <div class="position-absolute bottom-0 end-0 m-3">

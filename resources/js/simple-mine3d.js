@@ -197,6 +197,21 @@ class MineObjectCreator {
         
         this.scene.add(finalObject);
         this.createdObjects.set(finalObject.userData.id, finalObject);
+
+        // Viewer varsa seçim sistemine ekle
+        if (this.viewer && this.viewer.objectSelector) {
+            try {
+                this.viewer.objectSelector.addSelectableObject(finalObject, {
+                    id: finalObject.userData.id,
+                    type: finalObject.userData.type,
+                    name: `${finalObject.userData.type.charAt(0).toUpperCase() + finalObject.userData.type.slice(1)} ${finalObject.userData.id}`,
+                    parameters: finalObject.userData.parameters,
+                    color: '#' + finalObject.material.color.getHexString()
+                });
+            } catch (e) {
+                console.warn('[MineObjectCreator] Selectable eklenemedi:', e);
+            }
+        }
         
         this.removePreview();
         console.log(`[MineObjectCreator] Created ${this.currentType} with ID: ${finalObject.userData.id}`);
@@ -1734,8 +1749,194 @@ class SimpleMine3DViewer {
         this._dirtyIndicatorEl = null;
         // Ölçüm çizgileri durumu
         this.measurementsEnabled = true;
+        this.measurementStep = 5; // metre aralığı (dinamik)
         this._lastMeasuredTunnel = null;
         this.init();
+    }
+
+    // --- Selection Detail Card Helpers ---
+    _getSelEls() {
+        if (!this._selCache) {
+            this._selCache = {
+                card: document.getElementById('selection-detail-card'),
+                title: document.getElementById('sel-title'),
+                meta: document.getElementById('sel-meta'),
+                dyn: document.getElementById('sel-dynamic-fields'),
+                gen: document.getElementById('sel-generic-fields'),
+                status: document.getElementById('sel-status'),
+                saveBtn: document.getElementById('sel-save-btn'),
+                deleteBtn: document.getElementById('sel-delete-btn'),
+                closeBtn: document.getElementById('sel-close-btn')
+            };
+            if (this._selCache.closeBtn) {
+                this._selCache.closeBtn.addEventListener('click', ()=> this.hideSelectionCard());
+            }
+            if (this._selCache.deleteBtn) {
+                this._selCache.deleteBtn.addEventListener('click', ()=> {
+                    if (this.selectedObject) {
+                        if (confirm('Seçili nesneyi silmek istiyor musunuz?')) {
+                            // Path veya model ayrımı
+                            const data = this.selectedObject.userData.objectData || this.selectedObject.userData;
+                            if (data && data.type === 'path') {
+                                this.objectSelector?.deleteSelectedObject();
+                            } else {
+                                this.deleteSelectedObject();
+                            }
+                        }
+                    }
+                });
+            }
+            if (this._selCache.saveBtn) {
+                this._selCache.saveBtn.addEventListener('click', ()=> this.saveSelectionEdits());
+            }
+        }
+        return this._selCache;
+    }
+
+    showSelectionCard(object, meta) {
+        const els = this._getSelEls();
+        if (!els.card) return;
+        els.card.style.display = 'block';
+        this.populateSelectionCard(object, meta);
+    }
+
+    hideSelectionCard() {
+        const els = this._getSelEls();
+        if (els.card) els.card.style.display = 'none';
+    }
+
+    markSelectionDirty(dirty=true) {
+        const els = this._getSelEls();
+        if (!els.saveBtn) return;
+        if (dirty) {
+            els.saveBtn.disabled = false;
+            els.saveBtn.classList.add('btn-warning');
+        } else {
+            els.saveBtn.disabled = true;
+            els.saveBtn.classList.remove('btn-warning');
+        }
+    }
+
+    populateSelectionCard(object, meta) {
+        const els = this._getSelEls();
+        if (!els.card) return;
+        meta = meta || (object?.userData?.objectData) || object?.userData || {};
+        const isPath = meta.type === 'path';
+        const isTunnelModel = meta.type === 'tunnel' || meta.pathType === 'tunnel';
+        // Başlık
+        if (els.title) {
+            els.title.innerHTML = `<i class="fas fa-cube me-1"></i>${meta.name || 'Obje'}${isPath ? ' <span class=\"badge bg-info ms-1\">Path</span>' : ''}`;
+        }
+        // Meta
+        if (els.meta) {
+            els.meta.innerHTML = `ID: <span class="text-light">${meta.id ?? '-'}</span> · Tip: <span class="text-light">${meta.pathType || meta.type || '-'}</span>`;
+        }
+        // Dinamik alanlar
+        if (els.dyn) {
+            let html = '';
+            if (isPath) {
+                html += this._buildNumberField('Genişlik (m)', 'sel-width', meta.width, 0.1, 100, 0.1);
+                html += this._buildNumberField('Yükseklik (m)', 'sel-height', meta.height, 0.1, 100, 0.1);
+                html += `<div class="mb-2"><label class="form-label mb-1">Segment Sayısı</label><div class="form-control form-control-sm bg-dark text-light">${(meta.points||[]).length}</div></div>`;
+                html += `<div class="mb-2"><label class="form-label mb-1">Uzunluk</label><div class="form-control form-control-sm bg-dark text-light">${(meta.length||0).toFixed(2)} m</div></div>`;
+                html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
+            } else if (isTunnelModel && object?.userData?.parameters) {
+                const p = object.userData.parameters;
+                html += this._buildNumberField('Genişlik (m)', 'sel-width', p.width, 0.5, 50, 0.1);
+                html += this._buildNumberField('Yükseklik (m)', 'sel-height', p.height, 0.5, 50, 0.1);
+                html += this._buildNumberField('Uzunluk (m)', 'sel-length', p.length, 1, 10000, 0.5);
+                html += this._buildSelectField('Yön', 'sel-orientation', ['horizontal','vertical'], p.orientation);
+                html += this._buildNumberField('Açı (°)', 'sel-angle', p.angle||0, 0, 360, 1);
+                html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
+                html += this._buildNumberField('Ölçüm Adımı (m)', 'sel-meas-step', this.measurementStep, 1, 100, 1);
+            } else {
+                html += `<div class="text-muted small">Bu obje için düzenlenebilir alan yok.</div>`;
+            }
+            els.dyn.innerHTML = html;
+        }
+        // Genel alanlar
+        if (els.gen) {
+            els.gen.innerHTML = `<div class="mb-2"><label class="form-label mb-1">Pozisyon</label><div class="form-control form-control-sm bg-dark text-light">${object.position.x.toFixed(2)}, ${object.position.y.toFixed(2)}, ${object.position.z.toFixed(2)}</div></div>`;
+        }
+        // Event binding (change -> dirty)
+        ['sel-width','sel-height','sel-length','sel-angle','sel-orientation','sel-color'].forEach(id=>{
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', ()=> this.markSelectionDirty(true));
+        });
+        const stepEl = document.getElementById('sel-meas-step');
+        if (stepEl) {
+            stepEl.addEventListener('input', ()=> {
+                const v = parseInt(stepEl.value,10);
+                if (!isNaN(v) && v>0) {
+                    this.measurementStep = v;
+                    if (isTunnelModel) this.buildTunnelMeasurements(object, meta);
+                }
+            });
+        }
+        this.markSelectionDirty(false);
+        if (els.status) els.status.textContent='';
+    }
+
+    _buildNumberField(label, id, value, min, max, step) {
+        if (value == null) value = '';
+        return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><input type=\"number\" class=\"form-control form-control-sm bg-dark text-light\" id=\"${id}\" value=\"${value}\" min=\"${min}\" max=\"${max}\" step=\"${step}\"></div>`;
+    }
+    _buildColorField(label, id, value) {
+        return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><input type=\"color\" class=\"form-control form-control-color form-control-sm p-0 bg-dark border-0\" id=\"${id}\" value=\"${value}\" title=\"Renk seç\"></div>`;
+    }
+    _buildSelectField(label, id, options, current) {
+        const opts = options.map(o=>`<option value=\"${o}\" ${o===current?'selected':''}>${o}</option>`).join('');
+        return `<div class=\"mb-2\"><label class=\"form-label mb-1\" for=\"${id}\">${label}</label><select class=\"form-select form-select-sm bg-dark text-light\" id=\"${id}\">${opts}</select></div>`;
+    }
+
+    async saveSelectionEdits() {
+        const els = this._getSelEls();
+        if (!this.selectedObject || !els.saveBtn) return;
+        const meta = this.selectedObject.userData.objectData || this.selectedObject.userData || {};
+        const isPath = meta.type === 'path';
+        try {
+            if (isPath) {
+                const payload = {};
+                const w = parseFloat(document.getElementById('sel-width')?.value);
+                const h = parseFloat(document.getElementById('sel-height')?.value);
+                const c = document.getElementById('sel-color')?.value;
+                if (!isNaN(w)) payload.width = w;
+                if (!isNaN(h)) payload.height = h;
+                if (c) payload.color = c;
+                await this.updatePathToServer(meta.id, payload);
+            } else if (meta.type === 'tunnel' || meta.pathType === 'tunnel') {
+                // Parametrik tünel model güncelleme (varsayılan server id userData.serverId)
+                if (this.selectedObject.userData.serverId) {
+                    const p = { ...this.selectedObject.userData.parameters };
+                    const w = parseFloat(document.getElementById('sel-width')?.value);
+                    const h = parseFloat(document.getElementById('sel-height')?.value);
+                    const l = parseFloat(document.getElementById('sel-length')?.value);
+                    const a = parseFloat(document.getElementById('sel-angle')?.value);
+                    const o = document.getElementById('sel-orientation')?.value;
+                    const c = document.getElementById('sel-color')?.value;
+                    if (!isNaN(w)) p.width = w;
+                    if (!isNaN(h)) p.height = h;
+                    if (!isNaN(l)) p.length = l;
+                    if (!isNaN(a)) p.angle = a;
+                    if (o) p.orientation = o;
+                    // Renk local materyale uygula
+                    if (c && this.selectedObject.material) this.selectedObject.material.color.set(c);
+                    // Geometriyi yenile
+                    this.replaceTunnelGeometry(this.selectedObject, p);
+                    // Sunucuya gönder (varsayımsal endpoint update geometry.params)
+                    await fetch(`/api/mines/${this.mineId}/models/${this.selectedObject.userData.serverId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
+                        body: JSON.stringify({ geometry: { type: 'tunnel', params: p } })
+                    });
+                }
+            }
+            if (els.status) els.status.textContent = 'Kaydedildi';
+            this.markSelectionDirty(false);
+        } catch (e) {
+            console.error('Selection save error', e);
+            if (els.status) { els.status.style.color='#ff6b6b'; els.status.textContent='Kaydetme hatası'; }
+        }
     }
 
     async init() {
@@ -2296,7 +2497,7 @@ class SimpleMine3DViewer {
                 if (path && this.objectSelector) {
                     this.objectSelector.addSelectableObject(path, {
                         id: pathData.id,
-                        type: 'path',
+                        type: 'path', // selection kartı için ana tip
                         name: pathData.name,
                         pathType: pathData.type,
                         width: pathData.width,
@@ -2392,9 +2593,12 @@ class SimpleMine3DViewer {
             // Creating mode'da tıklama ile pozisyon güncelleme
             this.updateCreationPosition(event);
         } else {
-            // Normal mod - obje seçimi
-            this.handleObjectSelection(event);
-            // Herhangi bir seçim yoksa ve oluşturma modu aktif değilse kalan preview/hayalet objeyi temizle
+            // Normal mod - unified selection: objectSelector kullan
+            if (this.objectSelector) {
+                this.objectSelector.handleClick(event);
+            } else {
+                this.handleObjectSelection(event); // fallback
+            }
             if (!this.selectedObject && this.objectCreator && this.objectCreator.previewObject) {
                 this.objectCreator.removePreview();
             }
@@ -2458,7 +2662,7 @@ class SimpleMine3DViewer {
         // Visual highlight ekle
         this.addHighlight(object);
         
-        console.log('[SimpleMine3DViewer] Object selected:', object.userData);
+    // (Legacy selection log removed)
     }
 
     deselectObject() {
@@ -2763,7 +2967,8 @@ class SimpleMine3DViewer {
         const meta = data || (object && object.userData && object.userData.objectData) || object.userData || {};
         console.log('[SimpleMine3DViewer] Object selected:', meta);
         this.selectedObject = object;
-        this.showObjectInfo(meta);
+        // Yeni selection card
+        this.showSelectionCard(object, meta);
         // Path ise edit modunu başlat
         if (meta && (meta.pathType || meta.type === 'path') && this.pathEditor) {
             const group = object.parent && object.parent.userData && object.parent.userData.pathData ? object.parent : object;
@@ -2772,7 +2977,6 @@ class SimpleMine3DViewer {
         // Tünel (mesh) seçimi ise ölçüm çizgilerini oluştur
         if (meta && meta.type === 'tunnel') {
             this.buildTunnelMeasurements(object, meta);
-            this.showTunnelEditPanel(object, meta);
         }
     }
 
@@ -2785,8 +2989,7 @@ class SimpleMine3DViewer {
             this._measurementGroup = null;
         }
         this.selectedObject = null;
-        this.hideObjectInfo();
-        this.hideTunnelEditPanel();
+        this.hideSelectionCard();
         if (this.pathEditor && this.pathEditor.isEditing) this.pathEditor.stopEditing();
     }
 
@@ -3025,8 +3228,23 @@ class SimpleMine3DViewer {
             return new THREE.Line(geo, material);
         };
 
-        // Length markers every 5m
-        const lengthStep = 5;
+    // Length markers every measurementStep metres (include 0m)
+    const lengthStep = Math.max(1, this.measurementStep || 5);
+        // 0m label
+        {
+            const d = 0;
+            const ratio = d / length - 0.5;
+            const offset = ratio * length;
+            let pLabelPos;
+            if (lengthAxis === 'z') {
+                const yTop = basePos.y + height/2 + 0.02;
+                pLabelPos = new THREE.Vector3(basePos.x + width/2 + 0.2, yTop, basePos.z + offset);
+            } else {
+                const zFront = basePos.z - height/2 - 0.02;
+                pLabelPos = new THREE.Vector3(basePos.x + width/2 + 0.2, basePos.y + offset, zFront);
+            }
+            this._addSpriteLabel('0m', pLabelPos, textColor, group);
+        }
         for (let d = lengthStep; d < length + 0.001; d += lengthStep) {
             const ratio = d / length - 0.5; // centered
             const offset = ratio * length;
@@ -3079,132 +3297,7 @@ class SimpleMine3DViewer {
         }
     }
 
-    // ---- Tünel Düzenleme Paneli ----
-    ensureTunnelEditPanel() {
-        if (this._tunnelEditPanel) return this._tunnelEditPanel;
-        const panel = document.createElement('div');
-        panel.id = 'tunnel-edit-panel';
-                panel.style.cssText = `position:fixed;top:12px;right:12px;z-index:1200;background:rgba(0,0,0,0.85);color:#fff;padding:10px 12px 14px 12px;border-radius:8px;font:12px/1.4 Arial, sans-serif;min-width:220px;box-shadow:0 4px 14px rgba(0,0,0,0.4);display:none;cursor:default;`;        
-        panel.innerHTML = `
-                    <div id="te-drag-handle" style="font-weight:bold;margin-bottom:6px;cursor:move;display:flex;justify-content:space-between;align-items:center;">
-                        <span>Tünel Düzenle</span>
-                        <span style="font-size:10px;opacity:0.6;">(Sürükle)</span>
-                    </div>
-          <label style="display:block;margin-bottom:4px;">Genişlik <input type="number" step="0.1" min="0.5" id="te-width" style="width:70px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
-          <label style="display:block;margin-bottom:4px;">Yükseklik <input type="number" step="0.1" min="0.5" id="te-height" style="width:70px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
-          <label style="display:block;margin-bottom:4px;">Uzunluk <input type="number" step="0.5" min="1" id="te-length" style="width:80px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
-                    <label style="display:block;margin-bottom:4px;">Yön
-                        <select id="te-orientation" style="margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;">
-                            <option value="horizontal">Yatay</option>
-                            <option value="vertical">Dikey</option>
-                        </select>
-                    </label>
-          <label style="display:block;margin-bottom:6px;">Açı <input type="number" step="1" min="0" max="360" id="te-angle" style="width:60px;margin-left:4px;background:#222;border:1px solid #444;color:#fff;padding:2px 4px;"/></label>
-          <div style="display:flex;gap:6px;justify-content:space-between;margin-top:6px;">
-            <button id="te-save" style="flex:1;background:#1e7e34;border:none;color:#fff;padding:6px 4px;border-radius:4px;cursor:pointer;font-weight:bold;">Kaydet</button>
-            <button id="te-cancel" style="flex:1;background:#6c757d;border:none;color:#fff;padding:6px 4px;border-radius:4px;cursor:pointer;">İptal</button>
-          </div>
-          <div style="display:flex;gap:6px;justify-content:space-between;margin-top:6px;">
-            <button id="te-close" style="flex:1;background:#444;border:none;color:#ddd;padding:5px 4px;border-radius:4px;cursor:pointer;">Kapat</button>
-            <button id="te-reset" style="flex:1;background:#b54708;border:none;color:#fff;padding:5px 4px;border-radius:4px;cursor:pointer;">Geri Al</button>
-          </div>
-          <div id="te-status" style="margin-top:6px;font-size:11px;color:#8fd4ff;min-height:14px;"></div>
-        `;
-        document.body.appendChild(panel);
-        this._tunnelEditPanel = panel;
-        // Event listeners (delegated)
-        panel.querySelector('#te-close').addEventListener('click',()=>this.hideTunnelEditPanel());
-        panel.querySelector('#te-cancel').addEventListener('click',()=>this.revertTunnelTempChanges());
-        panel.querySelector('#te-reset').addEventListener('click',()=>this.revertTunnelTempChanges());
-        panel.querySelector('#te-save').addEventListener('click',()=>this.saveTunnelEdits());
-        ['te-width','te-height','te-length','te-angle','te-orientation'].forEach(id=>{
-            panel.querySelector('#'+id).addEventListener('input',()=>this.updateTunnelGeometryFromInputs());
-        });
-        // Draggable
-        const dragHandle = panel.querySelector('#te-drag-handle');
-        let dragOffX=0, dragOffY=0, dragging=false;
-        const onMove=(e)=>{ if(!dragging) return; panel.style.top=(e.clientY-dragOffY)+'px'; panel.style.left=(e.clientX-dragOffX)+'px'; panel.style.right='auto'; };
-        dragHandle.addEventListener('mousedown',(e)=>{ dragging=true; panel.style.userSelect='none'; dragOffX=e.clientX - panel.getBoundingClientRect().left; dragOffY=e.clientY - panel.getBoundingClientRect().top; window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',()=>{dragging=false;panel.style.userSelect='';window.removeEventListener('mousemove',onMove);},{once:true}); });
-        return panel;
-    }
-
-    showTunnelEditPanel(object, data) {
-        if (!object || !data || data.type !== 'tunnel') return;
-        try {
-            if (!data.parameters || typeof data.parameters !== 'object') {
-                // Parametre yoksa geometry'den tahmin et
-                const box = new THREE.Box3().setFromObject(object);
-                const size = new THREE.Vector3(); box.getSize(size);
-                data.parameters = {
-                    width: parseFloat(size.x.toFixed(2)) || 3,
-                    height: parseFloat(size.y.toFixed(2)) || 3,
-                    length: parseFloat(size.z.toFixed(2)) || 10,
-                    angle: 0,
-                    orientation: 'horizontal'
-                };
-            } else {
-                // Eksik alanları doldur
-                ['width','height','length'].forEach(k=>{ if (data.parameters[k]==null) data.parameters[k]= (k==='length'?10:3); });
-                if (data.parameters.angle==null) data.parameters.angle=0;
-            }
-            const panel = this.ensureTunnelEditPanel();
-            panel.style.display='block';
-            // Orijinal param yedeği
-            this._tunnelOriginalParams = JSON.parse(JSON.stringify(data.parameters||{}));
-            this._tunnelEditingObject = object;
-            this._tunnelEditingData = data;
-            // Input doldur
-        panel.querySelector('#te-width').value = data.parameters.width;
-        panel.querySelector('#te-height').value = data.parameters.height;
-        panel.querySelector('#te-length').value = data.parameters.length;
-        panel.querySelector('#te-angle').value = data.parameters.angle || 0;
-        panel.querySelector('#te-orientation').value = data.parameters.orientation || 'horizontal';
-            panel.querySelector('#te-status').textContent='';
-            console.log('[SimpleMine3DViewer] Tunnel edit panel opened with params:', data.parameters);
-        } catch(err) {
-            console.error('showTunnelEditPanel error', err);
-        }
-    }
-
-    hideTunnelEditPanel() {
-        if (this._tunnelEditPanel) this._tunnelEditPanel.style.display='none';
-        this._tunnelEditingObject = null;
-        this._tunnelEditingData = null;
-        this._tunnelOriginalParams = null;
-    }
-
-    revertTunnelTempChanges() {
-        if (!this._tunnelEditingObject || !this._tunnelOriginalParams) return;
-        Object.assign(this._tunnelEditingData.parameters, this._tunnelOriginalParams);
-        this.replaceTunnelGeometry(this._tunnelEditingObject, this._tunnelEditingData.parameters);
-        // Inputları geri set et
-        const p=this._tunnelOriginalParams;
-        this._tunnelEditPanel.querySelector('#te-width').value = p.width;
-        this._tunnelEditPanel.querySelector('#te-height').value = p.height;
-        this._tunnelEditPanel.querySelector('#te-length').value = p.length;
-        this._tunnelEditPanel.querySelector('#te-angle').value = p.angle||0;
-        if (this._tunnelEditPanel.querySelector('#te-orientation')) this._tunnelEditPanel.querySelector('#te-orientation').value = p.orientation || 'horizontal';
-        this._tunnelEditPanel.querySelector('#te-status').textContent='İptal edildi';
-    }
-
-    updateTunnelGeometryFromInputs() {
-        if (!this._tunnelEditingObject || !this._tunnelEditingData) return;
-        const w = parseFloat(this._tunnelEditPanel.querySelector('#te-width').value)||1;
-        const h = parseFloat(this._tunnelEditPanel.querySelector('#te-height').value)||1;
-        const l = parseFloat(this._tunnelEditPanel.querySelector('#te-length').value)||1;
-        const a = parseFloat(this._tunnelEditPanel.querySelector('#te-angle').value)||0;
-        const oSel = this._tunnelEditPanel.querySelector('#te-orientation');
-        const o = oSel ? oSel.value : 'horizontal';
-        // Clamp basit
-        const params = this._tunnelEditingData.parameters;
-        params.width = Math.max(0.5, w);
-        params.height = Math.max(0.5, h);
-        params.length = Math.max(1, l);
-        params.angle = a % 360;
-        params.orientation = (o === 'vertical') ? 'vertical' : 'horizontal';
-        this.replaceTunnelGeometry(this._tunnelEditingObject, params);
-        this._tunnelEditPanel.querySelector('#te-status').textContent='(Kaydedilmedi)';
-    }
+    // Legacy tunnel edit panel methods removed (ensure/show/hide/revert/update/save).
 
     replaceTunnelGeometry(mesh, params) {
         if (!this.objectCreator) return; // objectCreator.createGeometry kullan
@@ -3216,32 +3309,7 @@ class SimpleMine3DViewer {
         if (this.measurementsEnabled) this.buildTunnelMeasurements(mesh, { type:'tunnel', parameters: params });
     }
 
-    async saveTunnelEdits() {
-        if (!this._tunnelEditingObject || !this._tunnelEditingData) return;
-        const params = this._tunnelEditingData.parameters;
-        try {
-            // Sunucuya güncelle (varsayım: models endpoint). serverId yoksa eklemeyi atla.
-            if (this._tunnelEditingObject.userData.serverId) {
-                const response = await fetch(`/api/mines/${this.mineId}/models/${this._tunnelEditingObject.userData.serverId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                    },
-                    body: JSON.stringify({ parameters: params })
-                });
-                if (!response.ok) throw new Error('HTTP '+response.status);
-            }
-            this._tunnelOriginalParams = JSON.parse(JSON.stringify(params));
-            this._tunnelEditPanel.querySelector('#te-status').textContent='Kaydedildi';
-            this.showSuccess('Tünel güncellendi');
-        } catch(err) {
-            console.error('Tunnel save error', err);
-            this.showError('Tünel kaydedilemedi: '+err.message);
-            this._tunnelEditPanel.querySelector('#te-status').textContent='Hata';
-        }
-    }
+    // Removed saveTunnelEdits (legacy panel functionality).
 
     _addSpriteLabel(text, position, color, parentGroup) {
         const canvas = document.createElement('canvas');
@@ -3331,152 +3399,7 @@ class SimpleMine3DViewer {
         }
     }
 
-    showObjectInfo(data) {
-        const panel = document.getElementById('object-info-panel');
-        const content = document.getElementById('object-info-content');
-        
-        if (panel && content) {
-            let infoHtml = `
-                <h6 class="mb-2">${data.name || 'Seçili Obje'}</h6>
-                <div class="mb-2">
-                    <small class="text-muted">Tip:</small><br>
-                    <span class="badge bg-primary">${this.getTypeDisplayName(data.pathType)}</span>
-                </div>
-            `;
-
-                        if (data.type === 'tunnel') {
-                                const p = data.parameters || {};
-                                infoHtml += `
-                                    <div class="mb-2">
-                                        <small class="text-muted">Tünel Parametreleri (Hızlı Düzenleme)</small>
-                                        <div class="row g-1 mt-1">
-                                            <div class="col-4">
-                                                <input type="number" step="0.1" min="0.5" class="form-control form-control-sm" id="ti-width" value="${p.width||3}" placeholder="Genişlik" title="Genişlik (m)">
-                                            </div>
-                                            <div class="col-4">
-                                                <input type="number" step="0.1" min="0.5" class="form-control form-control-sm" id="ti-height" value="${p.height||3}" placeholder="Yükseklik" title="Yükseklik (m)">
-                                            </div>
-                                            <div class="col-4">
-                                                <input type="number" step="0.5" min="1" class="form-control form-control-sm" id="ti-length" value="${p.length||10}" placeholder="Uzunluk" title="Uzunluk (m)">
-                                            </div>
-                                        </div>
-                                        <div class="row g-1 mt-1">
-                                            <div class="col-6">
-                                                <select id="ti-orientation" class="form-select form-select-sm">
-                                                    <option value="horizontal" ${p.orientation==='horizontal'?'selected':''}>Yatay</option>
-                                                    <option value="vertical" ${p.orientation==='vertical'?'selected':''}>Dikey</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-6">
-                                                <input type="number" step="1" min="0" max="360" class="form-control form-control-sm" id="ti-angle" value="${p.angle||0}" placeholder="Açı" title="Açı (derece)">
-                                            </div>
-                                        </div>
-                                        <div class="mt-2 d-grid gap-1">
-                                            <button class="btn btn-sm btn-outline-success" id="ti-apply">Uygula</button>
-                                            <button class="btn btn-sm btn-outline-primary" id="ti-open-full">Gelişmiş Paneli Aç</button>
-                                        </div>
-                                        <div class="mt-1"><small id="ti-status" class="text-warning"></small></div>
-                                    </div>
-                                `;
-                        }
-
-            if (data.type === 'path') {
-                infoHtml += `
-                    <div class="mb-2">
-                        <small class="text-muted">Fiziksel Özellikler:</small><br>
-                        <div class="row">
-                            <div class="col-6"><small>Genişlik: ${data.width}m</small></div>
-                            <div class="col-6"><small>Yükseklik: ${data.height}m</small></div>
-                        </div>
-                        <small>Uzunluk: ${data.length.toFixed(2)}m</small><br>
-                        <small>Malzeme: ${data.material || 'N/A'}</small>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Renk:</small><br>
-                        <span class="badge" style="background-color: ${data.color}; color: white;">${data.color}</span>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Nokta Sayısı:</small><br>
-                        <span>${data.points.length} nokta</span>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Segmentler:</small><br>
-                `;
-
-                // Her segment için uzunluk hesapla
-                for (let i = 1; i < data.points.length; i++) {
-                    const p1 = data.points[i - 1];
-                    const p2 = data.points[i];
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const dz = p2.z - p1.z;
-                    const segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    
-                    infoHtml += `<small>Segment ${i}: ${segmentLength.toFixed(2)}m</small><br>`;
-                }
-
-                infoHtml += `
-                    </div>
-                    <div class="d-grid gap-1">
-                        <button class="btn btn-outline-warning btn-sm" onclick="window.mineViewer.editSelectedObject()">
-                            <i class="fas fa-edit"></i> Düzenle
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="window.mineViewer.deleteSelectedObject()">
-                            <i class="fas fa-trash"></i> Sil
-                        </button>
-                    </div>
-                `;
-            }
-
-            content.innerHTML = infoHtml;
-            panel.style.display = 'block';
-
-            // Mini tünel form eventleri
-            if (data.type === 'tunnel') {
-                const applyBtn = document.getElementById('ti-apply');
-                const openBtn = document.getElementById('ti-open-full');
-                if (applyBtn) {
-                    applyBtn.addEventListener('click', () => {
-                        const w = parseFloat(document.getElementById('ti-width').value)||data.parameters.width;
-                        const h = parseFloat(document.getElementById('ti-height').value)||data.parameters.height;
-                        const l = parseFloat(document.getElementById('ti-length').value)||data.parameters.length;
-                        const a = parseFloat(document.getElementById('ti-angle').value)||0;
-                        const o = document.getElementById('ti-orientation').value;
-                        data.parameters.width = Math.max(0.5, w);
-                        data.parameters.height = Math.max(0.5, h);
-                        data.parameters.length = Math.max(1, l);
-                        data.parameters.angle = a % 360;
-                        data.parameters.orientation = o === 'vertical' ? 'vertical':'horizontal';
-                        if (this.selectedObject) {
-                            this.replaceTunnelGeometry(this.selectedObject, data.parameters);
-                            // Eğer üst panel açıksa inputları senkronize et
-                            if (this._tunnelEditPanel && this._tunnelEditPanel.style.display==='block') {
-                                this._tunnelEditPanel.querySelector('#te-width').value = data.parameters.width;
-                                this._tunnelEditPanel.querySelector('#te-height').value = data.parameters.height;
-                                this._tunnelEditPanel.querySelector('#te-length').value = data.parameters.length;
-                                this._tunnelEditPanel.querySelector('#te-angle').value = data.parameters.angle;
-                                this._tunnelEditPanel.querySelector('#te-orientation').value = data.parameters.orientation;
-                                this._tunnelEditPanel.querySelector('#te-status').textContent='(Kaydedilmedi)';
-                            }
-                            const st = document.getElementById('ti-status'); if (st) st.textContent='Uygulandı (Kaydetmeyi unutma)';
-                        }
-                    });
-                }
-                if (openBtn) {
-                    openBtn.addEventListener('click', () => {
-                        if (this.selectedObject) this.showTunnelEditPanel(this.selectedObject, data);
-                    });
-                }
-            }
-        }
-    }
-
-    hideObjectInfo() {
-        const panel = document.getElementById('object-info-panel');
-        if (panel) {
-            panel.style.display = 'none';
-        }
-    }
+    // Legacy object-info methods removed (showObjectInfo/hideObjectInfo).
 
     getTypeDisplayName(type) {
         const types = {
