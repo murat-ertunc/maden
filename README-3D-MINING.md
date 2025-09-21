@@ -99,7 +99,83 @@ php artisan serve
 3. Control panel (sağ üst) ile sahneyi kontrol edin
 4. Hızlı işlemler paneli (sol üst) ile katman/model ekleyin
 
+## 🎯 Gelişmiş 3D Özellikler
+
+### WebGL2 Desteği
+
+Sistem artık gelişmiş WebGL2 özellikleri ile donatılmıştır:
+
+- **Gelişmiş Shaderlar**: Tunnel, rock, metal ve conveyor için özel GLSL shaderlar
+- **Dinamik Aydınlatma**: Gerçek zamanlı gölgelendirme ve ışık hesaplamaları
+- **Gelişmiş Materyal Sistemi**: PBR (Physically Based Rendering) desteği
+
+### Collision Detection (Çarpışma Algılama)
+
+Akıllı tünel ve yol sistemi:
+
+- **Spatial Partitioning**: Hızlı 3D alan bölümleme algoritması
+- **Tunnel Overlap Detection**: Tünel çakışmalarını önleme sistemi
+- **Path Intersection Analysis**: Yol kesişim noktalarının otomatik analizi
+- **Dynamic Collision Response**: Çarpışma durumlarında otomatik tepki
+
+### Performance Monitoring
+
+Gerçek zamanlı performans takibi:
+
+- **FPS Tracking**: Anlık kare hızı izleme
+- **Memory Monitoring**: GPU ve CPU bellek kullanım analizi
+- **Auto-Optimization**: Performansa göre otomatik ayar optimizasyonu
+- **Render Statistics**: Çizim istatistikleri ve performans metrikleri
+
+### Kullanım Örnekleri
+
+#### Temel WebGL2 Kullanımı
+
+```javascript
+// WebGL2 destekli 3D görünüm başlatma
+const viewer = new Simple3DMineViewer('container', {
+    enableWebGL2: true,
+    enableCollisionDetection: true,
+    performanceMonitoring: true
+});
+
+// Maden verilerini yükleme
+viewer.loadMineData(mineData);
+```
+
+#### Gelişmiş Collision Detection
+
+```javascript
+// Tünel ekleme ve çarpışma kontrolü
+const tunnel = viewer.addTunnel({
+    start: [0, 0, 0],
+    end: [100, 0, 50],
+    diameter: 5
+});
+
+// Çarpışma kontrolü sonucu
+if (tunnel.hasCollisions) {
+    console.log('Çarpışma tespit edildi:', tunnel.collisions);
+}
+```
+
+#### Performans İzleme
+
+```javascript
+// Performans izleme başlatma
+viewer.enablePerformanceMonitor({
+    showUI: true,
+    autoOptimize: true,
+    thresholds: {
+        minFPS: 30,
+        maxMemoryMB: 512
+    }
+});
+```
+
 ### Katman Ekleme
+
+1. Control panel'den "Katman Ayarları" bölümünü açın
 1. Control panel'den "Katman Ayarları" bölümünü açın
 2. Şablon seçin (Kömür, Demir, Bakır, Altın, vb.)
 3. "Katman Ekle" butonuna tıklayın

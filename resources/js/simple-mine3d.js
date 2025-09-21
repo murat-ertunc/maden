@@ -1,7 +1,11 @@
-// Basit 3D Maden Görüntüleyici (ESM sürümü)
+// Basit 3D Maden Görüntüleyici (ESM sürümü) - Enhanced with WebGL2 & Collision Detection
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { WebGL2EnhancedRenderer } from './webgl2-enhanced.js';
+import { CollisionDetectionSystem } from './collision-detection.js';
+import { AdvancedShaderManager } from './advanced-shaders.js';
+import { PerformanceMonitor } from './performance-monitor.js';
 
 // Kontrolllü tünel oluşturucu sınıf
 class MineObjectCreator {
@@ -200,8 +204,36 @@ class MineObjectCreator {
             selectable: true
         };
         
+        // 🔍 Collision Detection: Validate placement before adding to scene
+        if (this.viewer && this.viewer.collisionSystem) {
+            const existingObjects = Array.from(this.createdObjects.values());
+            const validation = this.viewer.collisionSystem.validateTunnelPlacement(finalObject, existingObjects);
+            
+            if (!validation.isValid) {
+                // Show collision warning
+                const conflictCount = validation.conflicts.length;
+                const message = `⚠️ Placement conflict detected!\n${conflictCount} collision(s) found.`;
+                
+                if (!confirm(`${message}\n\nDo you want to place anyway?`)) {
+                    // Cancel placement
+                    finalObject.geometry.dispose();
+                    finalObject.material.dispose();
+                    return null;
+                }
+            }
+        }
+        
         this.scene.add(finalObject);
         this.createdObjects.set(finalObject.userData.id, finalObject);
+
+        // 🔍 Register with collision system
+        if (this.viewer && this.viewer.collisionSystem) {
+            this.viewer.collisionSystem.registerObject(finalObject, 'static', {
+                type: this.currentType,
+                creator: 'MineObjectCreator',
+                parameters: params
+            });
+        }
 
         // Viewer varsa seçim sistemine ekle
         if (this.viewer && this.viewer.objectSelector) {
@@ -773,6 +805,48 @@ class MinePathDrawer {
 
         const path = this.createPathMesh(points, width, height, color, type);
         path.userData = { id, type, pathData };
+        
+        // 🔍 Collision Detection: Check for path intersections
+        if (this.viewer && this.viewer.collisionSystem) {
+            const existingPaths = Array.from(this.paths.values());
+            let hasIntersections = false;
+            
+            existingPaths.forEach(existingPath => {
+                const intersections = this.viewer.collisionSystem.detectPathIntersections(path, existingPath);
+                if (intersections.length > 0) {
+                    hasIntersections = true;
+                    console.warn(`⚠️ Path intersection detected with path ${existingPath.userData.id}:`, intersections);
+                    
+                    // Visualize intersection points (optional)
+                    if (this.viewer.options?.debugCollisions) {
+                        intersections.forEach(intersection => {
+                            const marker = new THREE.Mesh(
+                                new THREE.SphereGeometry(0.2),
+                                new THREE.MeshBasicMaterial({ color: 0xff0000 })
+                            );
+                            marker.position.copy(intersection.point);
+                            this.scene.add(marker);
+                            
+                            // Remove marker after 5 seconds
+                            setTimeout(() => this.scene.remove(marker), 5000);
+                        });
+                    }
+                }
+            });
+            
+            if (hasIntersections) {
+                console.log(`⚠️ Path ${id} has intersections with existing paths`);
+            }
+            
+            // Register path with collision system
+            this.viewer.collisionSystem.registerObject(path, 'static', {
+                type: 'path',
+                pathType: type,
+                points: points,
+                width: width,
+                height: height
+            });
+        }
         
         this.paths.set(id, path);
         this.scene.add(path);
@@ -1725,13 +1799,21 @@ class ObjectSelector {
 }
 
 class SimpleMine3DViewer {
-    constructor(containerId, mineId) {
+    constructor(containerId, mineId, options = {}) {
         console.log(`%c[SimpleMine3DViewer] Constructor called`, 'color: blue; font-weight: bold;');
-        console.log('[SimpleMine3DViewer] Parameters:', { containerId, mineId });
+        console.log('[SimpleMine3DViewer] Parameters:', { containerId, mineId, options });
         
         this.containerId = containerId;
         this.mineId = mineId;
         this.container = document.getElementById(containerId);
+        this.options = {
+            enableWebGL2: true,
+            enableCollisionDetection: true,
+            enableAdvancedShaders: true,
+            debugCollisions: false,
+            debugPerformance: false,
+            ...options
+        };
         
         console.log('[SimpleMine3DViewer] Container element:', this.container);
         
@@ -1743,14 +1825,25 @@ class SimpleMine3DViewer {
 
         console.log('[SimpleMine3DViewer] THREE.js (ESM) version:', THREE.REVISION);
 
+        // Core 3D components
         this.scene = null;
         this.camera = null;
         this.renderer = null;
         this.controls = null;
+        
+        // Enhanced components
+        this.webgl2Renderer = null;
+        this.collisionSystem = null;
+        this.shaderManager = null;
+        this.performanceMonitor = null;
+        
+        // Tool components
         this.pathDrawer = null;
-    this.pathEditor = null; // Path düzenleme
+        this.pathEditor = null; // Path düzenleme
         this.objectCreator = null; // Yeni oluşturucu
         this.transformControls = null; // Drag & Drop için
+        
+        // State management
         this.isPathDrawingMode = false;
         this.isCreatingMode = false; // Yeni mod
         this.selectedObject = null;
@@ -2081,6 +2174,13 @@ class SimpleMine3DViewer {
             }
             if (els.status) els.status.textContent = 'Kaydedildi';
             this.markSelectionDirty(false);
+            
+            // Kaydetme başarılı olduğunda düzenleme modundan çık
+            setTimeout(() => {
+                this.deselectObject(); // Transform controls'ı detach et ve seçimi kaldır
+                console.log('[SimpleMine3DViewer] Selection edits saved and object deselected');
+            }, 500); // Kullanıcının "Kaydedildi" mesajını görmesi için kısa bir delay
+            
         } catch (e) {
             console.error('Selection save error', e);
             if (els.status) { els.status.style.color='#ff6b6b'; els.status.textContent='Kaydetme hatası'; }
@@ -2175,6 +2275,100 @@ class SimpleMine3DViewer {
             // Add lights
             console.log('[SimpleMine3DViewer] Adding lights...');
             this.addLights();
+            
+            // 🚀 Initialize Enhanced WebGL2 Renderer (if enabled)
+            if (this.options.enableWebGL2) {
+                try {
+                    console.log('🚀 Initializing WebGL2 Enhanced Renderer...');
+                    this.webgl2Renderer = new WebGL2EnhancedRenderer(this.container, {
+                        debug: this.options.debugPerformance,
+                        ...this.options
+                    });
+                    
+                    if (this.webgl2Renderer.isWebGL2Supported) {
+                        // Replace standard renderer with WebGL2 enhanced version
+                        this.container.removeChild(this.renderer.domElement);
+                        this.renderer.dispose();
+                        this.renderer = this.webgl2Renderer.renderer;
+                        
+                        console.log('✅ WebGL2 Enhanced Renderer activated');
+                    } else {
+                        console.log('⚠️ WebGL2 not supported, using standard renderer');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ WebGL2 Enhanced Renderer failed to initialize:', error);
+                }
+            }
+            
+            // 🔍 Initialize Collision Detection System (if enabled)
+            if (this.options.enableCollisionDetection) {
+                try {
+                    console.log('🔍 Initializing Collision Detection System...');
+                    this.collisionSystem = new CollisionDetectionSystem(this.scene, {
+                        debug: this.options.debugCollisions,
+                        enableSpatialPartitioning: true,
+                        gridSize: 10,
+                        debugVisualization: this.options.debugCollisions
+                    });
+                    
+                    console.log('✅ Collision Detection System activated');
+                } catch (error) {
+                    console.warn('⚠️ Collision Detection System failed to initialize:', error);
+                }
+            }
+            
+            // 🎨 Initialize Advanced Shader Manager (if enabled)
+            if (this.options.enableAdvancedShaders && this.renderer) {
+                try {
+                    console.log('🎨 Initializing Advanced Shader Manager...');
+                    this.shaderManager = new AdvancedShaderManager(this.renderer);
+                    
+                    // Setup enhanced lighting with WebGL2 features
+                    if (this.webgl2Renderer?.isWebGL2Supported) {
+                        const enhancedLighting = this.webgl2Renderer.createAdvancedLighting(this.scene);
+                        console.log('✨ Enhanced WebGL2 lighting activated');
+                    }
+                    
+                    console.log('✅ Advanced Shader Manager activated');
+                } catch (error) {
+                    console.warn('⚠️ Advanced Shader Manager failed to initialize:', error);
+                }
+            }
+            
+            // 📊 Initialize Performance Monitor (if enabled)
+            if (this.options.debugPerformance || this.options.enablePerformanceMonitoring) {
+                try {
+                    console.log('📊 Initializing Performance Monitor...');
+                    this.performanceMonitor = new PerformanceMonitor({
+                        enableGPUTiming: this.webgl2Renderer?.isWebGL2Supported || false,
+                        enableMemoryMonitoring: true,
+                        alertThresholds: {
+                            fps: 20,
+                            memoryMB: 300,
+                            drawCalls: 800
+                        }
+                    });
+                    
+                    // Setup performance alerts
+                    this.performanceMonitor.onAlert((type, alerts) => {
+                        alerts.forEach(alert => {
+                            console.warn(`📊 Performance Alert [${alert.type}]:`, alert.message);
+                            
+                            // Show user notification for critical alerts
+                            if (alert.severity === 'critical') {
+                                this.showError(`Performance issue: ${alert.message}`);
+                            }
+                        });
+                    });
+                    
+                    // Start monitoring once renderer is ready
+                    this.performanceMonitor.startMonitoring(this.renderer);
+                    
+                    console.log('✅ Performance Monitor activated');
+                } catch (error) {
+                    console.warn('⚠️ Performance Monitor failed to initialize:', error);
+                }
+            }
             
             // Add basic geometry for testing
             console.log('[SimpleMine3DViewer] Adding test geometry...');
@@ -2450,7 +2644,13 @@ class SimpleMine3DViewer {
             this.isCreatingMode = false;
             this.controls.enabled = true; // Orbit controls'u tekrar aç
             this.objectCreator.stopCreating();
+            
+            // Seçili nesneyi de bırak (transform controls'ı deaktif et)
+            this.deselectObject();
+            
+            // Tüm butonları pasif duruma getir
             this.updateToolButtonStates(null);
+            
             console.log('[SimpleMine3DViewer] Creating mode stopped');
         }
     }
@@ -2478,14 +2678,23 @@ class SimpleMine3DViewer {
         const toolButtons = document.querySelectorAll('.mining-tool-btn');
         toolButtons.forEach(button => {
             const tool = button.getAttribute('data-tool');
+            
+            // Önce tüm sınıfları temizle
+            button.classList.remove(
+                'btn-warning', 'btn-info', 'btn-success', 'btn-danger',
+                'btn-outline-warning', 'btn-outline-info', 'btn-outline-success', 'btn-outline-danger'
+            );
+            
             if (tool === activeToolType) {
-                button.classList.remove('btn-outline-warning', 'btn-outline-info', 'btn-outline-success', 'btn-outline-danger');
-                button.classList.add('btn-warning');
+                // Aktif araç - solid renk
+                button.classList.add(`btn-${this.getToolColor(tool)}`);
             } else {
-                button.classList.remove('btn-warning', 'btn-info', 'btn-success', 'btn-danger');
+                // Pasif araç - outline renk
                 button.classList.add(`btn-outline-${this.getToolColor(tool)}`);
             }
         });
+        
+        console.log('[SimpleMine3DViewer] Tool button states updated, active tool:', activeToolType);
     }
 
     getToolColor(toolType) {
@@ -2674,6 +2883,7 @@ class SimpleMine3DViewer {
     
     animate() {
         const frameStart = performance.now();
+        const time = frameStart * 0.001; // Convert to seconds
         
         requestAnimationFrame(() => this.animate());
         
@@ -2681,10 +2891,27 @@ class SimpleMine3DViewer {
             if (this.controls) {
                 this.controls.update();
             }
+            
+            // 🔍 Update Collision Detection System
+            if (this.collisionSystem) {
+                this.collisionSystem.update();
+            }
+            
+            // 🎨 Update Shader Uniforms (time, camera position, etc.)
+            if (this.shaderManager) {
+                this.shaderManager.updateShaderUniforms(time, this.camera);
+            }
+            
+            // 📊 Update Performance Monitor
+            if (this.performanceMonitor) {
+                this.performanceMonitor.update();
+            }
+            
             // LOD güncellemesi
             if (this.pathDrawer) {
                 this.pathDrawer.updateLOD();
             }
+            
             // Billboard sprite etiketlerini kameraya çevir
             if (this._measurementGroup && this.camera) {
                 const camQuat = this.camera.quaternion;
@@ -2695,7 +2922,10 @@ class SimpleMine3DViewer {
                 });
             }
             
-            if (this.renderer && this.scene && this.camera) {
+            // Enhanced rendering with WebGL2 if available
+            if (this.webgl2Renderer) {
+                this.webgl2Renderer.render(this.scene, this.camera);
+            } else if (this.renderer && this.scene && this.camera) {
                 this.renderer.render(this.scene, this.camera);
             } else {
                 console.error('[SimpleMine3DViewer] Missing components for rendering:', {
@@ -3006,8 +3236,11 @@ class SimpleMine3DViewer {
                 object.userData.serverId = savedData.data?.id;
                 console.log('[SimpleMine3DViewer] Successfully saved object to server:', savedData);
                 this.showSuccess('Obje başarıyla kaydedildi!');
-                // Kaydetme bitince creation moddan tamamen çık
-                if (this.forceExitCreationMode) this.forceExitCreationMode();
+                
+                // Kaydetme bitince düzenleme modundan tamamen çık
+                this.deselectObject(); // Transform controls'ı detach et
+                this.forceExitCreationMode(); // Creation mode'dan çık
+                console.log('[SimpleMine3DViewer] Obje kaydedildi ve düzenleme modu kapatıldı');
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -3024,12 +3257,38 @@ class SimpleMine3DViewer {
             try { this.objectCreator.hideCreationUI?.(); } catch(e) {}
             try { this.objectCreator.removePreview(); } catch(e) {}
         }
+        
+        // Tüm düzenleme modlarından çık
         this.isCreatingMode = false;
+        this.isPathDrawingMode = false;
+        
+        // Transform controls'ı detach et
+        if (this.transformControls) {
+            this.transformControls.detach();
+        }
+        
+        // Seçimi kaldır
+        if (this.selectedObject) {
+            this.removeHighlight(this.selectedObject);
+            this.selectedObject = null;
+        }
+        
+        // Controls'ı yeniden aktifleştir
+        if (this.controls) {
+            this.controls.enabled = true;
+        }
+        
         // Creation paneli açık kalmışsa kaldır
         const panel = document.getElementById('creation-panel');
         if (panel) panel.style.display = 'none';
-        // Cursor state vs. ileride eklenebilir
-        console.log('[SimpleMine3DViewer] Force exited creation mode');
+        
+        // Path drawing UI'ını da kapat
+        this.showPathDrawingUI(false);
+        
+        // Tüm butonları pasif duruma getir (HİÇBİR ARAÇ AKTİF DEĞİL)
+        this.updateToolButtonStates(null);
+        
+        console.log('[SimpleMine3DViewer] Force exited all creation/editing modes');
     }
 
     showSuccess(message) {
@@ -3267,6 +3526,11 @@ class SimpleMine3DViewer {
                         length: this.pathDrawer.calculatePathLength(points.map(p => ({ x: p.x, y: p.y, z: p.z })))
                     });
                 }
+                
+                // Kaydetme başarılı olduğunda düzenleme modundan tamamen çık
+                this.deselectObject(); // Transform controls'ı detach et
+                this.forceExitCreationMode(); // Creation mode'dan çık
+                console.log('[SimpleMine3DViewer] Yol kaydedildi ve düzenleme modu kapatıldı');
             }
         }).catch((error) => {
             console.error('[SimpleMine3DViewer] Yol kaydetme hatası:', error);
