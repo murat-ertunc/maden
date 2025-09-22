@@ -73,13 +73,53 @@ class MineApiController extends Controller
             'rotation' => 'array|size:3',
             'scale' => 'array|size:3',
             'material' => 'array',
+            'geometry' => 'array', // yeni: geometri güncelleme
             'properties' => 'nullable|array',
             'visible' => 'boolean'
         ]);
 
+        // Geometry içinde tünel parametre güncellemesi varsa validate detaylı
+        if (isset($validated['geometry'])) {
+            $g = $validated['geometry'];
+            // Temel zorunlu alanlar
+            if (!isset($g['type'])) {
+                return response()->json(['message' => 'geometry.type gerekli'], 422);
+            }
+            if ($g['type'] === 'tunnel') {
+                $errors = [];
+                $w = $g['width'] ?? null; $h = $g['height'] ?? null; $l = $g['length'] ?? null;
+                if (!is_numeric($w) || $w <= 0) $errors['geometry.width'] = 'Geçersiz width';
+                if (!is_numeric($h) || $h <= 0) $errors['geometry.height'] = 'Geçersiz height';
+                if (!is_numeric($l) || $l <= 0) $errors['geometry.length'] = 'Geçersiz length';
+                if ($errors) return response()->json(['errors' => $errors], 422);
+                // orientation mapping normalize
+                if (isset($g['orientation'])) {
+                    $o = $g['orientation'];
+                    if (in_array($o, ['yatay','horizontal'])) $g['orientation'] = 'horizontal';
+                    elseif (in_array($o, ['dikey','vertical'])) $g['orientation'] = 'vertical';
+                }
+                $validated['geometry'] = array_merge($model->geometry ?? [], $g);
+            } else {
+                // Diğer tipler için şimdilik merge et
+                $validated['geometry'] = array_merge($model->geometry ?? [], $g);
+            }
+        }
+
+        if (isset($validated['material'])) {
+            $m = $validated['material'];
+            // Renk numerik veya hex olabilir, doğrudan merge edeceğiz
+            if (isset($m['opacity'])) {
+                $op = $m['opacity'];
+                if (!is_numeric($op) || $op < 0 || $op > 1) {
+                    return response()->json(['errors' => ['material.opacity' => '0-1 arası olmalı']], 422);
+                }
+            }
+            $validated['material'] = array_merge($model->material ?? [], $m);
+        }
+
         $model->update($validated);
 
-        return response()->json($model);
+        return response()->json($model->fresh());
     }
 
     /**

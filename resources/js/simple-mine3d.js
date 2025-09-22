@@ -235,33 +235,38 @@ class MineObjectCreator {
 
     // Apply elliptical cross-section to tunnel
     applyEllipticalCrossSection(geometry, width, height) {
+        // Defensive numeric coercion & guards
+        width = Number(width);
+        height = Number(height);
+        if (!Number.isFinite(width) || width <= 0) width = 1;
+        if (!Number.isFinite(height) || height <= 0) height = 1;
+
         const positions = geometry.attributes.position;
+        if (!positions) return; // unexpected but guard anyway
         const vertex = new THREE.Vector3();
-        
+        const maxDim = Math.max(width, height);
+        if (maxDim <= 0) return;
+
         for (let i = 0; i < positions.count; i++) {
             vertex.fromBufferAttribute(positions, i);
-            
-            // Only modify X and Z coordinates (cross-section)
-            const distance = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
-            if (distance > 0) {
+            // Only modify X and Z coordinates (cross-section plane of base cylinder)
+            const distSq = vertex.x * vertex.x + vertex.z * vertex.z;
+            if (distSq > 1e-9) {
                 const angle = Math.atan2(vertex.z, vertex.x);
-                
-                // Calculate elliptical radius
-                const ellipseRadius = (width * height) / (2 * Math.sqrt(
-                    (height * Math.cos(angle) / 2) ** 2 + (width * Math.sin(angle) / 2) ** 2
-                ));
-                
-                const scale = ellipseRadius / (Math.max(width, height) / 2);
-                
+                // Correct ellipse radius formula (using full width/height as provided)
+                // r(θ) = (w*h) / (2 * sqrt( (h*cosθ)^2 + (w*sinθ)^2 )) when w,h are full diameters
+                const denom = Math.sqrt((height * Math.cos(angle)) ** 2 + (width * Math.sin(angle)) ** 2);
+                if (denom <= 0 || !Number.isFinite(denom)) continue; // skip unsafe
+                const ellipseRadius = (width * height) / (2 * denom);
+                const scale = ellipseRadius / (maxDim / 2);
+                if (!Number.isFinite(scale)) continue;
                 vertex.x *= scale;
                 vertex.z *= scale;
-                
                 positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
             }
         }
-        
         positions.needsUpdate = true;
-        geometry.computeVertexNormals();
+        try { geometry.computeVertexNormals(); } catch(e) { /* ignore */ }
     }
 
     // Apply 3D direction using direction vector
@@ -2908,6 +2913,50 @@ class SimpleMine3DViewer {
         const els = this._getSelEls();
         if (!els.card) return;
         meta = meta || (object?.userData?.objectData) || object?.userData || {};
+        // --- Normalizasyon (reload sonrası tutarlılık) ---
+        // Bazı kaydedilmiş modeller loadMineData sırasında userData.parameters içine width/height/length koyarken
+        // object.userData.objectData altında eksik olabilir veya tam tersi. UI sadece object.userData.parameters üzerinden ilerliyor.
+        if (object?.userData) {
+            // Ana param blok
+            const paramSrc = object.userData.parameters || meta.parameters;
+            // Eski kayıtlarda meta.width gibi düz değerler varsa topla
+            const derived = {
+                width: paramSrc?.width ?? meta.width ?? object.userData.width,
+                height: paramSrc?.height ?? meta.height ?? object.userData.height,
+                length: paramSrc?.length ?? meta.length ?? object.userData.length,
+                orientation: paramSrc?.orientation ?? meta.orientation ?? 'yatay'
+            };
+            // object.userData.parameters yoksa oluştur
+            if (!object.userData.parameters) {
+                object.userData.parameters = { ...derived };
+            } else {
+                // Eksik olanları doldur
+                ['width','height','length','orientation'].forEach(k=>{
+                    if (object.userData.parameters[k] == null && derived[k] != null) object.userData.parameters[k] = derived[k];
+                });
+            }
+            // object.userData.objectData yoksa selection sistemi için üret
+            if (!object.userData.objectData) {
+                object.userData.objectData = {
+                    id: meta.id || object.userData.serverId,
+                    type: meta.type || meta.pathType || object.userData.type || 'tunnel',
+                    name: meta.name || `Tünel ${object.userData.serverId || ''}`.trim(),
+                    parameters: object.userData.parameters,
+                    width: object.userData.parameters.width,
+                    height: object.userData.parameters.height,
+                    length: object.userData.parameters.length,
+                    pathType: (meta.pathType || meta.type === 'path') ? meta.pathType : undefined,
+                    color: meta.color || (object.material?.color ? `#${object.material.color.getHex().toString(16).padStart(6,'0')}` : '#808080')
+                };
+            } else {
+                // objectData içindeki parameters referansını güncelle (tek kaynak)
+                if (!object.userData.objectData.parameters) {
+                    object.userData.objectData.parameters = object.userData.parameters;
+                }
+            }
+            // Meta referansını güncellenmiş objectData'ya yönlendir
+            meta = object.userData.objectData;
+        }
         const isPath = meta.type === 'path';
         const isTunnelModel = meta.type === 'tunnel' || meta.pathType === 'tunnel';
         // Başlık
@@ -3105,9 +3154,19 @@ class SimpleMine3DViewer {
             let changed = false;
             let orientationChanged = false;
 
-            if (wEl && !isNaN(parseFloat(wEl.value)) && parseFloat(wEl.value) !== p.width) { p.width = parseFloat(wEl.value); changed = true; }
-            if (hEl && !isNaN(parseFloat(hEl.value)) && parseFloat(hEl.value) !== p.height) { p.height = parseFloat(hEl.value); changed = true; }
-            if (lEl && !isNaN(parseFloat(lEl.value)) && parseFloat(lEl.value) !== p.length) { p.length = parseFloat(lEl.value); changed = true; }
+            // Mevcut değerleri float'a çevir ve NaN koruması uygula
+            const newWidth = wEl && !isNaN(parseFloat(wEl.value)) ? parseFloat(wEl.value) : p.width;
+            const newHeight = hEl && !isNaN(parseFloat(hEl.value)) ? parseFloat(hEl.value) : p.height;
+            const newLength = lEl && !isNaN(parseFloat(lEl.value)) ? parseFloat(lEl.value) : p.length;
+            // Negatif veya sıfır değerler için alt sınır uygula
+            const safeWidth = (newWidth && newWidth > 0.01) ? newWidth : p.width || 1;
+            const safeHeight = (newHeight && newHeight > 0.01) ? newHeight : p.height || 1;
+            const safeLength = (newLength && newLength > 0.1) ? newLength : p.length || 1;
+
+            if (safeWidth !== p.width) { p.width = safeWidth; changed = true; }
+            if (safeHeight !== p.height) { p.height = safeHeight; changed = true; }
+            if (safeLength !== p.length) { p.length = safeLength; changed = true; }
+
             if (oEl && oEl.value && oEl.value !== p.orientation) { orientationChanged = true; p.orientation = oEl.value; changed = true; }
             if (cEl && cEl.value && this.selectedObject.material && '#' + this.selectedObject.material.color.getHexString() !== cEl.value) {
                 this.selectedObject.material.color.set(cEl.value);
@@ -3116,7 +3175,12 @@ class SimpleMine3DViewer {
                 const oldMat = this.selectedObject.material;
                 const oldOpacity = oldMat?.opacity;
                 const oldTransparent = oldMat?.transparent;
-                this.replaceTunnelGeometry(this.selectedObject, p);
+                // Geometri üretimi öncesi param guard
+                if (this._validateTunnelParams(p)) {
+                    this.replaceTunnelGeometry(this.selectedObject, p);
+                } else {
+                    console.warn('[SimpleMine3DViewer] Geçersiz tünel parametreleri, geometry rebuild iptal', p);
+                }
                 if (this.selectedObject.material && oldMat) {
                     this.selectedObject.material.opacity = oldOpacity;
                     this.selectedObject.material.transparent = oldTransparent || (oldOpacity < 1.0);
@@ -3213,17 +3277,32 @@ class SimpleMine3DViewer {
                     const oldMat = this.selectedObject.material;
                     const oldOpacity = oldMat?.opacity;
                     const oldTransparent = oldMat?.transparent;
-                    this.replaceTunnelGeometry(this.selectedObject, p);
+                    if (this._validateTunnelParams(p)) {
+                        this.replaceTunnelGeometry(this.selectedObject, p);
+                    } else {
+                        console.warn('[SimpleMine3DViewer] Geçersiz parametreler, server update iptal', p);
+                        return;
+                    }
                     if (this.selectedObject.material && oldMat) {
                         this.selectedObject.material.opacity = oldOpacity;
                         this.selectedObject.material.transparent = oldTransparent || (oldOpacity < 1.0);
                         this.selectedObject.material.needsUpdate = true;
                     }
+                    // Server tarafında geometry parametrelerini güncelle (geometry alanı updateModel validation'ında izin verilmiyorsa backend'e eklenmeli)
                     await fetch(`/api/mines/${this.mineId}/models/${this.selectedObject.userData.serverId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
-                        body: JSON.stringify({ geometry: { type: 'tunnel', params: p } })
-                    });
+                        body: JSON.stringify({ geometry: { type: 'tunnel', width: p.width, height: p.height, length: p.length, orientation: p.orientation }, material: { color: this.selectedObject.material.color.getHex(), opacity: this.selectedObject.material.opacity } })
+                    }).then(r=> r.ok ? r.json() : Promise.reject(new Error('Model update failed '+r.status))).then(()=>{
+                        // Başarılıysa local parametreler güncel kalır
+                        this.selectedObject.userData.parameters = { ...p };
+                        if (this.selectedObject.userData.objectData) {
+                            this.selectedObject.userData.objectData.parameters = this.selectedObject.userData.parameters;
+                            this.selectedObject.userData.objectData.width = p.width;
+                            this.selectedObject.userData.objectData.height = p.height;
+                            this.selectedObject.userData.objectData.length = p.length;
+                        }
+                    }).catch(e=> console.warn('[SimpleMine3DViewer] Server model update failed', e));
                 }
             }
             if (els.status) els.status.textContent = 'Kaydedildi';
@@ -4921,12 +5000,68 @@ class SimpleMine3DViewer {
         if (!this.objectCreator) return; // objectCreator.createGeometry kullan
         if (params.orientation === 'yatay') params.orientation = 'horizontal';
         if (params.orientation === 'dikey') params.orientation = 'vertical';
+        // Param sanitization & validation
+        params = this._sanitizeTunnelParams(params);
+        if (!this._validateTunnelParams(params)) {
+            console.error('[SimpleMine3DViewer] replaceTunnelGeometry: invalid params after sanitize', params);
+            return;
+        }
         const newGeo = this.objectCreator.createGeometry('tunnel', params);
+        // NaN guard: pozisyon attribute içerisindeki verileri hızlı kontrol et
+        const posAttr = newGeo.attributes?.position;
+        if (posAttr) {
+            let hasNaN = false; let firstBadIndex = -1; let firstBadVal;
+            for (let i=0; i<posAttr.count; i++) {
+                const x = posAttr.getX(i); const y = posAttr.getY(i); const z = posAttr.getZ(i);
+                if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))) { hasNaN = true; firstBadIndex = i; firstBadVal = {x,y,z}; break; }
+            }
+            if (hasNaN) {
+                console.error('[SimpleMine3DViewer] Geometry creation produced invalid vertex, aborting apply', {params, firstBadIndex, firstBadVal});
+                newGeo.dispose();
+                return;
+            }
+        }
         if (mesh.geometry) mesh.geometry.dispose();
         mesh.geometry = newGeo;
         mesh.userData.parameters = { ...params };
         // Ölçüm çizgilerini yeniden kur
         if (this.measurementsEnabled) this.buildTunnelMeasurements(mesh, { type:'tunnel', parameters: params });
+    }
+
+    _validateTunnelParams(p) {
+        if (!p) return false;
+        const ok = (v,min)=> typeof v==='number' && !isNaN(v) && isFinite(v) && v>=min;
+        if (!ok(p.width,0.01)) return false;
+        if (!ok(p.height,0.01)) return false;
+        if (!ok(p.length,0.1)) return false;
+        return true;
+    }
+
+    _sanitizeTunnelParams(p) {
+        const out = {...p};
+        out.width = Number(out.width); if (!Number.isFinite(out.width) || out.width <= 0.01) out.width = 1;
+        out.height = Number(out.height); if (!Number.isFinite(out.height) || out.height <= 0.01) out.height = out.width;
+        out.length = Number(out.length); if (!Number.isFinite(out.length) || out.length <= 0.1) out.length = 10;
+        if (!out.orientation) out.orientation = 'horizontal';
+        // Direction / rotation defaults (keep backward compatibility)
+        if (!out.direction || typeof out.direction !== 'object') {
+            out.direction = { x:0, y:0, z:1 };
+        } else {
+            // Coerce direction components
+            out.direction = {
+                x: Number(out.direction.x) || 0,
+                y: Number(out.direction.y) || 0,
+                z: Number(out.direction.z) || 1
+            };
+            // Avoid zero vector (would produce NaN on normalize)
+            if (Math.abs(out.direction.x) + Math.abs(out.direction.y) + Math.abs(out.direction.z) === 0) {
+                out.direction.z = 1;
+            }
+        }
+        out.pitch = Number(out.pitch) || 0;
+        out.yaw = Number(out.yaw) || 0;
+        out.roll = Number(out.roll) || 0;
+        return out;
     }
 
     // Removed saveTunnelEdits (legacy panel functionality).
