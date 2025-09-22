@@ -27,10 +27,9 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="status" class="form-label">Durum *</label>
-                                    <select class="form-select @error('status') is-invalid @enderror" 
-                                            id="status" name="status" required>
+                                    <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
                                         <option value="">Durum Seçin</option>
-                                        <option value="planning" {{ old('status') === 'planning' ? 'selected' : '' }}>Planlama</option>
+                                        <option value="planning" {{ old('status') !== 'planning' ? 'selected' : '' }}>Planlama</option>
                                         <option value="active" {{ old('status') === 'active' ? 'selected' : '' }}>Aktif</option>
                                         <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Pasif</option>
                                         <option value="completed" {{ old('status') === 'completed' ? 'selected' : '' }}>Tamamlandı</option>

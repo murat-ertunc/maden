@@ -351,7 +351,8 @@ class MineObjectCreator {
         finalObject.userData = {
             id: this.nextId++,
             type: this.currentType,
-            parameters: { ...params },
+            // Opacity seçimi seçim panelinde doğru yansıtılabilsin diye kaydediyoruz
+            parameters: { ...params, opacity: (this.materialProperties?.opacity ?? 1.0) },
             selectable: true
         };
         
@@ -437,10 +438,20 @@ class MineObjectCreator {
             conveyor: 0xFFD700
         };
         
+        // Material properties'den değerleri al veya default kullan
+        const materialColor = this.materialProperties?.color ? 
+            new THREE.Color(this.materialProperties.color) : 
+            new THREE.Color(colors[type] || 0x808080);
+            
+        const opacity = this.materialProperties?.opacity ?? 1.0;
+        const shininess = this.materialProperties?.shininess ?? 30;
+        
         return new THREE.MeshPhongMaterial({
-            color: colors[type] || 0x808080,
-            transparent: false,
-            opacity: 1.0
+            color: materialColor,
+            transparent: opacity < 1.0,
+            opacity: opacity,
+            shininess: shininess,
+            specular: 0x444444
         });
     }
 
@@ -572,6 +583,65 @@ class MineObjectCreator {
                            style="width: 100%; margin-bottom: 10px;">
                 </div>
 
+                <!-- Material Controls -->
+                <div id="material-controls" style="margin-top: 15px; padding: 10px; background: #444; border-radius: 5px;">
+                    <label style="display: block; margin-bottom: 5px; color: #ddd;">
+                        <i class="fas fa-palette"></i> Material Ayarları:
+                    </label>
+                    
+                    <!-- Renk Seçici -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 3px; color: #ccc; font-size: 12px;">
+                            Renk:
+                        </label>
+                        <input type="color" id="tunnel-color" value="#808080" 
+                               style="width: 100%; height: 30px; border: none; border-radius: 3px; cursor: pointer;">
+                    </div>
+                    
+                    <!-- Saydamlık Slider -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 3px; color: #ccc; font-size: 12px;">
+                            Saydamlık: <span id="opacity-value">1.0</span>
+                        </label>
+                        <input type="range" id="tunnel-opacity" min="0.1" max="1.0" step="0.1" value="1.0"
+                               style="width: 100%; margin-bottom: 5px;">
+                    </div>
+                    
+                    <!-- Parlaklık Slider -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 3px; color: #ccc; font-size: 12px;">
+                            Parlaklık: <span id="shininess-value">30</span>
+                        </label>
+                        <input type="range" id="tunnel-shininess" min="0" max="100" step="5" value="30"
+                               style="width: 100%; margin-bottom: 5px;">
+                    </div>
+                    
+                    <!-- Material Presets -->
+                    <div style="margin-top: 10px;">
+                        <label style="display: block; margin-bottom: 5px; color: #ccc; font-size: 12px;">
+                            Hazır Material'ler:
+                        </label>
+                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                            <button class="material-preset" data-preset="concrete" 
+                                    style="padding: 4px 8px; background: #666; color: white; border: none; border-radius: 3px; font-size: 11px; cursor: pointer;">
+                                Beton
+                            </button>
+                            <button class="material-preset" data-preset="metal" 
+                                    style="padding: 4px 8px; background: #888; color: white; border: none; border-radius: 3px; font-size: 11px; cursor: pointer;">
+                                Metal
+                            </button>
+                            <button class="material-preset" data-preset="rock" 
+                                    style="padding: 4px 8px; background: #654321; color: white; border: none; border-radius: 3px; font-size: 11px; cursor: pointer;">
+                                Kaya
+                            </button>
+                            <button class="material-preset" data-preset="glass" 
+                                    style="padding: 4px 8px; background: #add8e6; color: black; border: none; border-radius: 3px; font-size: 11px; cursor: pointer;">
+                                Cam
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Vector Controls -->
                 <div id="vector-controls" style="display: none;">
                     <label style="display: block; margin-bottom: 5px; color: #ddd;">
@@ -657,6 +727,12 @@ class MineObjectCreator {
         const dirY = document.getElementById('dir-y');
         const dirZ = document.getElementById('dir-z');
         const normalizeBtn = document.getElementById('normalize-vector');
+        
+        // Material controls
+        const tunnelColor = document.getElementById('tunnel-color');
+        const tunnelOpacity = document.getElementById('tunnel-opacity');
+        const tunnelShininess = document.getElementById('tunnel-shininess');
+        const materialPresets = document.querySelectorAll('.material-preset');
         
         // Action buttons
         const confirmBtn = document.getElementById('create-confirm');
@@ -791,6 +867,37 @@ class MineObjectCreator {
                 }
             });
         }
+
+        // Material control events
+        if (tunnelColor) {
+            tunnelColor.addEventListener('change', (e) => {
+                this.updateMaterialProperty('color', e.target.value);
+            });
+        }
+
+        if (tunnelOpacity) {
+            tunnelOpacity.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('opacity-value').textContent = value.toFixed(1);
+                this.updateMaterialProperty('opacity', value);
+            });
+        }
+
+        if (tunnelShininess) {
+            tunnelShininess.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById('shininess-value').textContent = value;
+                this.updateMaterialProperty('shininess', value);
+            });
+        }
+
+        // Material preset events
+        materialPresets.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const preset = e.target.dataset.preset;
+                this.applyMaterialPreset(preset);
+            });
+        });
 
         // Action buttons
         confirmBtn.addEventListener('click', () => {
@@ -1062,8 +1169,10 @@ class MineObjectCreator {
         document.getElementById('param3').value = params.length;
         document.getElementById('param3-value').textContent = params.length;
         document.getElementById('param3-number').value = params.length;
+            const aEl = document.getElementById('sel-angle');
         
         // Tunnel-specific kontrolleri göster/gizle
+            const opacityEl = document.getElementById('sel-opacity');
         const tunnelControls = document.getElementById('tunnel-controls');
         if (type === 'tunnel') {
             tunnelControls.style.display = 'block';
@@ -1081,7 +1190,6 @@ class MineObjectCreator {
             const objectData = {
                 mine_id: this.mineId || 1, // viewer'dan mineId al
                 name: `${object.userData.type.charAt(0).toUpperCase() + object.userData.type.slice(1)} ${object.userData.id}`,
-                type: 'model', // MineModel için
                 geometry: {
                     type: object.userData.type,
                     ...object.userData.parameters
@@ -1145,6 +1253,86 @@ class MineObjectCreator {
         setTimeout(() => {
             document.body.removeChild(errorDiv);
         }, 3000);
+    }
+
+    // 🎨 Material Control Methods
+    updateMaterialProperty(property, value) {
+        if (!this.previewObject || !this.previewObject.material) return;
+
+        switch (property) {
+            case 'color':
+                const color = new THREE.Color(value);
+                this.previewObject.material.color = color;
+                break;
+            case 'opacity':
+                this.previewObject.material.opacity = value;
+                this.previewObject.material.transparent = value < 1.0;
+                break;
+            case 'shininess':
+                if (this.previewObject.material.shininess !== undefined) {
+                    this.previewObject.material.shininess = value;
+                }
+                break;
+        }
+
+        // Material'i güncelle
+        this.previewObject.material.needsUpdate = true;
+        
+        // Final material parametrelerini de güncelle
+        if (!this.materialProperties) {
+            this.materialProperties = {};
+        }
+        this.materialProperties[property] = value;
+    }
+
+    applyMaterialPreset(preset) {
+        const presets = {
+            concrete: {
+                color: '#888888',
+                opacity: 1.0,
+                shininess: 10
+            },
+            metal: {
+                color: '#c0c0c0',
+                opacity: 0.9,
+                shininess: 80
+            },
+            rock: {
+                color: '#8b4513',
+                opacity: 1.0,
+                shininess: 5
+            },
+            glass: {
+                color: '#add8e6',
+                opacity: 0.3,
+                shininess: 100
+            }
+        };
+
+        const presetData = presets[preset];
+        if (!presetData) return;
+
+        // UI kontrollerini güncelle
+        const colorInput = document.getElementById('tunnel-color');
+        const opacityInput = document.getElementById('tunnel-opacity');
+        const shininessInput = document.getElementById('tunnel-shininess');
+
+        if (colorInput) {
+            colorInput.value = presetData.color;
+            this.updateMaterialProperty('color', presetData.color);
+        }
+
+        if (opacityInput) {
+            opacityInput.value = presetData.opacity;
+            document.getElementById('opacity-value').textContent = presetData.opacity.toFixed(1);
+            this.updateMaterialProperty('opacity', presetData.opacity);
+        }
+
+        if (shininessInput) {
+            shininessInput.value = presetData.shininess;
+            document.getElementById('shininess-value').textContent = presetData.shininess;
+            this.updateMaterialProperty('shininess', presetData.shininess);
+        }
     }
 }
 
@@ -1472,7 +1660,7 @@ class MinePathDrawer {
         return group;
     }
 
-    createPathMaterial(color, type) {
+    createPathMaterial(color, type, customOpacity = null) {
         const baseColor = new THREE.Color(color);
         
         switch (type) {
@@ -1480,7 +1668,7 @@ class MinePathDrawer {
                 return new THREE.MeshPhongMaterial({
                     color: baseColor,
                     transparent: true,
-                    opacity: 0.9,
+                    opacity: customOpacity ?? 0.9,
                     shininess: 30,
                     specular: 0x444444
                 });
@@ -1489,7 +1677,7 @@ class MinePathDrawer {
                 return new THREE.MeshLambertMaterial({
                     color: baseColor.multiplyScalar(0.7),
                     transparent: true,
-                    opacity: 0.95
+                    opacity: customOpacity ?? 0.95
                 });
             
             case 'rail':
@@ -1498,14 +1686,14 @@ class MinePathDrawer {
                     metalness: 0.7,
                     roughness: 0.3,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: customOpacity ?? 0.9
                 });
             
             case 'conveyor':
                 return new THREE.MeshPhongMaterial({
                     color: baseColor,
                     transparent: true,
-                    opacity: 0.8,
+                    opacity: customOpacity ?? 0.8,
                     shininess: 50,
                     specular: 0x888888
                 });
@@ -1514,7 +1702,7 @@ class MinePathDrawer {
                 return new THREE.MeshLambertMaterial({
                     color: baseColor,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: customOpacity ?? 0.9
                 });
         }
     }
@@ -2385,6 +2573,181 @@ class ObjectSelector {
             this.enableXRayMode(object);
         }
     }
+
+    // 🎨 Material Edit Methods for Selected Objects
+    updateSelectedObjectMaterial(property, value) {
+        if (!this.selectedObject) return;
+
+        console.log(`[ObjectSelector] Updating ${property} to ${value} for object type:`, this.selectedObject.type || 'unknown');
+
+        // Single mesh case (direct material)
+        if (this.selectedObject.material) {
+            console.log('[ObjectSelector] Applying to single mesh material');
+            this.applyMaterialProperty(this.selectedObject.material, property, value);
+        }
+        // Group case (traverse children to find meshes)
+        else if (this.selectedObject.isGroup || this.selectedObject.type === 'Group') {
+            console.log('[ObjectSelector] Applying to group children');
+            let meshCount = 0;
+            this.selectedObject.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    meshCount++;
+                    this.applyMaterialProperty(child.material, property, value);
+                } else if (child.isLineSegments && child.material) {
+                    // Update edge properties for path objects
+                    if (property === 'color') {
+                        const edgeColor = new THREE.Color(value).multiplyScalar(0.5);
+                        child.material.color = edgeColor;
+                    } else if (property === 'opacity') {
+                        child.material.opacity = Math.min(value * 0.6, 0.6); // Edge opacity is lower
+                        child.material.transparent = true;
+                    }
+                    child.material.needsUpdate = true;
+                }
+            });
+            console.log(`[ObjectSelector] Updated ${meshCount} meshes in group`);
+        } else {
+            console.warn('[ObjectSelector] No material found on selected object');
+        }
+        
+        console.log(`[ObjectSelector] Material update completed for ${property}`);
+    }
+
+    applyMaterialProperty(material, property, value) {
+        switch (property) {
+            case 'color':
+                const color = new THREE.Color(value);
+                material.color = color;
+                break;
+            case 'opacity':
+                material.opacity = value;
+                material.transparent = value < 1.0;
+                break;
+            case 'shininess':
+                if (material.shininess !== undefined) {
+                    material.shininess = value;
+                }
+                break;
+        }
+        
+        material.needsUpdate = true;
+    }
+
+    showMaterialEditor() {
+        if (!this.selectedObject) return;
+
+        // Get material properties from selected object
+        let materials = [];
+        if (this.selectedObject.material) {
+            // Single mesh
+            materials.push(this.selectedObject.material);
+        } else if (this.selectedObject.isGroup || this.selectedObject.type === 'Group') {
+            // Group - collect all mesh materials
+            this.selectedObject.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    materials.push(child.material);
+                }
+            });
+        }
+
+        if (materials.length === 0) {
+            console.warn('[ObjectSelector] No material found for selected object');
+            return;
+        }
+
+        // Calculate average values from all materials
+        let totalR = 0, totalG = 0, totalB = 0;
+        let totalOpacity = 0, totalShininess = 0;
+        
+        materials.forEach(material => {
+            totalR += material.color.r;
+            totalG += material.color.g;
+            totalB += material.color.b;
+            totalOpacity += material.opacity || 1.0;
+            totalShininess += material.shininess || 30;
+        });
+
+        const avgColor = new THREE.Color(
+            totalR / materials.length,
+            totalG / materials.length,
+            totalB / materials.length
+        );
+        const currentColor = '#' + avgColor.getHexString();
+        const currentOpacity = totalOpacity / materials.length;
+        const currentShininess = Math.round(totalShininess / materials.length);
+
+        console.log(`[ObjectSelector] Material editor opening with ${materials.length} materials, avg values:`, {
+            color: currentColor,
+            opacity: currentOpacity,
+            shininess: currentShininess
+        });
+
+        // Material editor UI oluştur
+        const editorHtml = `
+            <div id="material-editor" style="position: absolute; top: 50px; right: 10px; width: 250px; 
+                 background: rgba(0,0,0,0.9); border: 1px solid #555; border-radius: 8px; padding: 15px; 
+                 color: white; font-family: Arial; z-index: 10000;">
+                <h4 style="margin: 0 0 15px 0; color: #fff;">Material Editor</h4>
+                
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">Renk:</label>
+                    <input type="color" id="selected-color" value="${currentColor}" 
+                           style="width: 100%; height: 30px; border: none; border-radius: 3px;">
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">
+                        Saydamlık: <span id="selected-opacity-value">${currentOpacity.toFixed(1)}</span>
+                    </label>
+                    <input type="range" id="selected-opacity" min="0.1" max="1.0" step="0.1" value="${currentOpacity}"
+                           style="width: 100%;">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">
+                        Parlaklık: <span id="selected-shininess-value">${currentShininess}</span>
+                    </label>
+                    <input type="range" id="selected-shininess" min="0" max="100" step="5" value="${currentShininess}"
+                           style="width: 100%;">
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button id="apply-material" style="flex: 1; padding: 8px; background: #28a745; 
+                            color: white; border: none; border-radius: 4px; cursor: pointer;">Uygula</button>
+                    <button id="close-material-editor" style="flex: 1; padding: 8px; background: #dc3545; 
+                            color: white; border: none; border-radius: 4px; cursor: pointer;">Kapat</button>
+                </div>
+            </div>
+        `;
+
+        // Eski editörü kaldır
+        const existingEditor = document.getElementById('material-editor');
+        if (existingEditor) existingEditor.remove();
+
+        // Yeni editörü ekle
+        document.body.insertAdjacentHTML('beforeend', editorHtml);
+
+        // Event listener'ları ekle
+        document.getElementById('selected-color').addEventListener('change', (e) => {
+            this.updateSelectedObjectMaterial('color', e.target.value);
+        });
+
+        document.getElementById('selected-opacity').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('selected-opacity-value').textContent = value.toFixed(1);
+            this.updateSelectedObjectMaterial('opacity', value);
+        });
+
+        document.getElementById('selected-shininess').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('selected-shininess-value').textContent = value;
+            this.updateSelectedObjectMaterial('shininess', value);
+        });
+
+        document.getElementById('close-material-editor').addEventListener('click', () => {
+            document.getElementById('material-editor').remove();
+        });
+    }
 }
 
 class SimpleMine3DViewer {
@@ -2444,7 +2807,7 @@ class SimpleMine3DViewer {
         this.objectSelector = null;
         
         // 📍 Tünel endpoint göstergesi sistemi
-        this.endpointIndicators = new Map(); // tunnelId -> {A: mesh, B: mesh}
+        this.endpointIndicators = new Map(); // tunnelId -> {G: cylinder, B: cylinder}
         this.showEndpoints = true; // Endpoint'leri göster/gizle
         
         console.log('[SimpleMine3DViewer] Starting initialization...');
@@ -2564,13 +2927,28 @@ class SimpleMine3DViewer {
                 html += `<div class="mb-2"><label class="form-label mb-1">Segment Sayısı</label><div class="form-control form-control-sm bg-dark text-light">${(meta.points||[]).length}</div></div>`;
                 html += `<div class="mb-2"><label class="form-label mb-1">Uzunluk</label><div class="form-control form-control-sm bg-dark text-light">${(meta.length||0).toFixed(2)} m</div></div>`;
                 html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
+                // Path objeleri için mevcut opacity'yi al
+                let currentOpacity = 1.0;
+                // Önce userData'dan kontrol et
+                if (meta.opacity !== undefined) {
+                    currentOpacity = meta.opacity;
+                } else if (object && object.children && object.children.length > 0) {
+                    const firstChild = object.children[0];
+                    if (firstChild.material && firstChild.material.opacity !== undefined) {
+                        currentOpacity = firstChild.material.opacity;
+                    }
+                }
+                html += this._buildNumberField('Saydamlık', 'sel-opacity', currentOpacity, 0.1, 1.0, 0.1);
             } else if (isTunnelModel && object?.userData?.parameters) {
                 const p = object.userData.parameters;
+                // Opacity'yi önce parametrelerden, yoksa materyalden al
+                if (p.opacity == null && object.material && typeof object.material.opacity === 'number') {
+                    p.opacity = object.material.opacity;
+                }
                 html += this._buildNumberField('Genişlik (m)', 'sel-width', p.width, 0.5, 50, 0.1);
                 html += this._buildNumberField('Yükseklik (m)', 'sel-height', p.height, 0.5, 50, 0.1);
                 html += this._buildNumberField('Uzunluk (m)', 'sel-length', p.length, 1, 10000, 0.5);
                 html += this._buildSelectField('Yön', 'sel-orientation', ['yatay','dikey'], p.orientation);
-                html += this._buildNumberField('Açı (°)', 'sel-angle', p.angle||0, 0, 360, 1);
                 html += this._buildColorField('Renk', 'sel-color', meta.color || '#808080');
                 html += this._buildNumberField('Ölçüm Adımı (m)', 'sel-meas-step', this.measurementStep, 1, 100, 1);
                 
@@ -2585,8 +2963,8 @@ class SimpleMine3DViewer {
                 //             <div class="mb-2">
                 //                 <label class="form-label mb-1" style="font-size: 12px;">Bu Tünelin Ucu:</label>
                 //                 <select id="current-tunnel-endpoint" class="form-select form-select-sm bg-dark text-light">
-                //                     <option value="A">A Ucu (Başlangıç)</option>
-                //                     <option value="B">B Ucu (Bitiş)</option>
+                //                     <option value="A">Giriş Ucu (Yeşil)</option>
+                //                     <option value="B">Bitiş Ucu (Kırmızı)</option>
                 //                 </select>
                 //             </div>
                 //             <div class="mb-2">
@@ -2598,8 +2976,8 @@ class SimpleMine3DViewer {
                 //             <div class="mb-2">
                 //                 <label class="form-label mb-1" style="font-size: 12px;">Hedef Tünelin Ucu:</label>
                 //                 <select id="target-tunnel-endpoint" class="form-select form-select-sm bg-dark text-light">
-                //                     <option value="A">A Ucu (Başlangıç)</option>
-                //                     <option value="B">B Ucu (Bitiş)</option>
+                //                     <option value="A">Giriş Ucu (Yeşil)</option>
+                //                     <option value="B">Bitiş Ucu (Kırmızı)</option>
                 //                 </select>
                 //             </div>
                 //             <div class="btn-group" style="width: 100%; margin-top: 10px;">
@@ -2623,9 +3001,15 @@ class SimpleMine3DViewer {
             els.gen.innerHTML = `<div class="mb-2"><label class="form-label mb-1">Pozisyon</label><div class="form-control form-control-sm bg-dark text-light">${object.position.x.toFixed(2)}, ${object.position.y.toFixed(2)}, ${object.position.z.toFixed(2)}</div></div>`;
         }
         // Event binding (change -> dirty)
-        ['sel-width','sel-height','sel-length','sel-angle','sel-orientation','sel-color'].forEach(id=>{
+        // Tunnel düzenlemesinden açı (sel-angle) ve saydamlık (sel-opacity) kaldırıldı.
+        // Path objeleri için opacity hala destekleniyor; bu yüzden sel-opacity listede kalıyor.
+        ['sel-width','sel-height','sel-length','sel-orientation','sel-color','sel-opacity'].forEach(id=>{
             const el = document.getElementById(id);
             if (el) el.addEventListener('input', ()=> {
+                // Virgül girilirse nokta ile değiştir (yerel ondalık)
+                if (el.type === 'number' && typeof el.value === 'string' && el.value.includes(',')) {
+                    el.value = el.value.replace(',','.');
+                }
                 this.markSelectionDirty(true);
                 this._liveSelectionChange(id);
             });
@@ -2662,11 +3046,21 @@ class SimpleMine3DViewer {
             const widthEl = document.getElementById('sel-width');
             const heightEl = document.getElementById('sel-height');
             const colorEl = document.getElementById('sel-color');
+            const opacityEl = document.getElementById('sel-opacity');
             const width = parseFloat(widthEl?.value);
             const height = parseFloat(heightEl?.value);
             const color = colorEl?.value;
+            const opacity = parseFloat(opacityEl?.value);
             const data = pathGroup.userData.objectData || meta;
             let dirty = false;
+            
+            // Opacity değişikliği - sadece material güncellemesi (geometry rebuild gerektirmez)
+            if (!isNaN(opacity) && opacity >= 0.1 && opacity <= 1.0) {
+                this.updateSelectedObjectMaterial('opacity', opacity);
+                // userData'ya da kaydet ki UI yeniden açıldığında doğru değer gösterilsin
+                if (data) data.opacity = opacity;
+            }
+            
             if (!isNaN(width) && width > 0 && width !== data.width) { data.width = width; dirty = true; }
             if (!isNaN(height) && height > 0 && height !== data.height) { data.height = height; dirty = true; }
             if (color && color !== data.color) { data.color = color; dirty = true; }
@@ -2700,30 +3094,37 @@ class SimpleMine3DViewer {
                 }
             }
         } else if (isTunnelModel) {
+            // Tünel düzenlemesinde açı ve saydamlık artık düzenlenemez.
+            // Sadece genişlik, yükseklik, uzunluk ve yön güncellenir.
             const p = { ...(this.selectedObject.userData.parameters || {}) };
             const wEl = document.getElementById('sel-width');
             const hEl = document.getElementById('sel-height');
             const lEl = document.getElementById('sel-length');
-            const aEl = document.getElementById('sel-angle');
             const oEl = document.getElementById('sel-orientation');
             const cEl = document.getElementById('sel-color');
             let changed = false;
             let orientationChanged = false;
+
             if (wEl && !isNaN(parseFloat(wEl.value)) && parseFloat(wEl.value) !== p.width) { p.width = parseFloat(wEl.value); changed = true; }
             if (hEl && !isNaN(parseFloat(hEl.value)) && parseFloat(hEl.value) !== p.height) { p.height = parseFloat(hEl.value); changed = true; }
             if (lEl && !isNaN(parseFloat(lEl.value)) && parseFloat(lEl.value) !== p.length) { p.length = parseFloat(lEl.value); changed = true; }
-            if (aEl && !isNaN(parseFloat(aEl.value)) && parseFloat(aEl.value) !== p.angle) { p.angle = parseFloat(aEl.value); changed = true; }
             if (oEl && oEl.value && oEl.value !== p.orientation) { orientationChanged = true; p.orientation = oEl.value; changed = true; }
             if (cEl && cEl.value && this.selectedObject.material && '#' + this.selectedObject.material.color.getHexString() !== cEl.value) {
                 this.selectedObject.material.color.set(cEl.value);
             }
             if (changed) {
+                const oldMat = this.selectedObject.material;
+                const oldOpacity = oldMat?.opacity;
+                const oldTransparent = oldMat?.transparent;
                 this.replaceTunnelGeometry(this.selectedObject, p);
+                if (this.selectedObject.material && oldMat) {
+                    this.selectedObject.material.opacity = oldOpacity;
+                    this.selectedObject.material.transparent = oldTransparent || (oldOpacity < 1.0);
+                    this.selectedObject.material.needsUpdate = true;
+                }
                 if (orientationChanged && this.camera && this.controls) {
-                    // Basit easing ile yeni eksene göre kamerayı yeniden konumlandır
                     const target = this.selectedObject.position.clone();
                     const radius = this.camera.position.distanceTo(target);
-                    // Yeni hedef offset: dikey ise kamerayı hafif eğimli yukardan bakacak konuma al
                     let desired;
                     if (p.orientation === 'dikey' || p.orientation === 'vertical') {
                         desired = new THREE.Vector3(target.x + radius * 0.6, target.y + radius * 0.8, target.z + radius * 0.3);
@@ -2735,7 +3136,7 @@ class SimpleMine3DViewer {
                     const duration = 650;
                     const animate = (now)=>{
                         const t = Math.min(1, (now - startTime)/duration);
-                        const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOutQuad
+                        const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t;
                         this.camera.position.lerpVectors(startPos, desired, ease);
                         this.controls.target.lerpVectors(this.controls.target.clone(), target, ease);
                         if (t < 1) requestAnimationFrame(animate);
@@ -2785,30 +3186,39 @@ class SimpleMine3DViewer {
                 const w = parseFloat(document.getElementById('sel-width')?.value);
                 const h = parseFloat(document.getElementById('sel-height')?.value);
                 const c = document.getElementById('sel-color')?.value;
+                const o = parseFloat(document.getElementById('sel-opacity')?.value);
                 if (!isNaN(w)) payload.width = w;
                 if (!isNaN(h)) payload.height = h;
                 if (c) payload.color = c;
+                if (!isNaN(o) && o >= 0.1 && o <= 1.0) {
+                    payload.opacity = o;
+                    // Opacity'yi local material'e de uygula
+                    this.updateSelectedObjectMaterial('opacity', o);
+                }
                 await this.updatePathToServer(meta.id, payload);
             } else if (meta.type === 'tunnel' || meta.pathType === 'tunnel') {
-                // Parametrik tünel model güncelleme (varsayılan server id userData.serverId)
+                // Tünel düzenlemesinde artık açı ve saydamlık güncellenmez.
                 if (this.selectedObject.userData.serverId) {
                     const p = { ...this.selectedObject.userData.parameters };
                     const w = parseFloat(document.getElementById('sel-width')?.value);
                     const h = parseFloat(document.getElementById('sel-height')?.value);
                     const l = parseFloat(document.getElementById('sel-length')?.value);
-                    const a = parseFloat(document.getElementById('sel-angle')?.value);
                     const o = document.getElementById('sel-orientation')?.value;
                     const c = document.getElementById('sel-color')?.value;
                     if (!isNaN(w)) p.width = w;
                     if (!isNaN(h)) p.height = h;
                     if (!isNaN(l)) p.length = l;
-                    if (!isNaN(a)) p.angle = a;
                     if (o) p.orientation = o;
-                    // Renk local materyale uygula
                     if (c && this.selectedObject.material) this.selectedObject.material.color.set(c);
-                    // Geometriyi yenile
+                    const oldMat = this.selectedObject.material;
+                    const oldOpacity = oldMat?.opacity;
+                    const oldTransparent = oldMat?.transparent;
                     this.replaceTunnelGeometry(this.selectedObject, p);
-                    // Sunucuya gönder (varsayımsal endpoint update geometry.params)
+                    if (this.selectedObject.material && oldMat) {
+                        this.selectedObject.material.opacity = oldOpacity;
+                        this.selectedObject.material.transparent = oldTransparent || (oldOpacity < 1.0);
+                        this.selectedObject.material.needsUpdate = true;
+                    }
                     await fetch(`/api/mines/${this.mineId}/models/${this.selectedObject.userData.serverId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
@@ -3474,15 +3884,75 @@ class SimpleMine3DViewer {
             
             const data = await response.json();
             console.log('[SimpleMine3DViewer] Mine data loaded successfully:', data);
-            
-            // Process mine data here
-            if (data && data.models) {
+
+            // MODELS (mine_models tablosu) yükleme
+            if (Array.isArray(data.models)) {
                 console.log('[SimpleMine3DViewer] Processing', data.models.length, 'models');
+                data.models.forEach(model => {
+                    try {
+                        if (!model.geometry || !model.geometry.type) return; // beklenen format yok
+                        const g = model.geometry;
+                        // Yalnızca tünel tipleri için (şimdilik) instantiate edelim
+                        if (g.type === 'tunnel') {
+                            const params = {
+                                width: g.width || g.params?.width || 3,
+                                height: g.height || g.params?.height || 3,
+                                length: g.length || g.params?.length || 10
+                            };
+                            const radius = Math.max(params.width, params.height) / 2;
+                            const geom = new THREE.CylinderGeometry(radius, radius, params.length, 24, 1, false);
+                            // Legacy orientasyon desteği: varsayılan cylinder Y ekseninde -> bizim tüneller X'e yatırılmış haldeydi
+                            geom.rotateX(Math.PI/2);
+                            const colorHex = model.material?.color != null
+                                ? (typeof model.material.color === 'number' ? model.material.color : parseInt(model.material.color))
+                                : 0x808080;
+                            const opacityVal = model.material?.opacity ?? 1.0;
+                            const mat = new THREE.MeshPhongMaterial({ color: colorHex, opacity: opacityVal, transparent: opacityVal < 1 });
+                            const mesh = new THREE.Mesh(geom, mat);
+                            // Pozisyon / Rotasyon / Scale uygula
+                            if (Array.isArray(model.position) && model.position.length === 3) {
+                                mesh.position.set(model.position[0], model.position[1], model.position[2]);
+                            }
+                            if (Array.isArray(model.rotation) && model.rotation.length === 3) {
+                                mesh.rotation.set(model.rotation[0], model.rotation[1], model.rotation[2]);
+                            }
+                            if (Array.isArray(model.scale) && model.scale.length === 3) {
+                                mesh.scale.set(model.scale[0], model.scale[1], model.scale[2]);
+                            }
+                            mesh.userData = {
+                                selectable: true,
+                                serverId: model.id,
+                                type: 'tunnel',
+                                objectData: {
+                                    id: model.id,
+                                    type: 'tunnel',
+                                    name: model.name,
+                                    parameters: { ...params },
+                                    width: params.width,
+                                    height: params.height,
+                                    length: params.length,
+                                    color: `#${(colorHex).toString(16).padStart(6,'0')}`
+                                }
+                            };
+                            this.scene.add(mesh);
+                            if (this.objectSelector) {
+                                this.objectSelector.addSelectableObject(mesh, mesh.userData.objectData);
+                            }
+                        }
+                        // Diğer tipler: ileride eklenecek (road, rail, conveyor vs.)
+                    } catch (e) {
+                        console.warn('[SimpleMine3DViewer] Model load error for id', model.id, e);
+                    }
+                });
             }
-            if (data && data.layers) {
+
+            // LAYERS log
+            if (Array.isArray(data.layers)) {
                 console.log('[SimpleMine3DViewer] Processing', data.layers.length, 'layers');
             }
-            if (data && data.paths) {
+
+            // PATHS yükleme
+            if (Array.isArray(data.paths)) {
                 console.log('[SimpleMine3DViewer] Processing', data.paths.length, 'paths');
                 this.loadPaths(data.paths);
             }
@@ -3822,6 +4292,21 @@ class SimpleMine3DViewer {
             // E tuşu: Endpoint'leri güncelle
             this.updateAllTunnelEndpoints();
             console.log('[SimpleMine3DViewer] Endpoint update triggered by E key');
+        } else if (event.key === 'h' || event.key === 'H') {
+            event.preventDefault();
+            // H tuşu: Material Editor (Hue/Haz)
+            if (this.objectSelector && this.objectSelector.selectedObject) {
+                console.log('[SimpleMine3DViewer] Opening material editor for object:', {
+                    type: this.objectSelector.selectedObject.type,
+                    isGroup: this.objectSelector.selectedObject.isGroup,
+                    hasMaterial: !!this.objectSelector.selectedObject.material,
+                    userData: this.objectSelector.selectedObject.userData
+                });
+                this.objectSelector.showMaterialEditor();
+                console.log('[SimpleMine3DViewer] Material editor opened for selected object');
+            } else {
+                console.log('[SimpleMine3DViewer] No object selected for material editing');
+            }
         }
     }
 
@@ -5743,7 +6228,7 @@ class SimpleMine3DViewer {
             tunnel.updateMatrixWorld(true); // World matrix'i güncelle
         }
         
-        // A ve B uç noktalarını hesapla
+        // G ve B uç noktalarını hesapla
         const endpointA = this.calculateTunnelEndpoint(tunnel, 'A', metadata);
         const endpointB = this.calculateTunnelEndpoint(tunnel, 'B', metadata);
         
@@ -5754,107 +6239,70 @@ class SimpleMine3DViewer {
             return;
         }
         
-        // A ucu göstergesi (Kırmızı)
-        const endpointAMesh = this.createEndpointMesh('A', 0xff4444);
-        endpointAMesh.position.copy(endpointA.position);
-        this.scene.add(endpointAMesh);
+        // Giriş ucu göstergesi (Yeşil silindir)
+        const endpointGMesh = this.createEndpointMesh('G', 0x00ff44);
+        endpointGMesh.position.copy(endpointA.position);
+        this.scene.add(endpointGMesh);
         
-        // B ucu göstergesi (Mavi)
-        const endpointBMesh = this.createEndpointMesh('B', 0x4444ff);
+        // Bitiş ucu göstergesi (Kırmızı silindir)
+        const endpointBMesh = this.createEndpointMesh('B', 0xff4444);
         endpointBMesh.position.copy(endpointB.position);
         this.scene.add(endpointBMesh);
         
         // Map'e kaydet
         this.endpointIndicators.set(tunnelId, {
-            A: endpointAMesh,
+            G: endpointGMesh,
             B: endpointBMesh,
             tunnel: tunnel,
             metadata: metadata
         });
         
         console.log(`[EndpointSystem] Created endpoints for tunnel ${tunnelId} at:`, {
-            A: endpointA.position.toArray(),
+            G: endpointA.position.toArray(),
             B: endpointB.position.toArray()
         });
     }
 
     createEndpointMesh(label, color) {
-        // Ana sphere (daha büyük ve belirgin)
-        const geometry = new THREE.SphereGeometry(1.0, 32, 32);
-        const material = new THREE.MeshBasicMaterial({ 
+        // Sadece renkli silindir ucu - text ve sphere kaldırıldı
+        const radius = 0.8; // Silindir yarıçapı
+        const height = 1.5; // Silindir yüksekliği
+        
+        const geometry = new THREE.CylinderGeometry(radius, radius, height, 16);
+        const material = new THREE.MeshPhongMaterial({ 
             color: color,
             transparent: true,
-            opacity: 0.9
+            opacity: 0.8,
+            shininess: 50
         });
-        const mesh = new THREE.Mesh(geometry, material);
         
-        // Wire frame outline
-        const wireGeometry = new THREE.SphereGeometry(1.1, 16, 16);
-        const wireMaterial = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.8
-        });
-        const wireFrame = new THREE.Mesh(wireGeometry, wireMaterial);
-        mesh.add(wireFrame);
+        const cylinder = new THREE.Mesh(geometry, material);
+        cylinder.castShadow = true;
+        cylinder.receiveShadow = true;
         
-        // Text label (daha büyük ve net)
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 128;
-        canvas.height = 128;
-        
-        // Arka plan circle
-        context.fillStyle = label === 'A' ? '#ff4444' : '#4444ff';
-        context.beginPath();
-        context.arc(64, 64, 60, 0, 2 * Math.PI);
-        context.fill();
-        
-        // Beyaz border
-        context.strokeStyle = '#ffffff';
-        context.lineWidth = 4;
-        context.stroke();
-        
-        // Text
-        context.fillStyle = '#ffffff';
-        context.font = 'bold 72px Arial';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(label, 64, 64);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ 
-            map: texture,
-            transparent: true,
-            alphaTest: 0.1
-        });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(3, 3, 1);
-        sprite.position.set(0, 2.5, 0); // Label üstte
-        
-        mesh.add(sprite);
-        mesh.userData = { 
+        cylinder.userData = { 
             isEndpoint: true, 
             label: label,
-            originalScale: mesh.scale.clone()
+            originalScale: cylinder.scale.clone()
         };
         
-        return mesh;
+        return cylinder;
     }
 
     removeTunnelEndpoints(tunnelId) {
         const endpoints = this.endpointIndicators.get(tunnelId);
         if (endpoints) {
-            if (endpoints.A) {
-                this.scene.remove(endpoints.A);
-                endpoints.A.geometry.dispose();
-                endpoints.A.material.dispose();
+            if (endpoints.G) {
+                this.scene.remove(endpoints.G);
+                // Mesh geometri ve material temizle
+                if (endpoints.G.geometry) endpoints.G.geometry.dispose();
+                if (endpoints.G.material) endpoints.G.material.dispose();
             }
             if (endpoints.B) {
                 this.scene.remove(endpoints.B);
-                endpoints.B.geometry.dispose();
-                endpoints.B.material.dispose();
+                // Mesh geometri ve material temizle
+                if (endpoints.B.geometry) endpoints.B.geometry.dispose();
+                if (endpoints.B.material) endpoints.B.material.dispose();
             }
             this.endpointIndicators.delete(tunnelId);
         }
@@ -5900,7 +6348,7 @@ class SimpleMine3DViewer {
     toggleEndpointVisibility() {
         this.showEndpoints = !this.showEndpoints;
         for (const [tunnelId, endpoints] of this.endpointIndicators) {
-            if (endpoints.A) endpoints.A.visible = this.showEndpoints;
+            if (endpoints.G) endpoints.G.visible = this.showEndpoints;
             if (endpoints.B) endpoints.B.visible = this.showEndpoints;
         }
         console.log(`[EndpointSystem] Endpoints ${this.showEndpoints ? 'shown' : 'hidden'}`);
