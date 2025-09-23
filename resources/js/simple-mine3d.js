@@ -2815,6 +2815,11 @@ class SimpleMine3DViewer {
         this.endpointIndicators = new Map(); // tunnelId -> {G: cylinder, B: cylinder}
         this.showEndpoints = true; // Endpoint'leri göster/gizle
         
+        // 🎯 Tünel extension points sistemi (8 noktalı uzatma)
+        this.tunnelExtensionPoints = new Map(); // tunnelId -> {tunnel, metadata, pointsA, pointsB, allPoints}
+        this.showExtensionPoints = true; // Extension points'leri göster/gizle
+        this.activeExtensionPoint = null; // Şu anda aktif extension point
+        
         console.log('[SimpleMine3DViewer] Starting initialization...');
         // Dirty tracking
         this._dirtyPaths = new Set();
@@ -3635,6 +3640,13 @@ class SimpleMine3DViewer {
             this.animate();
             
             console.log('%c[SimpleMine3DViewer] Initialization completed successfully!', 'color: green; font-weight: bold; font-size: 14px;');
+            
+            // 🎯 Tünel Extension Points sistemini başlat
+            setTimeout(() => {
+                this.updateAllTunnelExtensionPoints();
+                console.log('[ExtensionSystem] Tunnel extension points initialized');
+            }, 200);
+            
             // Final safety hide (in case earlier hide didn't work)
             const lc2 = document.getElementById('loading-container');
             if (lc2 && lc2.style.display !== 'none') {
@@ -3742,7 +3754,44 @@ class SimpleMine3DViewer {
             });
         }
 
+        // Extension Points toggle butonu
+        const toggleExtensionBtn = document.getElementById('toggle-extension-btn');
+        if (toggleExtensionBtn) {
+            toggleExtensionBtn.addEventListener('click', () => {
+                this.toggleExtensionPointsVisibility();
+                const text = this.showExtensionPoints ? 'Uzatma Noktalarını Gizle' : 'Uzatma Noktalarını Göster';
+                toggleExtensionBtn.textContent = text;
+            });
+        } else {
+            // Eğer buton yoksa dinamik olarak oluştur
+            this.createExtensionToggleButton();
+        }
+
         console.log('[SimpleMine3DViewer] Mining controls setup completed');
+    }
+
+    createExtensionToggleButton() {
+        // View controls alanını bul
+        const viewControls = document.querySelector('.view-controls') || 
+                            document.querySelector('#view-controls') || 
+                            document.querySelector('[data-section="view"]');
+        
+        if (viewControls) {
+            const toggleBtn = document.createElement('button');
+            toggleBtn.id = 'toggle-extension-btn';
+            toggleBtn.className = 'btn btn-outline-info btn-sm';
+            toggleBtn.textContent = 'Uzatma Noktalarını Gizle';
+            toggleBtn.style.marginLeft = '5px';
+            
+            toggleBtn.addEventListener('click', () => {
+                this.toggleExtensionPointsVisibility();
+                const text = this.showExtensionPoints ? 'Uzatma Noktalarını Gizle' : 'Uzatma Noktalarını Göster';
+                toggleBtn.textContent = text;
+            });
+            
+            viewControls.appendChild(toggleBtn);
+            console.log('[ExtensionSystem] Extension toggle button created dynamically');
+        }
     }
     
     startMiningTool(toolType) {
@@ -4181,6 +4230,12 @@ class SimpleMine3DViewer {
         event.preventDefault();
         event.stopPropagation();
         
+        // Extension point tıklamasını önce kontrol et
+        const extensionPointClicked = this.checkExtensionPointClick(event);
+        if (extensionPointClicked) {
+            return; // Extension point işlendi, diğer işlemleri atla
+        }
+        
         if (this.isPathDrawingMode) {
             this.pathDrawer.handleClick(event);
         } else if (this.isCreatingMode) {
@@ -4197,6 +4252,38 @@ class SimpleMine3DViewer {
                 this.objectCreator.removePreview();
             }
         }
+    }
+
+    checkExtensionPointClick(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, this.camera);
+        
+        // Extension point'leri kontrol et
+        const extensionPoints = [];
+        if (this.tunnelExtensionPoints) {
+            for (const [tunnelId, data] of this.tunnelExtensionPoints) {
+                extensionPoints.push(...data.allPoints);
+            }
+        }
+        
+        if (extensionPoints.length === 0) return false;
+        
+        const intersects = raycaster.intersectObjects(extensionPoints);
+        
+        if (intersects.length > 0) {
+            const extensionPoint = intersects[0].object;
+            if (extensionPoint.userData.isExtensionPoint) {
+                this.handleExtensionPointClick(extensionPoint, event);
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     updateCreationPosition(event) {
@@ -6487,6 +6574,883 @@ class SimpleMine3DViewer {
             if (endpoints.B) endpoints.B.visible = this.showEndpoints;
         }
         console.log(`[EndpointSystem] Endpoints ${this.showEndpoints ? 'shown' : 'hidden'}`);
+    }
+
+    // 🎯 TÜNEL UZATMA VE EĞİM SİSTEMİ 
+    // Her tünel ucuna 8 noktalı kontrol sistemi ekler
+
+    createTunnelExtensionPoints(tunnel, metadata) {
+        if (!tunnel || !metadata) return;
+        
+        const tunnelId = metadata.id;
+        console.log('[ExtensionSystem] Creating extension points for tunnel:', tunnelId);
+        
+        // Mevcut extension noktalarını temizle
+        this.removeTunnelExtensionPoints(tunnelId);
+        
+        // Tünel parametrelerini al
+        const params = tunnel.userData.parameters || metadata.parameters || {};
+        const width = params.width || 3;
+        const height = params.height || 3;
+        const length = params.length || 10;
+        const orientation = params.orientation || 'horizontal';
+        
+        // Tünel uç noktalarını hesapla
+        const endpointA = this.calculateTunnelEndpoint(tunnel, 'A', metadata);
+        const endpointB = this.calculateTunnelEndpoint(tunnel, 'B', metadata);
+        
+        if (!endpointA || !endpointB) {
+            console.warn('[ExtensionSystem] Could not calculate tunnel endpoints');
+            return;
+        }
+        
+        // Her iki uç için 8'er nokta oluştur (toplam 16 nokta)
+        const extensionPointsA = this.create8ExtensionPoints(endpointA, width, height, 'A', tunnelId);
+        const extensionPointsB = this.create8ExtensionPoints(endpointB, width, height, 'B', tunnelId);
+        
+        // Tüm noktaları scene'e ekle
+        const allPoints = [...extensionPointsA, ...extensionPointsB];
+        allPoints.forEach(point => {
+            this.scene.add(point);
+        });
+        
+        // Extension points'leri kaydet
+        if (!this.tunnelExtensionPoints) {
+            this.tunnelExtensionPoints = new Map();
+        }
+        
+        this.tunnelExtensionPoints.set(tunnelId, {
+            tunnel: tunnel,
+            metadata: metadata,
+            pointsA: extensionPointsA,
+            pointsB: extensionPointsB,
+            allPoints: allPoints
+        });
+        
+        console.log(`[ExtensionSystem] Created 16 extension points for tunnel ${tunnelId}`);
+    }
+
+    create8ExtensionPoints(endpoint, width, height, side, tunnelId) {
+        const points = [];
+        const pointRadius = 0.3;
+        
+        // Silindir yarıçapını hesapla (en büyük boyut)
+        const cylinderRadius = Math.max(width, height) / 2;
+        const surfaceOffset = 0.1; // Yüzeyden çok az dışarıda
+        
+        // 8 noktanın konumları: silindir yüzeyine tam oturacak şekilde
+        const positions = [
+            { name: 'top', offset: [0, cylinderRadius + surfaceOffset, 0] },      // üst
+            { name: 'bottom', offset: [0, -cylinderRadius - surfaceOffset, 0] },  // alt
+            { name: 'right', offset: [cylinderRadius + surfaceOffset, 0, 0] },     // sağ
+            { name: 'left', offset: [-cylinderRadius - surfaceOffset, 0, 0] },     // sol
+            // Köşe noktaları: 45 derece açılarla silindir yüzeyinde
+            { name: 'top-right', offset: [
+                (cylinderRadius + surfaceOffset) * Math.cos(Math.PI/4), 
+                (cylinderRadius + surfaceOffset) * Math.sin(Math.PI/4), 
+                0
+            ]},
+            { name: 'top-left', offset: [
+                -(cylinderRadius + surfaceOffset) * Math.cos(Math.PI/4), 
+                (cylinderRadius + surfaceOffset) * Math.sin(Math.PI/4), 
+                0
+            ]},
+            { name: 'bottom-right', offset: [
+                (cylinderRadius + surfaceOffset) * Math.cos(Math.PI/4), 
+                -(cylinderRadius + surfaceOffset) * Math.sin(Math.PI/4), 
+                0
+            ]},
+            { name: 'bottom-left', offset: [
+                -(cylinderRadius + surfaceOffset) * Math.cos(Math.PI/4), 
+                -(cylinderRadius + surfaceOffset) * Math.sin(Math.PI/4), 
+                0
+            ]}
+        ];
+        
+        positions.forEach((pos, index) => {
+            const pointMesh = this.createExtensionPointMesh(pos.name, side, tunnelId);
+            
+            // Noktayı endpoint pozisyonuna göre yerleştir
+            pointMesh.position.copy(endpoint.position);
+            pointMesh.position.x += pos.offset[0];
+            pointMesh.position.y += pos.offset[1];
+            pointMesh.position.z += pos.offset[2];
+            
+            // Nokta metadata'sı
+            pointMesh.userData = {
+                isExtensionPoint: true,
+                tunnelId: tunnelId,
+                side: side, // 'A' veya 'B'
+                direction: pos.name,
+                pointIndex: index,
+                originalPosition: pointMesh.position.clone(),
+                extensionVector: new THREE.Vector3(...pos.offset).normalize()
+            };
+            
+            points.push(pointMesh);
+        });
+        
+        return points;
+    }
+
+    createExtensionPointMesh(direction, side, tunnelId) {
+        const geometry = new THREE.SphereGeometry(0.3, 12, 8);
+        
+        // Renk kodlaması: A ucu mavi tonları, B ucu turuncu tonları
+        const baseColor = side === 'A' ? 0x4488ff : 0xff8844;
+        const material = new THREE.MeshPhongMaterial({
+            color: baseColor,
+            transparent: true,
+            opacity: 0.8,
+            emissive: baseColor,
+            emissiveIntensity: 0.2
+        });
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.userData.selectable = true; // Tıklanabilir yap
+        
+        return mesh;
+    }
+
+    removeTunnelExtensionPoints(tunnelId) {
+        if (!this.tunnelExtensionPoints) return;
+        
+        const extensionData = this.tunnelExtensionPoints.get(tunnelId);
+        if (extensionData) {
+            // Tüm noktaları scene'den kaldır
+            extensionData.allPoints.forEach(point => {
+                this.scene.remove(point);
+                if (point.geometry) point.geometry.dispose();
+                if (point.material) point.material.dispose();
+            });
+            
+            this.tunnelExtensionPoints.delete(tunnelId);
+        }
+    }
+
+    updateAllTunnelExtensionPoints() {
+        console.log('[ExtensionSystem] Updating all tunnel extension points...');
+        
+        // Önce tüm mevcut extension points'leri temizle
+        if (this.tunnelExtensionPoints) {
+            for (const [tunnelId, data] of this.tunnelExtensionPoints) {
+                this.removeTunnelExtensionPoints(tunnelId);
+            }
+        }
+        
+        let tunnelCount = 0;
+        
+        // Scene'deki tüm tünelleri tara
+        this.scene.traverse((object) => {
+            if (object.userData && object.userData.selectable) {
+                const metadata = object.userData.objectData || object.userData;
+                if (metadata.type === 'tunnel' || metadata.pathType === 'tunnel') {
+                    this.createTunnelExtensionPoints(object, metadata);
+                    tunnelCount++;
+                }
+            }
+        });
+        
+        // Path'lerdeki tünelleri de kontrol et
+        if (this.pathDrawer && this.pathDrawer.paths) {
+            for (const [pathId, pathGroup] of this.pathDrawer.paths) {
+                const pathData = pathGroup.userData.pathData;
+                if (pathData && pathData.type === 'tunnel') {
+                    this.createTunnelExtensionPoints(pathGroup, pathData);
+                    tunnelCount++;
+                }
+            }
+        }
+        
+        console.log(`[ExtensionSystem] Updated extension points for ${tunnelCount} tunnels`);
+    }
+
+    toggleExtensionPointsVisibility() {
+        if (!this.tunnelExtensionPoints) return;
+        
+        this.showExtensionPoints = !this.showExtensionPoints;
+        
+        for (const [tunnelId, data] of this.tunnelExtensionPoints) {
+            data.allPoints.forEach(point => {
+                point.visible = this.showExtensionPoints;
+            });
+        }
+        
+        console.log(`[ExtensionSystem] Extension points ${this.showExtensionPoints ? 'shown' : 'hidden'}`);
+    }
+
+    // 🎮 EXTENSION POINT TOOLTIP MENÜ SİSTEMİ
+
+    handleExtensionPointClick(extensionPoint, event) {
+        if (!extensionPoint.userData.isExtensionPoint) return;
+        
+        console.log('[ExtensionSystem] Extension point clicked:', extensionPoint.userData);
+        
+        // Mevcut tooltip'i kapat
+        this.hideExtensionTooltip();
+        
+        // Yeni tooltip göster
+        this.showExtensionTooltip(extensionPoint, event);
+        
+        // Aktif extension point'i kaydet
+        this.activeExtensionPoint = extensionPoint;
+    }
+
+    showExtensionTooltip(extensionPoint, event) {
+        const userData = extensionPoint.userData;
+        const { tunnelId, side, direction } = userData;
+        
+        // Tooltip HTML'i oluştur
+        const tooltipHTML = `
+            <div id="extension-tooltip" style="
+                position: absolute;
+                background: rgba(20, 20, 20, 0.95);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                border: 2px solid #4488ff;
+                min-width: 250px;
+                z-index: 10000;
+                font-family: Arial, sans-serif;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            ">
+                <div style="margin-bottom: 10px; font-weight: bold; color: #4488ff;">
+                    🎯 Tünel Uzatma - ${side} Ucu
+                </div>
+                <div style="margin-bottom: 8px; font-size: 12px; color: #aaa;">
+                    Yön: ${direction} | Tünel: ${tunnelId}
+                </div>
+                
+                <div style="margin: 15px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">
+                        Uzatma Katsayısı:
+                    </label>
+                    <input type="range" id="extension-multiplier" 
+                           min="-10" max="10" step="0.5" value="1"
+                           style="width: 100%; margin-bottom: 8px;">
+                    <div style="text-align: center; font-size: 11px; color: #888;">
+                        <span id="multiplier-value">1.0</span>x
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 8px; margin-top: 15px;">
+                    <button id="extend-minus" style="
+                        flex: 1; padding: 8px; background: #ff4444; color: white; 
+                        border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+                    ">➖ Azalt</button>
+                    
+                    <button id="extend-plus" style="
+                        flex: 1; padding: 8px; background: #44ff44; color: white; 
+                        border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+                    ">➕ Artır</button>
+                </div>
+                
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button id="reset-extension" style="
+                        flex: 1; padding: 6px; background: #666; color: white; 
+                        border: none; border-radius: 4px; cursor: pointer; font-size: 11px;
+                    ">🔄 Sıfırla</button>
+                    
+                    <button id="close-tooltip" style="
+                        flex: 1; padding: 6px; background: #333; color: white; 
+                        border: none; border-radius: 4px; cursor: pointer; font-size: 11px;
+                    ">✖ Kapat</button>
+                </div>
+            </div>
+        `;
+        
+        // Tooltip'i sayfaya ekle
+        const tooltipDiv = document.createElement('div');
+        tooltipDiv.innerHTML = tooltipHTML;
+        document.body.appendChild(tooltipDiv.firstElementChild);
+        
+        // Mouse pozisyonuna yerleştir
+        const tooltip = document.getElementById('extension-tooltip');
+        tooltip.style.left = `${event.clientX + 10}px`;
+        tooltip.style.top = `${event.clientY - 50}px`;
+        
+        // Event listener'ları ekle
+        this.attachTooltipEventListeners(extensionPoint);
+    }
+
+    attachTooltipEventListeners(extensionPoint) {
+        const multiplierSlider = document.getElementById('extension-multiplier');
+        const multiplierValue = document.getElementById('multiplier-value');
+        const extendPlus = document.getElementById('extend-plus');
+        const extendMinus = document.getElementById('extend-minus');
+        const resetBtn = document.getElementById('reset-extension');
+        const closeBtn = document.getElementById('close-tooltip');
+        
+        // Slider değişikliklerini takip et
+        multiplierSlider.addEventListener('input', (e) => {
+            multiplierValue.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+        
+        // + butonu
+        extendPlus.addEventListener('click', () => {
+            const multiplier = parseFloat(multiplierSlider.value);
+            this.extendTunnelFromPoint(extensionPoint, multiplier);
+        });
+        
+        // - butonu
+        extendMinus.addEventListener('click', () => {
+            const multiplier = parseFloat(multiplierSlider.value);
+            this.extendTunnelFromPoint(extensionPoint, -multiplier);
+        });
+        
+        // Sıfırla butonu
+        resetBtn.addEventListener('click', () => {
+            this.resetTunnelExtension(extensionPoint);
+        });
+        
+        // Kapat butonu
+        closeBtn.addEventListener('click', () => {
+            this.hideExtensionTooltip();
+        });
+    }
+
+    hideExtensionTooltip() {
+        const existingTooltip = document.getElementById('extension-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        this.activeExtensionPoint = null;
+    }
+
+    // 🔧 TÜNEL UZATMA VE EĞİM ALGORİTMALARI
+
+    extendTunnelFromPoint(extensionPoint, multiplier) {
+        const userData = extensionPoint.userData;
+        const { tunnelId, side, direction, extensionVector } = userData;
+        
+        console.log('[ExtensionSystem] Extending tunnel:', { tunnelId, side, direction, multiplier });
+        
+        // Tünel verisini al
+        const extensionData = this.tunnelExtensionPoints.get(tunnelId);
+        if (!extensionData) {
+            console.error('[ExtensionSystem] Tunnel extension data not found:', tunnelId);
+            return;
+        }
+        
+        const tunnel = extensionData.tunnel;
+        const metadata = extensionData.metadata;
+        
+        // Mevcut tünel parametrelerini al
+        const currentParams = tunnel.userData.parameters || metadata.parameters || {};
+        const baseLength = currentParams.originalLength || currentParams.length || 10;
+        const baseWidth = currentParams.width || 3;
+        const baseHeight = currentParams.height || 3;
+        
+        // Uzatma miktarını hesapla
+        const extensionAmount = Math.abs(multiplier) * 2; // 2 metre base uzatma
+        const bendIntensity = multiplier * 0.5; // Eğim yoğunluğu
+        
+        // Yeni tünel parametrelerini hesapla
+        const newParams = this.calculateExtendedTunnelParams(
+            currentParams, 
+            extensionPoint, 
+            extensionAmount, 
+            bendIntensity,
+            side,
+            direction
+        );
+        
+        // Tünel geometrisini güncelle
+        this.applyTunnelExtension(tunnel, newParams, metadata);
+        
+        // Extension points'leri güncelle
+        this.updateTunnelExtensionPointsAfterChange(tunnelId);
+        
+        // Database'e kaydet
+        this.saveTunnelExtensionToDatabase(tunnel, newParams, metadata);
+        
+        console.log('[ExtensionSystem] Tunnel extended successfully');
+    }
+
+    calculateExtendedTunnelParams(currentParams, extensionPoint, extensionAmount, bendIntensity, side, direction) {
+        // Temel parametreleri kopyala
+        const newParams = { ...currentParams };
+        
+        // Orijinal uzunluğu kaydet
+        if (!newParams.originalLength) {
+            newParams.originalLength = newParams.length;
+        }
+        
+        // Yeni uzunluk hesapla
+        newParams.length = (newParams.originalLength || 10) + extensionAmount;
+        
+        // Eğim parametrelerini ekle
+        if (!newParams.bendPoints) {
+            newParams.bendPoints = [];
+        }
+        
+        // Yeni bend point ekle - uzatılan tünel bazında pozisyon hesapla
+        const originalLength = newParams.originalLength || 10;
+        const extendedLength = newParams.length;
+        
+        let bendPosition;
+        if (side === 'A') {
+            // A ucu: Orijinal tünelin başlangıcından kıvrılma başlasın
+            bendPosition = 0.0;
+        } else {
+            // B ucu: Orijinal tünelin bittiği yerden kıvrılma başlasın 
+            bendPosition = originalLength / extendedLength;
+        }
+        
+        const bendPoint = {
+            position: bendPosition,
+            direction: direction,
+            intensity: bendIntensity,
+            side: side
+        };
+        
+        newParams.bendPoints.push(bendPoint);
+        
+        // Curve parametrelerini ayarla
+        newParams.curveSegments = Math.max(16, newParams.bendPoints.length * 8);
+        newParams.smoothBends = true;
+        
+        return newParams;
+    }
+
+    applyTunnelExtension(tunnel, newParams, metadata) {
+        try {
+            // Yeni geometri oluştur
+            const newGeometry = this.createCurvedTunnelGeometry(newParams);
+            
+            if (!newGeometry) {
+                console.error('[ExtensionSystem] Failed to create curved geometry');
+                return;
+            }
+            
+            // Eski geometriyi temizle
+            if (tunnel.geometry) {
+                tunnel.geometry.dispose();
+            }
+            
+            // Yeni geometriyi uygula
+            tunnel.geometry = newGeometry;
+            tunnel.userData.parameters = newParams;
+            
+            // Metadata güncelle
+            if (metadata.parameters) {
+                metadata.parameters = newParams;
+            }
+            
+            console.log('[ExtensionSystem] Tunnel geometry updated successfully');
+            
+        } catch (error) {
+            console.error('[ExtensionSystem] Error applying tunnel extension:', error);
+        }
+    }
+
+    createCurvedTunnelGeometry(params) {
+        // Eğrisel tünel geometrisi oluşturur - SİLİNDİR ŞEKLINDE
+        const { width = 3, height = 3, length = 10, bendPoints = [] } = params;
+        
+        try {
+            // Tünel yolu için curve oluştur
+            const curve = this.createTunnelCurve(length, bendPoints);
+            
+            // Silindir yarıçapını hesapla 
+            const radius = Math.max(width, height) / 2;
+            
+            // TubeGeometry ile silindir şeklinde eğrisel tünel oluştur
+            const geometry = new THREE.TubeGeometry(
+                curve,                                      // path curve
+                Math.max(32, bendPoints.length * 16),      // tubular segments
+                radius,                                     // radius
+                24,                                         // radial segments (yuvarlak için)
+                false                                       // closed
+            );
+            
+            // Normal'ları hesapla
+            geometry.computeVertexNormals();
+            
+            return geometry;
+            
+        } catch (error) {
+            console.error('[ExtensionSystem] Error creating curved geometry:', error);
+            // Fallback: düz silindir tünel geometrisi
+            const radius = Math.max(params.width || 3, params.height || 3) / 2;
+            return new THREE.CylinderGeometry(radius, radius, params.length || 10, 24, 1, false);
+        }
+    }
+
+    createTunnelCurve(length, bendPoints) {
+        // Tünel merkez çizgisi için curve points oluştur
+        const points = [];
+        const segments = Math.max(32, bendPoints.length * 16);
+        
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const z = t * length - length / 2; // Z ekseni boyunca
+            
+            // Bend point'lerin etkisini hesapla
+            let x = 0, y = 0;
+            
+            bendPoints.forEach(bendPoint => {
+                const { position, direction, intensity, side } = bendPoint;
+                
+                // SADECE SEÇİLEN NOKTADAN İTİBAREN KIVIRILMA
+                // A ucu: position'dan sonraki kısım kıvrılır (t > position)
+                // B ucu: position'dan önceki kısım kıvrılır (t < position)
+                
+                let influence = 0;
+                
+                if (side === 'A') {
+                    // A ucu seçildiyse: position'dan sonra (tünelin devam eden kısmı) kıvrılır
+                    if (t >= position) {
+                        const distance = t - position; // position'dan ne kadar uzak
+                        influence = Math.max(0, 1 - distance * 2); // 0.5 etki alanı, sadece sonraki kısım
+                    }
+                } else { // side === 'B'
+                    // B ucu seçildiyse: position'dan önce (tünelin başlangıç kısmı) kıvrılır
+                    if (t <= position) {
+                        const distance = position - t; // position'dan ne kadar uzak
+                        influence = Math.max(0, 1 - distance * 2); // 0.5 etki alanı, sadece önceki kısım
+                    }
+                }
+                
+                if (influence > 0) {
+                    const bendAmount = intensity * influence;
+                    
+                    // Yön bazlı offset hesapla
+                    switch (direction) {
+                        case 'top':
+                            y += bendAmount;
+                            break;
+                        case 'bottom':
+                            y -= bendAmount;
+                            break;
+                        case 'right':
+                            x += bendAmount;
+                            break;
+                        case 'left':
+                            x -= bendAmount;
+                            break;
+                        case 'top-right':
+                            x += bendAmount * 0.7;
+                            y += bendAmount * 0.7;
+                            break;
+                        case 'top-left':
+                            x -= bendAmount * 0.7;
+                            y += bendAmount * 0.7;
+                            break;
+                        case 'bottom-right':
+                            x += bendAmount * 0.7;
+                            y -= bendAmount * 0.7;
+                            break;
+                        case 'bottom-left':
+                            x -= bendAmount * 0.7;
+                            y -= bendAmount * 0.7;
+                            break;
+                    }
+                }
+            });
+            
+            points.push(new THREE.Vector3(x, y, z));
+        }
+        
+        // CatmullRomCurve3 ile yumuşak geçişler
+        return new THREE.CatmullRomCurve3(points);
+    }
+
+    resetTunnelExtension(extensionPoint) {
+        const userData = extensionPoint.userData;
+        const { tunnelId } = userData;
+        
+        console.log('[ExtensionSystem] Resetting tunnel extension:', tunnelId);
+        
+        // Tünel verisini al
+        const extensionData = this.tunnelExtensionPoints.get(tunnelId);
+        if (!extensionData) return;
+        
+        const tunnel = extensionData.tunnel;
+        const metadata = extensionData.metadata;
+        
+        // Orijinal parametreleri geri yükle
+        const currentParams = tunnel.userData.parameters || {};
+        const originalParams = {
+            ...currentParams,
+            length: currentParams.originalLength || currentParams.length || 10,
+            bendPoints: [],
+            curveSegments: 16
+        };
+        
+        delete originalParams.originalLength;
+        
+        // Geometriyi sıfırla
+        this.applyTunnelExtension(tunnel, originalParams, metadata);
+        
+        // Extension points'leri güncelle
+        this.updateTunnelExtensionPointsAfterChange(tunnelId);
+        
+        // Database'e kaydet
+        this.saveResetToDatabase(tunnel, originalParams, metadata);
+        
+        console.log('[ExtensionSystem] Tunnel extension reset successfully');
+    }
+
+    updateTunnelExtensionPointsAfterChange(tunnelId) {
+        // Extension point'lerin pozisyonlarını güncelle
+        const extensionData = this.tunnelExtensionPoints.get(tunnelId);
+        if (!extensionData) return;
+        
+        console.log('[ExtensionSystem] Updating extension points for tunnel:', tunnelId);
+        
+        // Önce mevcut extension points'leri kaldır
+        this.removeTunnelExtensionPoints(tunnelId);
+        
+        // Tünel geometrisinin güncellenmesini bekle
+        setTimeout(() => {
+            // Extension points'leri yeniden hesaplayarak oluştur
+            this.recreateExtensionPointsWithUpdatedGeometry(tunnelId, extensionData);
+            
+            console.log('[ExtensionSystem] Extension points updated successfully');
+        }, 100);
+    }
+
+    recreateExtensionPointsWithUpdatedGeometry(tunnelId, extensionData) {
+        const { tunnel, metadata } = extensionData;
+        
+        // Tünel geometrisinin güncel bounding box'ını al
+        tunnel.geometry.computeBoundingBox();
+        tunnel.updateMatrixWorld(true);
+        
+        // Güncel endpoint'leri hesapla
+        const endpointA = this.calculateUpdatedTunnelEndpoint(tunnel, 'A', metadata);
+        const endpointB = this.calculateUpdatedTunnelEndpoint(tunnel, 'B', metadata);
+        
+        if (!endpointA || !endpointB) {
+            console.warn('[ExtensionSystem] Could not calculate updated endpoints');
+            return;
+        }
+        
+        // Güncel tünel parametrelerini al
+        const params = tunnel.userData.parameters || metadata.parameters || {};
+        const width = params.width || 3;
+        const height = params.height || 3;
+        
+        // Extension point'leri yeniden oluştur
+        const extensionPointsA = this.create8ExtensionPoints(endpointA, width, height, 'A', tunnelId);
+        const extensionPointsB = this.create8ExtensionPoints(endpointB, width, height, 'B', tunnelId);
+        
+        // Tüm noktaları scene'e ekle
+        const allPoints = [...extensionPointsA, ...extensionPointsB];
+        allPoints.forEach(point => {
+            this.scene.add(point);
+        });
+        
+        // Extension points'leri güncelle
+        this.tunnelExtensionPoints.set(tunnelId, {
+            tunnel: tunnel,
+            metadata: metadata,
+            pointsA: extensionPointsA,
+            pointsB: extensionPointsB,
+            allPoints: allPoints
+        });
+        
+        // Endpoint'leri de güncelle
+        if (this.endpointIndicators.has(tunnelId)) {
+            this.removeTunnelEndpoints(tunnelId);
+            this.createTunnelEndpoints(tunnel, metadata);
+        }
+    }
+
+    calculateUpdatedTunnelEndpoint(tunnel, endpoint, metadata) {
+        // Güncel geometri bounding box'ından endpoint hesapla
+        const box = new THREE.Box3();
+        box.setFromObject(tunnel);
+        
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        
+        // Ana eksen boyunca endpoint pozisyonlarını hesapla
+        let position, direction;
+        
+        // Eğrisel tünel ise curve'den endpoint'leri al
+        const params = tunnel.userData.parameters || metadata.parameters || {};
+        if (params.bendPoints && params.bendPoints.length > 0) {
+            // Eğrisel tünel - curve endpoint'lerini kullan
+            const curve = this.createTunnelCurve(params.length || 10, params.bendPoints);
+            
+            if (endpoint === 'A') {
+                position = curve.getPoint(0); // Başlangıç noktası
+                const tangent = curve.getTangent(0);
+                direction = tangent.clone().negate(); // Giriş yönü
+            } else {
+                position = curve.getPoint(1); // Bitiş noktası  
+                const tangent = curve.getTangent(1);
+                direction = tangent.clone(); // Çıkış yönü
+            }
+            
+            // World space'e çevir
+            position.applyMatrix4(tunnel.matrixWorld);
+            direction.transformDirection(tunnel.matrixWorld).normalize();
+            
+        } else {
+            // Düz tünel - bounding box endpoint'leri
+            const mainAxisLength = Math.max(size.x, size.y, size.z);
+            let offset;
+            
+            if (size.z >= size.x && size.z >= size.y) {
+                // Z ekseni en uzun
+                offset = endpoint === 'A' ? -size.z/2 : size.z/2;
+                position = new THREE.Vector3(center.x, center.y, center.z + offset);
+                direction = new THREE.Vector3(0, 0, endpoint === 'A' ? -1 : 1);
+            } else if (size.y >= size.x && size.y >= size.z) {
+                // Y ekseni en uzun
+                offset = endpoint === 'A' ? -size.y/2 : size.y/2;
+                position = new THREE.Vector3(center.x, center.y + offset, center.z);
+                direction = new THREE.Vector3(0, endpoint === 'A' ? -1 : 1, 0);
+            } else {
+                // X ekseni en uzun
+                offset = endpoint === 'A' ? -size.x/2 : size.x/2;
+                position = new THREE.Vector3(center.x + offset, center.y, center.z);
+                direction = new THREE.Vector3(endpoint === 'A' ? -1 : 1, 0, 0);
+            }
+        }
+        
+        return {
+            position: position,
+            direction: direction,
+            endpoint: endpoint
+        };
+    }
+
+    // 💾 DATABASE KAYDETME SİSTEMİ
+
+    saveTunnelExtensionToDatabase(tunnel, newParams, metadata) {
+        if (!this.mineId) {
+            console.warn('[ExtensionSystem] Mine ID not found, skipping database save');
+            return;
+        }
+
+        const tunnelId = metadata.id || metadata.serverId || tunnel.userData.id;
+        if (!tunnelId) {
+            console.warn('[ExtensionSystem] Tunnel ID not found, skipping database save');
+            return;
+        }
+
+        console.log('[ExtensionSystem] Saving tunnel extension to database:', { tunnelId, newParams });
+
+        // API payload hazırla
+        const updatePayload = {
+            width: newParams.width,
+            height: newParams.height,
+            length: newParams.length,
+            parameters: JSON.stringify(newParams),
+            bend_points: newParams.bendPoints ? JSON.stringify(newParams.bendPoints) : null,
+            orientation: newParams.orientation || 'horizontal'
+        };
+
+        // Database'e kaydet
+        fetch(`/api/mines/${this.mineId}/tunnels/${tunnelId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(updatePayload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('[ExtensionSystem] Tunnel extension saved to database successfully:', data);
+            
+            // Success feedback
+            if (window.toastr) {
+                toastr.success('Tünel uzatma kaydedildi!');
+            }
+            
+            // Metadata güncelle
+            if (metadata) {
+                metadata.parameters = newParams;
+                metadata.width = newParams.width;
+                metadata.height = newParams.height;
+                metadata.length = newParams.length;
+            }
+        })
+        .catch(error => {
+            console.error('[ExtensionSystem] Failed to save tunnel extension to database:', error);
+            
+            // Error feedback
+            if (window.toastr) {
+                toastr.error('Tünel uzatma kaydedilemedi: ' + error.message);
+            } else {
+                this.showError('Tünel uzatma kaydedilemedi: ' + error.message);
+            }
+        });
+    }
+
+    saveResetToDatabase(tunnel, originalParams, metadata) {
+        if (!this.mineId) {
+            console.warn('[ExtensionSystem] Mine ID not found, skipping database save');
+            return;
+        }
+
+        const tunnelId = metadata.id || metadata.serverId || tunnel.userData.id;
+        if (!tunnelId) {
+            console.warn('[ExtensionSystem] Tunnel ID not found, skipping database save');
+            return;
+        }
+
+        console.log('[ExtensionSystem] Saving tunnel reset to database:', { tunnelId, originalParams });
+
+        // API payload hazırla
+        const updatePayload = {
+            width: originalParams.width,
+            height: originalParams.height,
+            length: originalParams.length,
+            parameters: JSON.stringify(originalParams),
+            bend_points: null, // Reset işleminde bend points temizlenir
+            orientation: originalParams.orientation || 'horizontal'
+        };
+
+        // Database'e kaydet
+        fetch(`/api/mines/${this.mineId}/tunnels/${tunnelId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(updatePayload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('[ExtensionSystem] Tunnel reset saved to database successfully:', data);
+            
+            // Success feedback
+            if (window.toastr) {
+                toastr.success('Tünel sıfırlama kaydedildi!');
+            }
+        })
+        .catch(error => {
+            console.error('[ExtensionSystem] Failed to save tunnel reset to database:', error);
+            
+            // Error feedback
+            if (window.toastr) {
+                toastr.error('Tünel sıfırlama kaydedilemedi: ' + error.message);
+            } else {
+                this.showError('Tünel sıfırlama kaydedilemedi: ' + error.message);
+            }
+        });
     }
 }
 

@@ -1,24 +1,24 @@
 {
-  "_OrbitControls--CPrXAYj.js": {
-    "file": "assets/OrbitControls--CPrXAYj.js",
+  "_OrbitControls-DVRYyMCX.js": {
+    "file": "assets/OrbitControls-DVRYyMCX.js",
     "name": "OrbitControls"
   },
   "resources/js/app.js": {
-    "file": "assets/app-JpVmd1ZZ.js",
+    "file": "assets/app-ChZuo0zb.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_OrbitControls--CPrXAYj.js"
+      "_OrbitControls-DVRYyMCX.js"
     ]
   },
   "resources/js/simple-mine3d.js": {
-    "file": "assets/simple-mine3d-DbkjJUZL.js",
+    "file": "assets/simple-mine3d-Q7vb_ild.js",
     "name": "simple-mine3d",
     "src": "resources/js/simple-mine3d.js",
     "isEntry": true,
     "imports": [
-      "_OrbitControls--CPrXAYj.js"
+      "_OrbitControls-DVRYyMCX.js"
     ]
   },
   "resources/sass/app.scss": {
