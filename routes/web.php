@@ -14,7 +14,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('mines', \App\Http\Controllers\MineController::class);
 });
 
-// API Routes for 3D functionality
+// API Routes for 3D functionality - COMMENTED OUT FOR GOJS MIGRATION
+/*
 Route::middleware('auth')->prefix('api')->group(function () {
     // Mine Path Routes
     Route::apiResource('mines.paths', \App\Http\Controllers\Api\MinePathController::class);
@@ -29,6 +30,7 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::delete('/mines/{mine}/layers/{layer}', [\App\Http\Controllers\Api\MineApiController::class, 'deleteLayer'])->name('api.mines.layers.destroy');
     Route::put('/mines/{mine}/configuration', [\App\Http\Controllers\Api\MineApiController::class, 'updateConfiguration'])->name('api.mines.configuration.update');
 });
+*/
 
 Route::get('set-locale/{locale}', function ($locale) {
     if (in_array($locale, ['en', 'tr'])) {

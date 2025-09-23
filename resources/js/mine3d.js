@@ -1,6 +1,7 @@
-// 3D Maden Sistemi - Ana entry dosyası
+// 3D Maden Sistemi - Ana entry dosyası - COMMENTED OUT FOR GOJS MIGRATION
 // Tüm modülleri global olarak erişilebilir yapar
 
+/*
 import Mine3DSystem from './mine3d/Mine3DSystem.js';
 
 // Enhanced 3D components
@@ -24,3 +25,4 @@ export {
     AdvancedShaderManager, 
     PerformanceMonitor 
 };
+*/
