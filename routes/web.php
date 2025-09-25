@@ -12,16 +12,31 @@ Route::name('dashboard.')->controller(\App\Http\Controllers\DashBoardController:
 // Mine Routes
 Route::middleware('auth')->group(function () {
     Route::resource('mines', \App\Http\Controllers\MineController::class);
+    
+    // Tunnel Designer Routes
+    Route::get('/tunnel-designer', [\App\Http\Controllers\TunnelController::class, 'index'])->name('tunnel.index');
+    Route::get('/tunnel-designer/enhanced', [\App\Http\Controllers\TunnelController::class, 'enhanced'])->name('tunnel.enhanced');
+    Route::get('/tunnel-designer/test', [\App\Http\Controllers\TunnelController::class, 'test'])->name('tunnel.test');
 });
 
-// API Routes for 3D functionality - COMMENTED OUT FOR GOJS MIGRATION
-/*
+// API Routes for Tunnel Designer and Miner Tracking
 Route::middleware('auth')->prefix('api')->group(function () {
-    // Mine Path Routes
+    // Tunnel Designer API Routes
+    Route::post('/tunnel-data', [\App\Http\Controllers\TunnelController::class, 'store'])->name('api.tunnel.store');
+    Route::get('/mines/{mine}/tunnel-data', [\App\Http\Controllers\TunnelController::class, 'getTunnelData'])->name('api.tunnel.data');
+
+    // Mines API (lightweight JSON endpoints)
+    Route::post('/mines', [\App\Http\Controllers\MineController::class, 'storeApi'])->name('api.mines.store');
+    
+    // Miner Position Tracking API Routes (for Raspberry Pi)
+    Route::post('/miner-position', [\App\Http\Controllers\TunnelController::class, 'receiveMinerPosition'])->name('api.miner.position');
+    Route::get('/mines/{mine}/miner-positions', [\App\Http\Controllers\TunnelController::class, 'getMinerPositions'])->name('api.miner.positions');
+    
+    // Legacy 3D functionality - COMMENTED OUT FOR GOJS MIGRATION
+    /*
     Route::apiResource('mines.paths', \App\Http\Controllers\Api\MinePathController::class);
     Route::get('/mines/{mine}/scene-data', [\App\Http\Controllers\Api\MinePathController::class, 'getSceneData'])->name('api.mines.scene-data');
     
-    // Other mine routes
     Route::post('/mines/{mine}/models', [\App\Http\Controllers\Api\MineApiController::class, 'addModel'])->name('api.mines.models.store');
     Route::put('/mines/{mine}/models/{model}', [\App\Http\Controllers\Api\MineApiController::class, 'updateModel'])->name('api.mines.models.update');
     Route::delete('/mines/{mine}/models/{model}', [\App\Http\Controllers\Api\MineApiController::class, 'deleteModel'])->name('api.mines.models.destroy');
@@ -29,8 +44,8 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::put('/mines/{mine}/layers/{layer}', [\App\Http\Controllers\Api\MineApiController::class, 'updateLayer'])->name('api.mines.layers.update');
     Route::delete('/mines/{mine}/layers/{layer}', [\App\Http\Controllers\Api\MineApiController::class, 'deleteLayer'])->name('api.mines.layers.destroy');
     Route::put('/mines/{mine}/configuration', [\App\Http\Controllers\Api\MineApiController::class, 'updateConfiguration'])->name('api.mines.configuration.update');
+    */
 });
-*/
 
 Route::get('set-locale/{locale}', function ($locale) {
     if (in_array($locale, ['en', 'tr'])) {

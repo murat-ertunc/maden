@@ -6,6 +6,10 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'App\\Console\\Commands\\NormalizeOrientationCommand' => $baseDir . '/app/Console/Commands/NormalizeOrientationCommand.php',
+    'App\\Console\\Kernel' => $baseDir . '/app/Console/Kernel.php',
+    'App\\Http\\Controllers\\Api\\MineApiController' => $baseDir . '/app/Http/Controllers/Api/MineApiController.php',
+    'App\\Http\\Controllers\\Api\\MinePathController' => $baseDir . '/app/Http/Controllers/Api/MinePathController.php',
     'App\\Http\\Controllers\\Auth\\ConfirmPasswordController' => $baseDir . '/app/Http/Controllers/Auth/ConfirmPasswordController.php',
     'App\\Http\\Controllers\\Auth\\ForgotPasswordController' => $baseDir . '/app/Http/Controllers/Auth/ForgotPasswordController.php',
     'App\\Http\\Controllers\\Auth\\LoginController' => $baseDir . '/app/Http/Controllers/Auth/LoginController.php',
@@ -15,7 +19,13 @@ return array(
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
     'App\\Http\\Controllers\\DashBoardController' => $baseDir . '/app/Http/Controllers/DashBoardController.php',
     'App\\Http\\Controllers\\HomeController' => $baseDir . '/app/Http/Controllers/HomeController.php',
+    'App\\Http\\Controllers\\MineController' => $baseDir . '/app/Http/Controllers/MineController.php',
+    'App\\Models\\Mine' => $baseDir . '/app/Models/Mine.php',
+    'App\\Models\\MineLayer' => $baseDir . '/app/Models/MineLayer.php',
+    'App\\Models\\MineModel' => $baseDir . '/app/Models/MineModel.php',
+    'App\\Models\\MinePath' => $baseDir . '/app/Models/MinePath.php',
     'App\\Models\\User' => $baseDir . '/app/Models/User.php',
+    'App\\Policies\\MinePolicy' => $baseDir . '/app/Policies/MinePolicy.php',
     'App\\Providers\\AppServiceProvider' => $baseDir . '/app/Providers/AppServiceProvider.php',
     'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
     'Barryvdh\\Debugbar\\Console\\ClearCommand' => $vendorDir . '/barryvdh/laravel-debugbar/src/Console/ClearCommand.php',
@@ -214,6 +224,8 @@ return array(
     'Cron\\MonthField' => $vendorDir . '/dragonmantank/cron-expression/src/Cron/MonthField.php',
     'Database\\Factories\\UserFactory' => $baseDir . '/database/factories/UserFactory.php',
     'Database\\Seeders\\DatabaseSeeder' => $baseDir . '/database/seeders/DatabaseSeeder.php',
+    'Database\\Seeders\\MinePathSeeder' => $baseDir . '/database/seeders/MinePathSeeder.php',
+    'Database\\Seeders\\MineSeeder' => $baseDir . '/database/seeders/MineSeeder.php',
     'DateError' => $vendorDir . '/symfony/polyfill-php83/Resources/stubs/DateError.php',
     'DateException' => $vendorDir . '/symfony/polyfill-php83/Resources/stubs/DateException.php',
     'DateInvalidOperationException' => $vendorDir . '/symfony/polyfill-php83/Resources/stubs/DateInvalidOperationException.php',

@@ -1,15 +1,31 @@
 {
+  "_go-CIFq3fyT.js": {
+    "file": "assets/go-CIFq3fyT.js",
+    "name": "go"
+  },
   "resources/js/app.js": {
-    "file": "assets/app-DxrFcm0e.js",
+    "file": "assets/app-D9sbFza4.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_go-CIFq3fyT.js"
+    ]
   },
   "resources/js/simple-mine3d.js": {
     "file": "assets/simple-mine3d-BEEc7FPi.js",
     "name": "simple-mine3d",
     "src": "resources/js/simple-mine3d.js",
     "isEntry": true
+  },
+  "resources/js/tunnel-designer.js": {
+    "file": "assets/tunnel-designer-Yg1AzX6h.js",
+    "name": "tunnel-designer",
+    "src": "resources/js/tunnel-designer.js",
+    "isEntry": true,
+    "imports": [
+      "_go-CIFq3fyT.js"
+    ]
   },
   "resources/sass/app.scss": {
     "file": "assets/app-DqME6eCz.css",

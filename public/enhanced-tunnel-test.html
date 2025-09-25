@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Tunnel Designer Test</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- GoJS -->
+    <script src="https://unpkg.com/gojs@3.0.12/release/go.js"></script>
+    
+    <!-- Enhanced Tunnel Designer Styles -->
+    <link href="../css/enhanced-tunnel-designer.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .test-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .feature-showcase {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .feature-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .drawing-mode-selector {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .mode-button {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+        }
+        
+        .mode-button:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+            transform: translateY(-2px);
+        }
+        
+        .mode-button.active {
+            background: rgba(255,255,255,0.3);
+            border-color: white;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.3);
+        }
+        
+        .mode-icon {
+            font-size: 24px;
+        }
+        
+        .mode-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .mode-desc {
+            font-size: 11px;
+            opacity: 0.8;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-11">
+                <div class="test-container">
+                    <!-- Test Header -->
+                    <div class="test-header">
+                        <h1 class="mb-2">🚇 Enhanced Tunnel Designer</h1>
+                        <p class="mb-0">Gelişmiş tünel çizim sistemi - Test sayfası</p>
+                    </div>
+                    
+                    <div class="p-4">
+                        <!-- Feature Showcase -->
+                        <div class="feature-showcase">
+                            <h5 class="mb-3">
+                                <i class="fas fa-star text-warning"></i> Yeni Özellikler
+                            </h5>
+                            <div class="feature-list">
+                                <div class="feature-item">
+                                    <i class="fas fa-mouse text-primary"></i>
+                                    <span>Sürükle & Çiz Modu</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-route text-success"></i>
+                                    <span>Nokta & Yol Çizimi</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-eye text-info"></i>
+                                    <span>Canlı Önizleme</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-magnet text-danger"></i>
+                                    <span>Manyetik Yakalama</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-ruler text-warning"></i>
+                                    <span>Otomatik Ölçümler</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-palette text-secondary"></i>
+                                    <span>Gelişmiş Görsellik</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    Bu test sayfası, gelişmiş tünel tasarım aracının tüm özelliklerini test etmenizi sağlar.
+                                    Farklı çizim modlarını deneyin ve kullanım kolaylığını deneyimleyin.
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Drawing Mode Selector -->
+                        <div class="drawing-mode-selector">
+                            <h5 class="mb-3">
+                                <i class="fas fa-pencil-alt"></i> Çizim Modu Seçin
+                            </h5>
+                            <div class="d-flex flex-wrap justify-content-center">
+                                <div class="mode-button" data-mode="tunnel_drag">
+                                    <div class="mode-icon">🖱️</div>
+                                    <div class="mode-title">Sürükle & Çiz</div>
+                                    <div class="mode-desc">Farenizi sürükleyerek<br>tünel çizin</div>
+                                </div>
+                                <div class="mode-button" data-mode="tunnel_point">
+                                    <div class="mode-icon">📍</div>
+                                    <div class="mode-title">Nokta & Yol</div>
+                                    <div class="mode-desc">Noktalara tıklayarak<br>uzun yollar çizin</div>
+                                </div>
+                                <div class="mode-button" data-mode="station">
+                                    <div class="mode-icon">🚉</div>
+                                    <div class="mode-title">İstasyon</div>
+                                    <div class="mode-desc">Maden istasyonları<br>ekleyin</div>
+                                </div>
+                                <div class="mode-button" data-mode="off" id="mode-off">
+                                    <div class="mode-icon">⏹️</div>
+                                    <div class="mode-title">Çizimi Durdur</div>
+                                    <div class="mode-desc">Seçim moduna<br>dönün</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Main Design Area -->
+                        <div class="card">
+                            <!-- Enhanced Controls -->
+                            <div class="card-header bg-light">
+                                <div class="tunnel-controls">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                        <!-- Drawing Status -->
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="drawing-mode-indicator" id="current-mode">
+                                                <span id="mode-text">Pasif Mod</span>
+                                            </div>
+                                            
+                                            <!-- Quick Actions -->
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-success" id="btn-undo" title="Geri Al">
+                                                    <i class="fas fa-undo"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-warning" id="btn-clear" title="Temizle">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-info" id="btn-center" title="Merkeze Al">
+                                                    <i class="fas fa-crosshairs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Tunnel Parameters -->
+                                        <div class="tunnel-params">
+                                            <div class="param-group">
+                                                <label>Genişlik</label>
+                                                <input type="number" id="tunnel-width" value="3.0" step="0.5" min="1" max="10">
+                                                <span class="unit">m</span>
+                                            </div>
+                                            
+                                            <div class="param-group">
+                                                <label>Yükseklik</label>
+                                                <input type="number" id="tunnel-height" value="3.0" step="0.5" min="1" max="10">
+                                                <span class="unit">m</span>
+                                            </div>
+                                            
+                                            <div class="param-group">
+                                                <label>Kesit</label>
+                                                <select id="cross-section">
+                                                    <option value="circle">🔵 Daire</option>
+                                                    <option value="square">⬜ Kare</option>
+                                                    <option value="rectangle">▭ Dikdörtgen</option>
+                                                    <option value="horseshoe">🏛️ At Nalı</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- File Operations -->
+                                        <div class="quick-tools">
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-icon" id="btn-save">
+                                                <i class="fas fa-save"></i> <span>Kaydet</span>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" id="btn-load">
+                                                <i class="fas fa-folder-open"></i> <span>Yükle</span>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-success btn-icon" id="btn-export">
+                                                <i class="fas fa-download"></i> <span>Dışa Aktar</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Diagram Area with Enhanced Container -->
+                            <div class="card-body p-0">
+                                <div class="tunnel-designer-container">
+                                    <div id="tunnel-diagram" style="height: 650px; width: 100%;"></div>
+                                    
+                                    <!-- Keyboard Shortcuts Help -->
+                                    <div class="shortcuts-help" id="shortcuts-help" style="display: none;">
+                                        <h6>⌨️ Klavye Kısayolları</h6>
+                                        <div class="shortcut">
+                                            <span>Çizimi İptal Et</span>
+                                            <kbd class="key">ESC</kbd>
+                                        </div>
+                                        <div class="shortcut">
+                                            <span>Yolu Bitir</span>
+                                            <kbd class="key">Çift Tık</kbd>
+                                        </div>
+                                        <div class="shortcut">
+                                            <span>Geri Al</span>
+                                            <kbd class="key">Ctrl+Z</kbd>
+                                        </div>
+                                        <div class="shortcut">
+                                            <span>Merkeze Al</span>
+                                            <kbd class="key">Space</kbd>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Enhanced Status Bar -->
+                            <div class="card-footer">
+                                <div class="tunnel-status">
+                                    <div class="row">
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-project-diagram text-info"></i>
+                                                <span>Segmentler:</span>
+                                                <span class="status-value" id="total-segments">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-ruler text-success"></i>
+                                                <span>Toplam:</span>
+                                                <span class="status-value" id="total-length">0</span>
+                                                <span class="status-unit">m</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-subway text-warning"></i>
+                                                <span>İstasyonlar:</span>
+                                                <span class="status-value" id="total-stations">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-crosshairs text-primary"></i>
+                                                <span>Grid:</span>
+                                                <span class="status-value" id="grid-status">Açık</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-magnet text-danger"></i>
+                                                <span>Manyetik:</span>
+                                                <span class="status-value" id="magnetic-status">Açık</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="status-item">
+                                                <i class="fas fa-mouse-pointer text-secondary"></i>
+                                                <span>Konum:</span>
+                                                <span class="status-value" id="mouse-coords">0, 0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Test Results -->
+                        <div class="mt-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-chart-line"></i> Test Sonuçları
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <h3 class="text-primary" id="test-segments">0</h3>
+                                                <small class="text-muted">Çizilen Segment</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <h3 class="text-success" id="test-length">0m</h3>
+                                                <small class="text-muted">Toplam Uzunluk</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <h3 class="text-warning" id="test-time">0s</h3>
+                                                <small class="text-muted">Çizim Süresi</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <div id="test-log" class="bg-light p-3 rounded" style="height: 200px; overflow-y: auto;">
+                                            <strong>Test günlüğü:</strong><br>
+                                            <span class="text-muted">Enhanced Tunnel Designer hazır. Çizim modunu seçin ve tünel çizmeye başlayın...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Enhanced Tunnel Designer -->
+    <script src="../js/enhanced-tunnel-designer.js"></script>
+    
+    <script>
+        let tunnelDesigner = null;
+        let testStartTime = Date.now();
+        let drawingStartTime = null;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Enhanced Tunnel Designer Test Loading...');
+            
+            // Initialize enhanced tunnel designer
+            initializeTunnelDesigner();
+            
+            // Setup UI event handlers
+            setupUIHandlers();
+            
+            // Setup keyboard shortcuts
+            setupKeyboardShortcuts();
+            
+            // Setup test logging
+            setupTestLogging();
+            
+            logTest('✅ Enhanced Tunnel Designer Test hazır!');
+        });
+        
+        function initializeTunnelDesigner() {
+            try {
+                tunnelDesigner = new EnhancedTunnelDesigner('tunnel-diagram', {
+                    gridSize: 0.5,
+                    showGrid: true,
+                    snapToGrid: true,
+                    showMeasurements: true,
+                    magneticSnap: true,
+                    showPreview: true,
+                    defaultTunnelWidth: 3.0,
+                    defaultTunnelHeight: 3.0,
+                    defaultCrossSectionType: 'circle'
+                });
+                
+                // Set callbacks
+                tunnelDesigner.onTunnelCreated = onTunnelCreated;
+                tunnelDesigner.onTunnelModified = onTunnelModified;
+                tunnelDesigner.onStationAdded = onStationAdded;
+                
+            } catch (error) {
+                console.error('❌ TunnelDesigner initialization failed:', error);
+                logTest('❌ Hata: ' + error.message, 'error');
+            }
+        }
+        
+        function setupUIHandlers() {
+            // Drawing mode buttons
+            document.querySelectorAll('.mode-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const mode = this.dataset.mode;
+                    selectDrawingMode(mode);
+                });
+            });
+            
+            // Parameter changes
+            ['tunnel-width', 'tunnel-height', 'cross-section'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateTunnelParams);
+            });
+            
+            // Control buttons
+            document.getElementById('btn-undo').addEventListener('click', () => {
+                tunnelDesigner.diagram.commandHandler.undo();
+                logTest('🔄 Geri alındı');
+            });
+            
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                if (confirm('Tüm çizimleri silmek istediğinizden emin misiniz?')) {
+                    clearAll();
+                }
+            });
+            
+            document.getElementById('btn-center').addEventListener('click', () => {
+                tunnelDesigner.diagram.zoomToFit();
+                logTest('🎯 Görünüm ortalandı');
+            });
+            
+            // File operations
+            document.getElementById('btn-save').addEventListener('click', saveTunnelData);
+            document.getElementById('btn-load').addEventListener('click', loadTunnelData);
+            document.getElementById('btn-export').addEventListener('click', exportTunnelData);
+            
+            // Mouse coordinates tracking
+            if (tunnelDesigner && tunnelDesigner.diagram) {
+                tunnelDesigner.diagram.addDiagramListener("DocumentMouseMove", (e) => {
+                    const point = e.diagram.lastInput.documentPoint;
+                    const realCoords = {
+                        x: (point.x / 20).toFixed(1),
+                        y: (point.y / 20).toFixed(1)
+                    };
+                    document.getElementById('mouse-coords').textContent = `${realCoords.x}, ${realCoords.y}`;
+                });
+            }
+        }
+        
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // ESC - Cancel drawing
+                if (e.key === 'Escape' && tunnelDesigner.isDrawing) {
+                    tunnelDesigner.cancelDrawing();
+                    selectDrawingMode('off');
+                    logTest('⏹️ Çizim iptal edildi');
+                }
+                
+                // Space - Center view
+                if (e.key === ' ' && !e.target.matches('input, textarea')) {
+                    e.preventDefault();
+                    tunnelDesigner.diagram.zoomToFit();
+                }
+                
+                // Ctrl+Z - Undo
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    tunnelDesigner.diagram.commandHandler.undo();
+                }
+                
+                // Delete - Remove selected
+                if (e.key === 'Delete') {
+                    tunnelDesigner.diagram.commandHandler.deleteSelection();
+                    updateStats();
+                }
+            });
+        }
+        
+        function setupTestLogging() {
+            // Update timer
+            setInterval(() => {
+                const elapsed = ((Date.now() - testStartTime) / 1000).toFixed(0);
+                document.getElementById('test-time').textContent = elapsed + 's';
+            }, 1000);
+        }
+        
+        function selectDrawingMode(mode) {
+            // Update UI
+            document.querySelectorAll('.mode-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (mode === 'off') {
+                tunnelDesigner.exitDrawingMode();
+                document.getElementById('mode-off').classList.add('active');
+                document.getElementById('current-mode').classList.remove('active');
+                document.getElementById('mode-text').textContent = 'Pasif Mod';
+                document.querySelector('.tunnel-designer-container').classList.remove('drawing-mode');
+                logTest('⏹️ Çizim modu kapatıldı');
+            } else {
+                tunnelDesigner.setDrawingMode(mode);
+                document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+                document.getElementById('current-mode').classList.add('active');
+                document.querySelector('.tunnel-designer-container').classList.add('drawing-mode');
+                
+                const modeNames = {
+                    'tunnel_drag': 'Sürükle & Çiz',
+                    'tunnel_point': 'Nokta & Yol',
+                    'station': 'İstasyon Ekle'
+                };
+                
+                document.getElementById('mode-text').textContent = modeNames[mode] || mode;
+                document.getElementById('shortcuts-help').style.display = 'block';
+                
+                drawingStartTime = Date.now();
+                logTest(`🎨 ${modeNames[mode]} modu aktif`);
+            }
+        }
+        
+        function updateTunnelParams() {
+            const width = parseFloat(document.getElementById('tunnel-width').value);
+            const height = parseFloat(document.getElementById('tunnel-height').value);
+            const crossSection = document.getElementById('cross-section').value;
+            
+            tunnelDesigner.config.defaultTunnelWidth = width;
+            tunnelDesigner.config.defaultTunnelHeight = height;
+            tunnelDesigner.config.defaultCrossSectionType = crossSection;
+            
+            logTest(`⚙️ Parametreler güncellendi: ${width}×${height}m, ${crossSection}`);
+        }
+        
+        function updateStats() {
+            if (!tunnelDesigner) return;
+            
+            const data = tunnelDesigner.getTunnelData();
+            
+            document.getElementById('total-segments').textContent = data.segments.length;
+            document.getElementById('test-segments').textContent = data.segments.length;
+            
+            const totalLength = data.segments.reduce((sum, seg) => sum + (seg.length || 0), 0);
+            document.getElementById('total-length').textContent = totalLength.toFixed(1);
+            document.getElementById('test-length').textContent = totalLength.toFixed(1) + 'm';
+            
+            document.getElementById('total-stations').textContent = data.stations.length;
+        }
+        
+        function clearAll() {
+            tunnelDesigner.diagram.model.nodeDataArray = [];
+            tunnelDesigner.tunnelData.segments.clear();
+            tunnelDesigner.tunnelData.stations.clear();
+            tunnelDesigner.tunnelData.measurements.clear();
+            updateStats();
+            logTest('🗑️ Tüm çizimler temizlendi');
+        }
+        
+        function saveTunnelData() {
+            const data = tunnelDesigner.exportTunnelData();
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `enhanced-tunnel-test-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            logTest('💾 Test verileri kaydedildi', 'success');
+        }
+        
+        function loadTunnelData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            tunnelDesigner.importTunnelData(e.target.result);
+                            updateStats();
+                            logTest('📂 Test verileri yüklendi', 'success');
+                        } catch (error) {
+                            logTest('❌ Dosya yüklenirken hata: ' + error.message, 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+        
+        function exportTunnelData() {
+            const data = tunnelDesigner.getTunnelData();
+            const exportData = {
+                metadata: {
+                    created: new Date().toISOString(),
+                    version: '2.0',
+                    tool: 'Enhanced Tunnel Designer Test',
+                    testDuration: ((Date.now() - testStartTime) / 1000).toFixed(2) + 's'
+                },
+                tunnels: data.segments,
+                stations: data.stations,
+                measurements: data.measurements,
+                summary: {
+                    totalSegments: data.segments.length,
+                    totalLength: data.segments.reduce((sum, seg) => sum + (seg.length || 0), 0),
+                    totalStations: data.stations.length
+                }
+            };
+            
+            const json = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');  
+            a.href = url;
+            a.download = `enhanced-tunnel-test-report-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            logTest('📊 Test raporu dışa aktarıldı', 'success');
+        }
+        
+        function logTest(message, type = 'info') {
+            const log = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#495057',
+                success: '#28a745',
+                error: '#dc3545',
+                warning: '#ffc107'
+            };
+            
+            log.innerHTML += `<div style="color: ${colors[type]}; margin-bottom: 2px;">
+                [${timestamp}] ${message}
+            </div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Callbacks
+        function onTunnelCreated(segment) {
+            updateStats();
+            const drawTime = drawingStartTime ? ((Date.now() - drawingStartTime) / 1000).toFixed(1) : 'N/A';
+            logTest(`🚇 Tünel oluşturuldu: ${segment.length.toFixed(2)}m (${drawTime}s)`, 'success');
+        }
+        
+        function onTunnelModified(data) {
+            updateStats();
+            logTest('📝 Tünel güncellendi', 'info');
+        }
+        
+        function onStationAdded(station) {
+            updateStats();
+            logTest(`🚉 İstasyon eklendi: ${station.stationId}`, 'success');
+        }
+    </script>
+</body>
+</html>

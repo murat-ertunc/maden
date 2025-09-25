@@ -363,8 +363,8 @@ class ComposerStaticInit0c0e4c80c8b55a698469dbe0b060a275
         ),
         'Psr\\Http\\Message\\' => 
         array (
-            0 => __DIR__ . '/..' . '/psr/http-message/src',
-            1 => __DIR__ . '/..' . '/psr/http-factory/src',
+            0 => __DIR__ . '/..' . '/psr/http-factory/src',
+            1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
         'Psr\\Http\\Client\\' => 
         array (
@@ -593,6 +593,10 @@ class ComposerStaticInit0c0e4c80c8b55a698469dbe0b060a275
     );
 
     public static $classMap = array (
+        'App\\Console\\Commands\\NormalizeOrientationCommand' => __DIR__ . '/../..' . '/app/Console/Commands/NormalizeOrientationCommand.php',
+        'App\\Console\\Kernel' => __DIR__ . '/../..' . '/app/Console/Kernel.php',
+        'App\\Http\\Controllers\\Api\\MineApiController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/MineApiController.php',
+        'App\\Http\\Controllers\\Api\\MinePathController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/MinePathController.php',
         'App\\Http\\Controllers\\Auth\\ConfirmPasswordController' => __DIR__ . '/../..' . '/app/Http/Controllers/Auth/ConfirmPasswordController.php',
         'App\\Http\\Controllers\\Auth\\ForgotPasswordController' => __DIR__ . '/../..' . '/app/Http/Controllers/Auth/ForgotPasswordController.php',
         'App\\Http\\Controllers\\Auth\\LoginController' => __DIR__ . '/../..' . '/app/Http/Controllers/Auth/LoginController.php',
@@ -602,7 +606,13 @@ class ComposerStaticInit0c0e4c80c8b55a698469dbe0b060a275
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\DashBoardController' => __DIR__ . '/../..' . '/app/Http/Controllers/DashBoardController.php',
         'App\\Http\\Controllers\\HomeController' => __DIR__ . '/../..' . '/app/Http/Controllers/HomeController.php',
+        'App\\Http\\Controllers\\MineController' => __DIR__ . '/../..' . '/app/Http/Controllers/MineController.php',
+        'App\\Models\\Mine' => __DIR__ . '/../..' . '/app/Models/Mine.php',
+        'App\\Models\\MineLayer' => __DIR__ . '/../..' . '/app/Models/MineLayer.php',
+        'App\\Models\\MineModel' => __DIR__ . '/../..' . '/app/Models/MineModel.php',
+        'App\\Models\\MinePath' => __DIR__ . '/../..' . '/app/Models/MinePath.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
+        'App\\Policies\\MinePolicy' => __DIR__ . '/../..' . '/app/Policies/MinePolicy.php',
         'App\\Providers\\AppServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AppServiceProvider.php',
         'Attribute' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
         'Barryvdh\\Debugbar\\Console\\ClearCommand' => __DIR__ . '/..' . '/barryvdh/laravel-debugbar/src/Console/ClearCommand.php',
@@ -801,6 +811,8 @@ class ComposerStaticInit0c0e4c80c8b55a698469dbe0b060a275
         'Cron\\MonthField' => __DIR__ . '/..' . '/dragonmantank/cron-expression/src/Cron/MonthField.php',
         'Database\\Factories\\UserFactory' => __DIR__ . '/../..' . '/database/factories/UserFactory.php',
         'Database\\Seeders\\DatabaseSeeder' => __DIR__ . '/../..' . '/database/seeders/DatabaseSeeder.php',
+        'Database\\Seeders\\MinePathSeeder' => __DIR__ . '/../..' . '/database/seeders/MinePathSeeder.php',
+        'Database\\Seeders\\MineSeeder' => __DIR__ . '/../..' . '/database/seeders/MineSeeder.php',
         'DateError' => __DIR__ . '/..' . '/symfony/polyfill-php83/Resources/stubs/DateError.php',
         'DateException' => __DIR__ . '/..' . '/symfony/polyfill-php83/Resources/stubs/DateException.php',
         'DateInvalidOperationException' => __DIR__ . '/..' . '/symfony/polyfill-php83/Resources/stubs/DateInvalidOperationException.php',

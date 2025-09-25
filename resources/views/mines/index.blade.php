@@ -6,9 +6,14 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1>3D Maden Yönetimi</h1>
-                <a href="{{ route('mines.create') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Yeni Maden Oluştur
-                </a>
+                <div>
+                    <a href="{{ route('tunnel.index') }}" class="btn btn-success me-2">
+                        <i class="fas fa-route"></i> Tunnel Designer
+                    </a>
+                    <a href="{{ route('mines.create') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Yeni Maden Oluştur
+                    </a>
+                </div>
             </div>
 
             @if(session('success'))

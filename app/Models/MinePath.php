@@ -7,6 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MinePath extends Model
 {
+    protected $attributes = [
+        'type' => 'tunnel',
+        'status' => 'active',
+        'width' => 3.0,
+        'height' => 3.0,
+        'material' => 'concrete',
+        'color' => '#808080',
+        'order' => 0,
+    ];
+
     protected $fillable = [
         'mine_id',
         'name',

@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Designer - Comprehensive Test Suite</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/gojs@3.0.26/release/go.js"></script>
+    <style>
+        .test-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .test-summary {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-category {
+            background: white;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .test-item {
+            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+        }
+        
+        .test-item:last-child {
+            border-bottom: none;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-pass { color: #4ec9b0; }
+        .log-fail { color: #f14c4c; }
+        .log-info { color: #9cdcfe; }
+        .log-category { color: #dcdcaa; font-weight: bold; }
+        
+        .test-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tunnel-diagram-test {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            background: white;
+            margin: 20px 0;
+        }
+        
+        .test-progress {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .btn-test {
+            margin: 5px;
+            padding: 10px 20px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-running { background-color: #ffc107; }
+        .status-success { background-color: #28a745; }
+        .status-failed { background-color: #dc3545; }
+        .status-pending { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="py-4 border-bottom">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">🧪 Tunnel Designer - Comprehensive Test Suite</h1>
+                    <p class="text-muted mb-0">Genel Sistem, UI, GoJS Fonksiyonel ve Entegrasyon Testleri</p>
+                </div>
+                <div>
+                    <span id="test-status" class="status-badge status-pending">Hazır</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Test Controls -->
+                <div class="test-controls">
+                    <h4>🎮 Test Kontrolleri</h4>
+                    <div class="btn-group" role="group">
+                        <button id="run-all-tests" class="btn btn-primary btn-test">
+                            🚀 Tüm Testleri Çalıştır
+                        </button>
+                        <button id="run-general-tests" class="btn btn-outline-secondary btn-test">
+                            🔧 Genel Sistem
+                        </button>
+                        <button id="run-ui-tests" class="btn btn-outline-secondary btn-test">
+                            🎨 UI Testleri
+                        </button>
+                        <button id="run-gojs-tests" class="btn btn-outline-secondary btn-test">
+                            🚇 GoJS Testleri
+                        </button>
+                        <button id="run-integration-tests" class="btn btn-outline-secondary btn-test">
+                            🔗 Entegrasyon
+                        </button>
+                    </div>
+                    <div class="mt-3">
+                        <button id="clear-tests" class="btn btn-outline-danger btn-sm">
+                            🧹 Temizle
+                        </button>
+                        <button id="export-results" class="btn btn-outline-info btn-sm">
+                            📄 Rapor İndir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Test Diagram Container -->
+                <div class="test-container">
+                    <h4>📐 Test Tünel Diagramı</h4>
+                    <div id="test-tunnel-diagram" class="tunnel-diagram-test" 
+                         style="width: 100%; height: 500px;"></div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Bu diagram test sırasında otomatik olarak tünel segmentleri ile doldurulacak
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Test Results -->
+                <div id="test-results" class="test-container">
+                    <h4>📊 Test Sonuçları</h4>
+                    <p class="text-muted">Test henüz çalıştırılmadı. Yukarıdaki kontrol panelinden testleri başlatın.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Live Log -->
+                <div class="test-container">
+                    <h4>📝 Canlı Test Logu</h4>
+                    <div id="test-log" class="log-container">
+                        <div class="log-entry log-info">Test sistemi hazır...</div>
+                        <div class="log-entry log-info">Tunnel Designer Test Suite v1.0</div>
+                        <div class="log-entry log-info">GoJS version: <span id="gojs-version">Yükleniyor...</span></div>
+                    </div>
+                    <div class="mt-2">
+                        <button id="clear-log" class="btn btn-outline-secondary btn-sm">
+                            🧹 Log Temizle
+                        </button>
+                        <button id="scroll-log" class="btn btn-outline-info btn-sm">
+                            ⬇️ Son Satır
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Test Statistics -->
+                <div id="test-stats" class="test-container">
+                    <h4>📈 Test İstatistikleri</h4>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h5 id="total-tests" class="mb-1">0</h5>
+                                <small class="text-muted">Toplam Test</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h5 id="passed-tests" class="mb-1 text-success">0</h5>
+                                <small class="text-muted">Başarılı</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <div class="border rounded p-3">
+                                <h5 id="failed-tests" class="mb-1 text-danger">0</h5>
+                                <small class="text-muted">Başarısız</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <div class="border rounded p-3">
+                                <h5 id="success-rate" class="mb-1 text-info">0%</h5>
+                                <small class="text-muted">Başarı Oranı</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Categories Status -->
+                <div id="test-categories" class="test-container">
+                    <h4>📂 Test Kategorileri</h4>
+                    <div class="list-group">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            🔧 Genel Sistem
+                            <span id="general-status" class="status-badge status-pending">Bekliyor</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            🎨 UI Testleri
+                            <span id="ui-status" class="status-badge status-pending">Bekliyor</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            🚇 GoJS Testleri
+                            <span id="gojs-status" class="status-badge status-pending">Bekliyor</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            🔗 Entegrasyon
+                            <span id="integration-status" class="status-badge status-pending">Bekliyor</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Progress Modal -->
+        <div class="test-progress" id="test-progress">
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div>
+                    <div class="fw-bold">Test Çalışıyor...</div>
+                    <small id="current-test">Hazırlanıyor...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        // Import tunnel designer and test suite
+        import TunnelDesigner from '../resources/js/tunnel-designer.js';
+        import TunnelDesignerTestSuite from '../resources/js/tunnel-test-suite.js';
+
+        // Global variables
+        let testSuite = null;
+        let tunnelDesigner = null;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTestSystem();
+            setupEventListeners();
+            updateGoJSVersion();
+        });
+
+        function initializeTestSystem() {
+            try {
+                // GoJS version bilgisi
+                if (typeof go !== 'undefined') {
+                    addLog('✅ GoJS kütüphanesi yüklendi', 'info');
+                } else {
+                    addLog('❌ GoJS kütüphanesi yüklenemedi', 'fail');
+                    return;
+                }
+
+                // Test suite başlat
+                testSuite = new TunnelDesignerTestSuite();
+                addLog('✅ Test Suite başlatıldı', 'info');
+
+                // Interface hazır
+                updateTestStatus('Hazır ✅');
+                addLog('🎯 Test sistemi hazır. Testleri başlatabilirsiniz.', 'info');
+
+            } catch (error) {
+                addLog(`❌ Test sistemi başlatma hatası: ${error.message}`, 'fail');
+                updateTestStatus('Hata ❌');
+            }
+        }
+
+        function setupEventListeners() {
+            // Test buttons
+            document.getElementById('run-all-tests').addEventListener('click', runAllTests);
+            document.getElementById('run-general-tests').addEventListener('click', () => runSpecificTest('general'));
+            document.getElementById('run-ui-tests').addEventListener('click', () => runSpecificTest('ui'));
+            document.getElementById('run-gojs-tests').addEventListener('click', () => runSpecificTest('gojs'));
+            document.getElementById('run-integration-tests').addEventListener('click', () => runSpecificTest('integration'));
+
+            // Utility buttons
+            document.getElementById('clear-tests').addEventListener('click', clearTests);
+            document.getElementById('export-results').addEventListener('click', exportResults);
+            document.getElementById('clear-log').addEventListener('click', clearLog);
+            document.getElementById('scroll-log').addEventListener('click', scrollLogToBottom);
+        }
+
+        async function runAllTests() {
+            if (!testSuite) {
+                addLog('❌ Test suite başlatılamadı', 'fail');
+                return;
+            }
+
+            try {
+                updateTestStatus('Çalışıyor ⏳');
+                showTestProgress('Tüm testler çalıştırılıyor...');
+                disableTestButtons(true);
+
+                // Clear previous results
+                clearTests();
+                
+                // Run all tests
+                await testSuite.runAllTests();
+                
+                // Update UI with results
+                updateTestStatistics();
+                updateCategoryStatuses();
+                
+                updateTestStatus('Tamamlandı ✅');
+                addLog('🏁 Tüm testler tamamlandı', 'info');
+
+            } catch (error) {
+                addLog(`❌ Test çalıştırma hatası: ${error.message}`, 'fail');
+                updateTestStatus('Hata ❌');
+            } finally {
+                hideTestProgress();
+                disableTestButtons(false);
+            }
+        }
+
+        async function runSpecificTest(category) {
+            if (!testSuite) {
+                addLog('❌ Test suite başlatılamadı', 'fail');
+                return;
+            }
+
+            try {
+                updateTestStatus(`${category} çalışıyor ⏳`);
+                showTestProgress(`${category} testleri çalıştırılıyor...`);
+                updateCategoryStatus(category, 'running');
+
+                // Setup test environment if needed
+                if (!testSuite.tunnelDesigner) {
+                    testSuite.setupTestEnvironment();
+                }
+
+                // Run specific test category
+                switch (category) {
+                    case 'general':
+                        await testSuite.runGeneralSystemTests();
+                        break;
+                    case 'ui':
+                        await testSuite.runUITests();
+                        break;
+                    case 'gojs':
+                        await testSuite.runGoJSTests();
+                        break;
+                    case 'integration':
+                        await testSuite.runIntegrationTests();
+                        break;
+                }
+
+                updateCategoryStatus(category, 'success');
+                updateTestStatistics();
+                updateTestStatus(`${category} tamamlandı ✅`);
+
+            } catch (error) {
+                addLog(`❌ ${category} test hatası: ${error.message}`, 'fail');
+                updateCategoryStatus(category, 'failed');
+                updateTestStatus('Hata ❌');
+            } finally {
+                hideTestProgress();
+            }
+        }
+
+        function updateTestStatistics() {
+            if (!testSuite) return;
+
+            const categories = ['general', 'ui', 'gojs', 'integration'];
+            let totalTests = 0;
+            let passedTests = 0;
+
+            categories.forEach(category => {
+                const tests = testSuite.testResults[category] || [];
+                totalTests += tests.length;
+                passedTests += tests.filter(t => t.passed).length;
+            });
+
+            const successRate = totalTests > 0 ? ((passedTests / totalTests) * 100).toFixed(1) : 0;
+            const failedTests = totalTests - passedTests;
+
+            document.getElementById('total-tests').textContent = totalTests;
+            document.getElementById('passed-tests').textContent = passedTests;
+            document.getElementById('failed-tests').textContent = failedTests;
+            document.getElementById('success-rate').textContent = successRate + '%';
+
+            // Update success rate color
+            const rateElement = document.getElementById('success-rate');
+            rateElement.className = 'mb-1 ' + (successRate >= 90 ? 'text-success' : successRate >= 75 ? 'text-warning' : 'text-danger');
+        }
+
+        function updateCategoryStatuses() {
+            if (!testSuite) return;
+
+            const categories = ['general', 'ui', 'gojs', 'integration'];
+            
+            categories.forEach(category => {
+                const tests = testSuite.testResults[category] || [];
+                const passed = tests.filter(t => t.passed).length;
+                const total = tests.length;
+                
+                if (total > 0) {
+                    const status = passed === total ? 'success' : passed > total * 0.5 ? 'running' : 'failed';
+                    updateCategoryStatus(category, status);
+                }
+            });
+        }
+
+        function updateCategoryStatus(category, status) {
+            const statusElement = document.getElementById(`${category}-status`);
+            if (statusElement) {
+                statusElement.className = `status-badge status-${status}`;
+                statusElement.textContent = getStatusText(status);
+            }
+        }
+
+        function getStatusText(status) {
+            switch (status) {
+                case 'running': return 'Çalışıyor';
+                case 'success': return 'Başarılı';
+                case 'failed': return 'Başarısız';
+                default: return 'Bekliyor';
+            }
+        }
+
+        function clearTests() {
+            document.getElementById('test-results').innerHTML = `
+                <h4>📊 Test Sonuçları</h4>
+                <p class="text-muted">Test henüz çalıştırılmadı. Yukarıdaki kontrol panelinden testleri başlatın.</p>
+            `;
+            
+            // Reset statistics
+            document.getElementById('total-tests').textContent = '0';
+            document.getElementById('passed-tests').textContent = '0';
+            document.getElementById('failed-tests').textContent = '0';
+            document.getElementById('success-rate').textContent = '0%';
+
+            // Reset category statuses
+            ['general', 'ui', 'gojs', 'integration'].forEach(category => {
+                updateCategoryStatus(category, 'pending');
+            });
+
+            addLog('🧹 Test sonuçları temizlendi', 'info');
+        }
+
+        function exportResults() {
+            if (!testSuite || !testSuite.testResults) {
+                addLog('❌ Export edilecek test sonucu yok', 'fail');
+                return;
+            }
+
+            try {
+                const results = {
+                    timestamp: new Date().toISOString(),
+                    summary: {
+                        total: 0,
+                        passed: 0,
+                        failed: 0,
+                        successRate: 0
+                    },
+                    categories: testSuite.testResults
+                };
+
+                // Calculate summary
+                Object.values(testSuite.testResults).forEach(tests => {
+                    results.summary.total += tests.length;
+                    results.summary.passed += tests.filter(t => t.passed).length;
+                });
+                results.summary.failed = results.summary.total - results.summary.passed;
+                results.summary.successRate = results.summary.total > 0 ? 
+                    ((results.summary.passed / results.summary.total) * 100).toFixed(1) : 0;
+
+                const dataStr = JSON.stringify(results, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `tunnel-designer-test-results-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+                link.click();
+
+                addLog('📄 Test sonuçları export edildi', 'info');
+
+            } catch (error) {
+                addLog(`❌ Export hatası: ${error.message}`, 'fail');
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('test-log');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('test-log').innerHTML = `
+                <div class="log-entry log-info">Test log temizlendi...</div>
+            `;
+        }
+
+        function scrollLogToBottom() {
+            const logContainer = document.getElementById('test-log');
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateTestStatus(status) {
+            document.getElementById('test-status').textContent = status;
+        }
+
+        function showTestProgress(message) {
+            const progressElement = document.getElementById('test-progress');
+            document.getElementById('current-test').textContent = message;
+            progressElement.style.display = 'block';
+        }
+
+        function hideTestProgress() {
+            document.getElementById('test-progress').style.display = 'none';
+        }
+
+        function disableTestButtons(disabled) {
+            document.querySelectorAll('.btn-test').forEach(btn => {
+                btn.disabled = disabled;
+            });
+        }
+
+        function updateGoJSVersion() {
+            if (typeof go !== 'undefined') {
+                document.getElementById('gojs-version').textContent = go.version || '3.0.26';
+            } else {
+                document.getElementById('gojs-version').textContent = 'Yüklenemedi';
+            }
+        }
+
+        // Override console.log to capture test output
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            const message = args.join(' ');
+            if (message.includes('✅') || message.includes('❌')) {
+                const type = message.includes('✅') ? 'pass' : 'fail';
+                addLog(message, type);
+            } else if (message.includes('🧪') || message.includes('🔧') || message.includes('🎨') || message.includes('🚇') || message.includes('🔗')) {
+                addLog(message, 'category');
+            } else {
+                addLog(message, 'info');
+            }
+        };
+
+        // Make functions available globally for debugging
+        window.testSuite = testSuite;
+        window.runAllTests = runAllTests;
+        window.runSpecificTest = runSpecificTest;
+
+    </script>
+</body>
+</html>

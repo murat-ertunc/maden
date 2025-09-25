@@ -57,6 +57,39 @@ class MineController extends Controller
     }
 
     /**
+     * Store a newly created mine via JSON API.
+     */
+    public function storeApi(Request $request)
+    {
+        // Accept simple payload: name, description
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $data = [
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'status' => 'active',
+            'user_id' => Auth::id(),
+            'configuration' => [
+                'camera' => ['position' => [0, 10, 20], 'target' => [0, 0, 0]],
+                'scene' => ['background' => '#87CEEB'],
+                'lighting' => ['ambient' => 0.4, 'directional' => 0.8]
+            ]
+        ];
+
+        $mine = Mine::create($data);
+
+        return response()->json([
+            'success' => true,
+            'id' => $mine->id,
+            'name' => $mine->name,
+            'mine' => $mine
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Mine $mine)

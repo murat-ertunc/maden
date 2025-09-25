@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Designer - GoJS Functionality Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/gojs@3.0.26/release/go.js"></script>
+    <style>
+        .gojs-test-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tunnel-reference {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .measurement-display {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        
+        .segment-test {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin: 8px 0;
+        }
+        
+        .parameter-test {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 10px;
+            margin: 8px 0;
+        }
+        
+        .data-test {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 10px;
+            margin: 8px 0;
+        }
+        
+        .test-diagram {
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            background: #ffffff;
+            min-height: 500px;
+            position: relative;
+        }
+        
+        .reference-image {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .comparison-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .test-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+        }
+        
+        .live-measurements {
+            position: sticky;
+            top: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="py-4 border-bottom mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">🚇 GoJS Fonksiyonel Test - Tünel Oluşturma</h1>
+                    <p class="text-muted mb-0">Görsel referanstaki tünelin tam olarak oluşturulabilmesi testi</p>
+                </div>
+                <div>
+                    <span id="gojs-test-status" class="badge bg-secondary">Hazır</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="row">
+            <div class="col-md-4">
+                <!-- Reference Tunnel -->
+                <div class="tunnel-reference">
+                    <h5>📋 Referans Tünel Özellikleri</h5>
+                    <div class="measurement-display">
+                        <strong>Ana Tünel Segmentleri:</strong><br>
+                        • Segment 1: 26.49m (0°)<br>
+                        • Segment 2: 18.57m (45°)<br>
+                        • Segment 3: 10.80m (30°)<br>
+                        • Segment 4: 16.95m (60°)<br><br>
+                        
+                        <strong>Toplam Uzunluk:</strong> 72.81m<br>
+                        <strong>Kesit Türü:</strong> Dairesel<br>
+                        <strong>Genişlik:</strong> 3.5m<br>
+                        <strong>Yükseklik:</strong> 3.5m
+                    </div>
+                </div>
+
+                <!-- Test Controls -->
+                <div class="gojs-test-container">
+                    <h5>🎮 Test Kontrolleri</h5>
+                    <div class="d-grid gap-2">
+                        <button id="create-reference-tunnel" class="btn btn-primary">
+                            🏗️ Referans Tünel Oluştur
+                        </button>
+                        <button id="test-measurements" class="btn btn-success">
+                            📏 Ölçüm Doğruluğu Testi
+                        </button>
+                        <button id="test-angles" class="btn btn-warning">
+                            📐 Açı Hesaplama Testi
+                        </button>
+                        <button id="test-parameters" class="btn btn-info">
+                            ⚙️ Parametre Testi
+                        </button>
+                        <button id="test-export-import" class="btn btn-secondary">
+                            💾 Export/Import Testi
+                        </button>
+                        <hr>
+                        <button id="run-complete-test" class="btn btn-outline-primary">
+                            🚀 Tam Fonksiyon Testi
+                        </button>
+                        <button id="clear-diagram" class="btn btn-outline-danger btn-sm">
+                            🧹 Diagramı Temizle
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Measurements -->
+                <div id="live-measurements" class="live-measurements">
+                    <h6>📊 Canlı Ölçümler</h6>
+                    <div class="measurement-display">
+                        <div>Segment Sayısı: <span id="segment-count">0</span></div>
+                        <div>Toplam Uzunluk: <span id="total-length">0.00m</span></div>
+                        <div>Ortalama Açı: <span id="average-angle">0°</span></div>
+                        <div>Son Segment: <span id="last-segment">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <!-- Test Diagram -->
+                <div class="gojs-test-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5>📐 GoJS Test Diagramı</h5>
+                        <div class="test-status">
+                            <span id="diagram-status" class="badge bg-info">Bekleniyor</span>
+                        </div>
+                    </div>
+                    <div id="gojs-test-diagram" class="test-diagram"></div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            Bu diagram referans tüneli tam olarak oluşturabilme kapasitesini test eder
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Test Results -->
+                <div id="gojs-test-results" class="gojs-test-container">
+                    <h5>📋 Test Sonuçları</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="functionality-results"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="accuracy-results"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="gojs-test-container">
+                    <h5>📊 Referans vs Oluşturulan Karşılaştırma</h5>
+                    <div class="table-responsive">
+                        <table id="comparison-table" class="table table-striped comparison-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Segment</th>
+                                    <th>Referans Uzunluk</th>
+                                    <th>Oluşturulan Uzunluk</th>
+                                    <th>Fark</th>
+                                    <th>Referans Açı</th>
+                                    <th>Oluşturulan Açı</th>
+                                    <th>Açı Farkı</th>
+                                    <th>Doğruluk</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">
+                                        Test çalıştırıldığında karşılaştırma tablosu doldurulacak
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        // GoJS Functionality Test Suite
+        class GoJSFunctionalityTest {
+            constructor() {
+                this.tunnelDesigner = null;
+                this.testResults = [];
+                this.referenceSegments = [
+                    { length: 26.49, angle: 0, start: {x: 0, y: 0}, end: {x: 26.49, y: 0} },
+                    { length: 18.57, angle: 45, start: {x: 26.49, y: 0}, end: {x: 39.62, y: 13.13} },
+                    { length: 10.80, angle: 30, start: {x: 39.62, y: 13.13}, end: {x: 47.26, y: 20.77} },
+                    { length: 16.95, angle: 60, start: {x: 47.26, y: 20.77}, end: {x: 58.24, y: 32.75} }
+                ];
+                this.createdSegments = [];
+                this.diagramContainer = 'gojs-test-diagram';
+            }
+
+            async initialize() {
+                try {
+                    // Import TunnelDesigner
+                    const TunnelDesigner = (await import('../resources/js/tunnel-designer.js')).default;
+                    
+                    // Initialize tunnel designer
+                    this.tunnelDesigner = new TunnelDesigner(this.diagramContainer, {
+                        gridSize: 0.5,
+                        showMeasurements: true,
+                        showGrid: true,
+                        snapToGrid: true,
+                        defaultTunnelWidth: 3.5,
+                        defaultTunnelHeight: 3.5,
+                        defaultCrossSectionType: 'circle'
+                    });
+
+                    this.updateStatus('Hazır ✅');
+                    this.updateDiagramStatus('Hazır');
+                    this.logResult('Başlatma', 'TunnelDesigner Init', true, 'GoJS TunnelDesigner başarıyla yüklendi');
+                    
+                    return true;
+                } catch (error) {
+                    this.updateStatus('Hata ❌');
+                    this.updateDiagramStatus('Hata');
+                    this.logResult('Başlatma', 'TunnelDesigner Init', false, error.message);
+                    console.error('GoJS Test Suite başlatma hatası:', error);
+                    return false;
+                }
+            }
+
+            // REFERANS TÜNEL OLUŞTURMA
+            async createReferenceTunnel() {
+                this.updateStatus('Tünel Oluşturuluyor ⏳');
+                this.updateDiagramStatus('Oluşturuluyor');
+                this.clearDiagram();
+                
+                try {
+                    this.tunnelDesigner.setDrawingMode('tunnel');
+                    
+                    for (let i = 0; i < this.referenceSegments.length; i++) {
+                        const segment = this.referenceSegments[i];
+                        
+                        // Koordinatları pixel cinsine çevir (1m = 20px)
+                        const startPoint = new go.Point(segment.start.x * 20, segment.start.y * 20);
+                        const endPoint = new go.Point(segment.end.x * 20, segment.end.y * 20);
+                        
+                        // Segment oluştur
+                        this.tunnelDesigner.addTunnelPoint(startPoint);
+                        await this.delay(200);
+                        this.tunnelDesigner.addTunnelPoint(endPoint);
+                        await this.delay(300);
+                        
+                        // Canlı ölçümleri güncelle
+                        this.updateLiveMeasurements();
+                        
+                        this.logResult('Tünel Oluşturma', `Segment ${i+1}`, true, 
+                                     `${segment.length}m uzunluk, ${segment.angle}° açı`);
+                    }
+                    
+                    this.tunnelDesigner.exitDrawingMode();
+                    
+                    // Oluşturulan segmentleri kaydet
+                    this.createdSegments = Array.from(this.tunnelDesigner.tunnelData.segments.values());
+                    
+                    this.updateStatus('Tünel Oluşturuldu ✅');
+                    this.updateDiagramStatus('Tamamlandı');
+                    this.logResult('Tünel Oluşturma', 'Complete Tunnel', true, 
+                                 `${this.createdSegments.length} segment oluşturuldu`);
+                    
+                    // Karşılaştırma tablosunu güncelle
+                    this.updateComparisonTable();
+                    
+                } catch (error) {
+                    this.updateStatus('Tünel Oluşturma Hatası ❌');
+                    this.updateDiagramStatus('Hata');
+                    this.logResult('Tünel Oluşturma', 'Create Reference Tunnel', false, error.message);
+                }
+            }
+
+            // ÖLÇÜM DOĞRULUĞU TESTİ
+            async testMeasurements() {
+                if (this.createdSegments.length === 0) {
+                    this.logResult('Ölçüm Testi', 'No Segments', false, 'Önce tünel oluşturun');
+                    return;
+                }
+
+                this.updateStatus('Ölçümler Test Ediliyor ⏳');
+                
+                let totalReferenceLength = 0;
+                let totalCreatedLength = 0;
+                let accuracyTests = 0;
+                let passedTests = 0;
+                
+                for (let i = 0; i < Math.min(this.referenceSegments.length, this.createdSegments.length); i++) {
+                    const reference = this.referenceSegments[i];
+                    const created = this.createdSegments[i];
+                    
+                    totalReferenceLength += reference.length;
+                    totalCreatedLength += (created.length || 0);
+                    
+                    const lengthDiff = Math.abs((created.length || 0) - reference.length);
+                    const lengthAccuracy = lengthDiff < 0.5; // 0.5m tolerans
+                    
+                    if (lengthAccuracy) passedTests++;
+                    accuracyTests++;
+                    
+                    this.logResult('Ölçüm Doğruluğu', `Segment ${i+1} Uzunluk`, 
+                                  lengthAccuracy,
+                                  `Referans: ${reference.length}m, Oluşturulan: ${(created.length || 0).toFixed(2)}m, Fark: ${lengthDiff.toFixed(2)}m`);
+                }
+                
+                // Toplam uzunluk testi
+                const totalLengthDiff = Math.abs(totalCreatedLength - totalReferenceLength);
+                const totalAccuracy = totalLengthDiff < 1.0; // 1m toplam tolerans
+                
+                this.logResult('Ölçüm Doğruluğu', 'Toplam Uzunluk', 
+                              totalAccuracy,
+                              `Referans: ${totalReferenceLength}m, Oluşturulan: ${totalCreatedLength.toFixed(2)}m, Fark: ${totalLengthDiff.toFixed(2)}m`);
+                
+                const overallAccuracy = passedTests / accuracyTests;
+                this.updateStatus(`Ölçüm Testi: ${(overallAccuracy * 100).toFixed(1)}% ✅`);
+            }
+
+            // AÇI HESAPLAMA TESTİ
+            async testAngles() {
+                if (this.createdSegments.length === 0) {
+                    this.logResult('Açı Testi', 'No Segments', false, 'Önce tünel oluşturun');
+                    return;
+                }
+
+                this.updateStatus('Açılar Test Ediliyor ⏳');
+                
+                let angleTests = 0;
+                let passedAngleTests = 0;
+                
+                for (let i = 0; i < Math.min(this.referenceSegments.length, this.createdSegments.length); i++) {
+                    const reference = this.referenceSegments[i];
+                    const created = this.createdSegments[i];
+                    
+                    const angleDiff = Math.abs((created.angle || 0) - reference.angle);
+                    const angleAccuracy = angleDiff < 5; // 5° tolerans
+                    
+                    if (angleAccuracy) passedAngleTests++;
+                    angleTests++;
+                    
+                    this.logResult('Açı Doğruluğu', `Segment ${i+1} Açı`, 
+                                  angleAccuracy,
+                                  `Referans: ${reference.angle}°, Oluşturulan: ${(created.angle || 0).toFixed(1)}°, Fark: ${angleDiff.toFixed(1)}°`);
+                }
+                
+                const angleAccuracy = passedAngleTests / angleTests;
+                this.updateStatus(`Açı Testi: ${(angleAccuracy * 100).toFixed(1)}% ✅`);
+            }
+
+            // PARAMETRE TESTİ
+            async testParameters() {
+                this.updateStatus('Parametreler Test Ediliyor ⏳');
+                
+                const testParameters = [
+                    { width: 3.5, height: 3.5, crossSection: 'circle', name: 'Referans Parametreler' },
+                    { width: 4.0, height: 3.0, crossSection: 'rectangle', name: 'Dikdörtgen Kesit' },
+                    { width: 2.5, height: 2.5, crossSection: 'square', name: 'Kare Kesit' }
+                ];
+                
+                for (const params of testParameters) {
+                    try {
+                        // Parametreleri ayarla
+                        this.tunnelDesigner.config.defaultTunnelWidth = params.width;
+                        this.tunnelDesigner.config.defaultTunnelHeight = params.height;
+                        this.tunnelDesigner.config.defaultCrossSectionType = params.crossSection;
+                        
+                        // Test segment oluştur
+                        this.tunnelDesigner.setDrawingMode('tunnel');
+                        const startPoint = new go.Point(600, 100);
+                        const endPoint = new go.Point(700, 100);
+                        
+                        this.tunnelDesigner.addTunnelPoint(startPoint);
+                        await this.delay(100);
+                        this.tunnelDesigner.addTunnelPoint(endPoint);
+                        await this.delay(100);
+                        this.tunnelDesigner.exitDrawingMode();
+                        
+                        // Son oluşturulan segmenti kontrol et
+                        const segments = Array.from(this.tunnelDesigner.tunnelData.segments.values());
+                        const lastSegment = segments[segments.length - 1];
+                        
+                        if (lastSegment) {
+                            const widthCorrect = lastSegment.width === params.width;
+                            const heightCorrect = lastSegment.height === params.height;
+                            const crossSectionCorrect = lastSegment.crossSectionType === params.crossSection;
+                            
+                            this.logResult('Parametre Testi', `${params.name} - Genişlik`, 
+                                          widthCorrect, `${lastSegment.width}m`);
+                            this.logResult('Parametre Testi', `${params.name} - Yükseklik`, 
+                                          heightCorrect, `${lastSegment.height}m`);
+                            this.logResult('Parametre Testi', `${params.name} - Kesit`, 
+                                          crossSectionCorrect, lastSegment.crossSectionType);
+                        }
+                        
+                    } catch (error) {
+                        this.logResult('Parametre Testi', params.name, false, error.message);
+                    }
+                }
+                
+                this.updateStatus('Parametre Testi Tamamlandı ✅');
+            }
+
+            // EXPORT/IMPORT TESTİ
+            async testExportImport() {
+                this.updateStatus('Export/Import Test Ediliyor ⏳');
+                
+                try {
+                    // Mevcut veriyi export et
+                    const exportedData = this.tunnelDesigner.exportTunnelData();
+                    this.logResult('Export/Import', 'Data Export', 
+                                  exportedData && exportedData.length > 0, 
+                                  `${exportedData.length} karakter export edildi`);
+                    
+                    // JSON geçerliliğini test et
+                    const parsedData = JSON.parse(exportedData);
+                    this.logResult('Export/Import', 'JSON Validity', 
+                                  parsedData !== null, 
+                                  'JSON formatı geçerli');
+                    
+                    // Segment sayısını kaydet
+                    const originalSegmentCount = this.tunnelDesigner.tunnelData.segments.size;
+                    
+                    // Veriyi temizle
+                    this.tunnelDesigner.tunnelData.segments.clear();
+                    this.tunnelDesigner.diagram.model.nodeDataArray = [];
+                    
+                    // Import et
+                    this.tunnelDesigner.importTunnelData(exportedData);
+                    await this.delay(500);
+                    
+                    // Import sonrası kontrol
+                    const importedSegmentCount = this.tunnelDesigner.tunnelData.segments.size;
+                    this.logResult('Export/Import', 'Data Import', 
+                                  importedSegmentCount === originalSegmentCount,
+                                  `${importedSegmentCount}/${originalSegmentCount} segment import edildi`);
+                    
+                    this.updateStatus('Export/Import Testi Tamamlandı ✅');
+                    
+                } catch (error) {
+                    this.logResult('Export/Import', 'Test Failed', false, error.message);
+                    this.updateStatus('Export/Import Hatası ❌');
+                }
+            }
+
+            // TAM FONKSİYON TESTİ
+            async runCompleteTest() {
+                this.clearResults();
+                this.updateStatus('Tam Test Başlıyor ⏳');
+                
+                try {
+                    await this.createReferenceTunnel();
+                    await this.delay(1000);
+                    
+                    await this.testMeasurements();
+                    await this.delay(500);
+                    
+                    await this.testAngles();
+                    await this.delay(500);
+                    
+                    await this.testParameters();
+                    await this.delay(500);
+                    
+                    await this.testExportImport();
+                    
+                    // Genel başarı oranını hesapla
+                    const totalTests = this.testResults.length;
+                    const passedTests = this.testResults.filter(r => r.passed).length;
+                    const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+                    
+                    this.updateStatus(`Tam Test Tamamlandı: ${successRate}% ✅`);
+                    
+                    // Final karşılaştırma
+                    this.generateFinalComparison();
+                    
+                } catch (error) {
+                    this.updateStatus('Tam Test Hatası ❌');
+                    console.error('Complete test error:', error);
+                }
+            }
+
+            // YARDIMCI METODLAR
+            updateLiveMeasurements() {
+                const segments = Array.from(this.tunnelDesigner.tunnelData.segments.values());
+                const segmentCount = segments.length;
+                const totalLength = segments.reduce((sum, seg) => sum + (seg.length || 0), 0);
+                const averageAngle = segments.length > 0 ? 
+                    segments.reduce((sum, seg) => sum + (seg.angle || 0), 0) / segments.length : 0;
+                const lastSegment = segments[segments.length - 1];
+                
+                document.getElementById('segment-count').textContent = segmentCount;
+                document.getElementById('total-length').textContent = totalLength.toFixed(2) + 'm';
+                document.getElementById('average-angle').textContent = averageAngle.toFixed(1) + '°';
+                document.getElementById('last-segment').textContent = lastSegment ? 
+                    `${lastSegment.length?.toFixed(2)}m @ ${lastSegment.angle?.toFixed(1)}°` : '-';
+            }
+
+            updateComparisonTable() {
+                const tbody = document.querySelector('#comparison-table tbody');
+                tbody.innerHTML = '';
+                
+                for (let i = 0; i < Math.max(this.referenceSegments.length, this.createdSegments.length); i++) {
+                    const reference = this.referenceSegments[i];
+                    const created = this.createdSegments[i];
+                    
+                    const row = document.createElement('tr');
+                    
+                    const lengthDiff = created && reference ? 
+                        Math.abs((created.length || 0) - reference.length) : null;
+                    const angleDiff = created && reference ? 
+                        Math.abs((created.angle || 0) - reference.angle) : null;
+                    
+                    const lengthAccurate = lengthDiff !== null && lengthDiff < 0.5;
+                    const angleAccurate = angleDiff !== null && angleDiff < 5;
+                    const overallAccurate = lengthAccurate && angleAccurate;
+                    
+                    row.innerHTML = `
+                        <td><strong>Segment ${i+1}</strong></td>
+                        <td>${reference ? reference.length + 'm' : '-'}</td>
+                        <td>${created ? (created.length || 0).toFixed(2) + 'm' : '-'}</td>
+                        <td class="${lengthAccurate ? 'text-success' : 'text-warning'}">
+                            ${lengthDiff !== null ? lengthDiff.toFixed(2) + 'm' : '-'}
+                        </td>
+                        <td>${reference ? reference.angle + '°' : '-'}</td>
+                        <td>${created ? (created.angle || 0).toFixed(1) + '°' : '-'}</td>
+                        <td class="${angleAccurate ? 'text-success' : 'text-warning'}">
+                            ${angleDiff !== null ? angleDiff.toFixed(1) + '°' : '-'}
+                        </td>
+                        <td>
+                            <span class="badge ${overallAccurate ? 'bg-success' : 'bg-warning'}">
+                                ${overallAccurate ? '✅ Doğru' : '⚠️ Tolerans'}
+                            </span>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                }
+            }
+
+            generateFinalComparison() {
+                const totalTests = this.testResults.length;
+                const passedTests = this.testResults.filter(r => r.passed).length;
+                const failedTests = totalTests - passedTests;
+                
+                const functionalityResults = document.getElementById('functionality-results');
+                functionalityResults.innerHTML = `
+                    <h6>🔧 Fonksiyonellik Testleri</h6>
+                    <div class="measurement-display">
+                        <div>Toplam Test: ${totalTests}</div>
+                        <div>Başarılı: <span class="text-success">${passedTests}</span></div>
+                        <div>Başarısız: <span class="text-danger">${failedTests}</span></div>
+                        <div>Başarı Oranı: <strong>${((passedTests/totalTests)*100).toFixed(1)}%</strong></div>
+                    </div>
+                `;
+                
+                const accuracyResults = document.getElementById('accuracy-results');
+                accuracyResults.innerHTML = `
+                    <h6>🎯 Doğruluk Analizi</h6>
+                    <div class="measurement-display">
+                        <div>Uzunluk Doğruluğu: ${this.calculateAccuracy('length')}%</div>
+                        <div>Açı Doğruluğu: ${this.calculateAccuracy('angle')}%</div>
+                        <div>Parametre Doğruluğu: ${this.calculateAccuracy('parameter')}%</div>
+                        <div>Export/Import: ${this.calculateAccuracy('export')}%</div>
+                    </div>
+                `;
+            }
+
+            calculateAccuracy(category) {
+                const categoryTests = this.testResults.filter(r => 
+                    r.category.toLowerCase().includes(category.toLowerCase()));
+                if (categoryTests.length === 0) return 0;
+                
+                const passed = categoryTests.filter(r => r.passed).length;
+                return ((passed / categoryTests.length) * 100).toFixed(1);
+            }
+
+            logResult(category, testName, passed, details = '') {
+                const result = {
+                    category,
+                    testName,
+                    passed,
+                    details,
+                    timestamp: new Date().toISOString()
+                };
+
+                this.testResults.push(result);
+                
+                const icon = passed ? '✅' : '❌';
+                console.log(`${icon} [${category}] ${testName}: ${passed ? 'PASS' : 'FAIL'} ${details ? '- ' + details : ''}`);
+            }
+
+            clearResults() {
+                this.testResults = [];
+                this.createdSegments = [];
+                document.getElementById('functionality-results').innerHTML = '';
+                document.getElementById('accuracy-results').innerHTML = '';
+            }
+
+            clearDiagram() {
+                if (this.tunnelDesigner) {
+                    this.tunnelDesigner.diagram.model.nodeDataArray = [];
+                    this.tunnelDesigner.tunnelData.segments.clear();
+                    this.tunnelDesigner.tunnelData.stations.clear();
+                    this.tunnelDesigner.tunnelData.measurements.clear();
+                    this.updateLiveMeasurements();
+                }
+            }
+
+            updateStatus(status) {
+                document.getElementById('gojs-test-status').textContent = status;
+            }
+
+            updateDiagramStatus(status) {
+                const statusBadge = document.getElementById('diagram-status');
+                statusBadge.textContent = status;
+                
+                switch (status) {
+                    case 'Hazır':
+                        statusBadge.className = 'badge bg-info';
+                        break;
+                    case 'Oluşturuluyor':
+                        statusBadge.className = 'badge bg-warning';
+                        break;
+                    case 'Tamamlandı':
+                        statusBadge.className = 'badge bg-success';
+                        break;
+                    case 'Hata':
+                        statusBadge.className = 'badge bg-danger';
+                        break;
+                }
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Initialize GoJS Functionality Test
+        let gojsTest = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            gojsTest = new GoJSFunctionalityTest();
+            const initialized = await gojsTest.initialize();
+            
+            if (!initialized) {
+                document.getElementById('gojs-test-results').innerHTML = `
+                    <h5 class="text-danger">❌ Başlatma Hatası</h5>
+                    <p>GoJS Functionality Test Suite başlatılamadı. Console'u kontrol edin.</p>
+                `;
+                return;
+            }
+
+            // Event Listeners
+            document.getElementById('create-reference-tunnel').addEventListener('click', () => gojsTest.createReferenceTunnel());
+            document.getElementById('test-measurements').addEventListener('click', () => gojsTest.testMeasurements());
+            document.getElementById('test-angles').addEventListener('click', () => gojsTest.testAngles());
+            document.getElementById('test-parameters').addEventListener('click', () => gojsTest.testParameters());
+            document.getElementById('test-export-import').addEventListener('click', () => gojsTest.testExportImport());
+            document.getElementById('run-complete-test').addEventListener('click', () => gojsTest.runCompleteTest());
+            document.getElementById('clear-diagram').addEventListener('click', () => gojsTest.clearDiagram());
+        });
+
+        // Global access for debugging
+        window.gojsTest = gojsTest;
+
+    </script>
+</body>
+</html>

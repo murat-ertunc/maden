@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Designer Test</title>
+    <script src="https://unpkg.com/gojs@3.0.26/release/go.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .toolbar {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn.active {
+            background: #e74c3c;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            border-left: 1px solid #34495e;
+            padding-left: 15px;
+            margin-left: 10px;
+        }
+        
+        .btn-group:first-child {
+            border-left: none;
+            padding-left: 0;
+            margin-left: 0;
+        }
+        
+        .status {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        
+        .diagram-container {
+            height: 600px;
+            border: 2px solid #bdc3c7;
+            margin: 0;
+            position: relative;
+        }
+        
+        .info-panel {
+            background: #ecf0f1;
+            padding: 15px;
+            border-top: 1px solid #bdc3c7;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+        }
+        
+        .instructions h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+        
+        .instructions ul {
+            margin-bottom: 0;
+        }
+        
+        .test-results {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .coordinates {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚇 Tunnel Designer Test Sistemi</h1>
+            <p>GoJS ile Profesyonel Tünel Tasarım ve Test Platformu</p>
+        </div>
+        
+        <div class="toolbar">
+            <div class="btn-group">
+                <button id="btn-tunnel" class="btn">📐 Tünel Çiz (T)</button>
+                <button id="btn-station" class="btn">👷 İstasyon Ekle (S)</button>
+                <button id="btn-measure" class="btn">📏 Ölçüm (M)</button>
+            </div>
+            
+            <div class="btn-group">
+                <button id="btn-exit" class="btn">⏹️ Çizimi Durdur (ESC)</button>
+                <button id="btn-delete" class="btn">🗑️ Sil (DEL)</button>
+                <button id="btn-clear" class="btn">🧹 Temizle</button>
+            </div>
+            
+            <div class="btn-group">
+                <button id="btn-sample" class="btn">🏗️ Örnek Yükle</button>
+                <button id="btn-export" class="btn">💾 Dışa Aktar</button>
+                <button id="btn-import" class="btn">📂 İçe Aktar</button>
+            </div>
+            
+            <div class="btn-group">
+                <label for="tunnel-width">Genişlik:</label>
+                <input type="number" id="tunnel-width" value="3.0" step="0.5" min="1" max="10" style="width: 60px;">
+                <label for="tunnel-height">Yükseklik:</label>
+                <input type="number" id="tunnel-height" value="3.0" step="0.5" min="1" max="10" style="width: 60px;">
+                <select id="cross-section">
+                    <option value="circle">🔵 Daire</option>
+                    <option value="square">⬜ Kare</option>
+                    <option value="rectangle">▭ Dikdörtgen</option>
+                    <option value="horseshoe">🏛️ At Nalı</option>
+                </select>
+            </div>
+            
+            <div class="status" id="status">Hazır</div>
+        </div>
+        
+        <div id="tunnel-diagram" class="diagram-container"></div>
+        
+        <div class="info-panel">
+            <div class="info-row">
+                <strong>Çizim Modu:</strong>
+                <span id="drawing-mode">Pasif</span>
+            </div>
+            <div class="info-row">
+                <strong>Toplam Segment:</strong>
+                <span id="total-segments">0</span>
+            </div>
+            <div class="info-row">
+                <strong>Toplam Uzunluk:</strong>
+                <span id="total-length">0.0 m</span>
+            </div>
+            <div class="info-row">
+                <strong>Son Tıklama:</strong>
+                <span id="last-click" class="coordinates">-</span>
+            </div>
+            <div class="info-row">
+                <strong>Mouse Pozisyonu:</strong>
+                <span id="mouse-pos" class="coordinates">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h4>📋 Kullanım Talimatları</h4>
+        <ul>
+            <li><strong>Tünel Çizimi:</strong> "Tünel Çiz" butonuna tıklayın, sonra diyagram üzerinde başlangıç ve bitiş noktalarını tıklayın</li>
+            <li><strong>İstasyon Ekleme:</strong> "İstasyon Ekle" butonuna tıklayın, sonra istediğiniz konuma tıklayın</li>
+            <li><strong>Ölçüm:</strong> "Ölçüm" butonuna tıklayın, iki nokta arasındaki mesafeyi ölçün</li>
+            <li><strong>Keyboard Shortcuts:</strong> T (Tünel), S (İstasyon), M (Ölçüm), ESC (Durdur), DEL (Sil)</li>
+            <li><strong>Grid Snap:</strong> Otomatik olarak 0.5m hassasiyetle grid'e yapışır</li>
+            <li><strong>Tünel Parametreleri:</strong> Çizim öncesi genişlik, yükseklik ve kesit tipini ayarlayın</li>
+        </ul>
+    </div>
+    
+    <div id="test-results" class="test-results">
+        <h4>✅ Test Sonuçları</h4>
+        <div id="test-output"></div>
+    </div>
+
+    <script type="module">
+        import TunnelDesigner from './resources/js/tunnel-designer.js';
+        
+        // Global değişkenler
+        let tunnelDesigner;
+        let activeButton = null;
+        
+        // DOM yüklendiğinde başlat
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTunnelDesigner();
+            setupEventListeners();
+            startTests();
+        });
+        
+        function initializeTunnelDesigner() {
+            try {
+                tunnelDesigner = new TunnelDesigner('tunnel-diagram', {
+                    gridSize: 0.5,
+                    showMeasurements: true,
+                    showGrid: true,
+                    snapToGrid: true
+                });
+                
+                // Callback'leri ayarla
+                tunnelDesigner.onTunnelCreated = onTunnelCreated;
+                tunnelDesigner.onTunnelModified = onTunnelModified;
+                tunnelDesigner.onStationAdded = onStationAdded;
+                
+                updateStatus('✅ Tunnel Designer başarıyla başlatıldı', 'success');
+                logTest('TunnelDesigner sınıfı başarıyla oluşturuldu', true);
+                
+            } catch (error) {
+                updateStatus('❌ Başlatma hatası: ' + error.message, 'error');
+                logTest('TunnelDesigner başlatma hatası: ' + error.message, false);
+            }
+        }
+        
+        function setupEventListeners() {
+            // Toolbar button'ları
+            document.getElementById('btn-tunnel').addEventListener('click', () => {
+                setActiveButton('btn-tunnel');
+                tunnelDesigner.setDrawingMode('tunnel');
+                updateDrawingMode('Tünel Çizimi');
+            });
+            
+            document.getElementById('btn-station').addEventListener('click', () => {
+                setActiveButton('btn-station');
+                tunnelDesigner.setDrawingMode('station');
+                updateDrawingMode('İstasyon Ekleme');
+            });
+            
+            document.getElementById('btn-measure').addEventListener('click', () => {
+                setActiveButton('btn-measure');
+                tunnelDesigner.setDrawingMode('measurement');
+                updateDrawingMode('Ölçüm Modu');
+            });
+            
+            document.getElementById('btn-exit').addEventListener('click', () => {
+                clearActiveButton();
+                tunnelDesigner.exitDrawingMode();
+                updateDrawingMode('Pasif');
+            });
+            
+            document.getElementById('btn-delete').addEventListener('click', () => {
+                tunnelDesigner.deleteSelected();
+            });
+            
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                if (confirm('Tüm tünel verilerini silmek istediğinizden emin misiniz?')) {
+                    tunnelDesigner.diagram.model.nodeDataArray = [];
+                    updateStats();
+                }
+            });
+            
+            document.getElementById('btn-sample').addEventListener('click', () => {
+                tunnelDesigner.createSampleTunnel();
+                updateStats();
+                logTest('Örnek tünel verisi yüklendi', true);
+            });
+            
+            document.getElementById('btn-export').addEventListener('click', () => {
+                const data = tunnelDesigner.exportTunnelData();
+                downloadFile('tunnel-data.json', data);
+                logTest('Tünel verisi dışa aktarıldı', true);
+            });
+            
+            document.getElementById('btn-import').addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                tunnelDesigner.importTunnelData(e.target.result);
+                                updateStats();
+                                logTest('Tünel verisi içe aktarıldı', true);
+                            } catch (error) {
+                                logTest('Import hatası: ' + error.message, false);
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            });
+            
+            // Parametre değişiklikleri
+            document.getElementById('tunnel-width').addEventListener('change', updateTunnelParams);
+            document.getElementById('tunnel-height').addEventListener('change', updateTunnelParams);
+            document.getElementById('cross-section').addEventListener('change', updateTunnelParams);
+            
+            // Mouse tracking
+            document.getElementById('tunnel-diagram').addEventListener('mousemove', (e) => {
+                const rect = e.target.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / 20).toFixed(1); // pixel to meter
+                const y = ((e.clientY - rect.top) / 20).toFixed(1);
+                document.getElementById('mouse-pos').textContent = `${x}m, ${y}m`;
+            });
+        }
+        
+        function updateTunnelParams() {
+            const width = parseFloat(document.getElementById('tunnel-width').value);
+            const height = parseFloat(document.getElementById('tunnel-height').value);
+            const crossSection = document.getElementById('cross-section').value;
+            
+            tunnelDesigner.config.defaultTunnelWidth = width;
+            tunnelDesigner.config.defaultTunnelHeight = height;
+            tunnelDesigner.config.defaultCrossSectionType = crossSection;
+            
+            logTest(`Tünel parametreleri güncellendi: ${width}m × ${height}m, ${crossSection}`, true);
+        }
+        
+        function setActiveButton(buttonId) {
+            clearActiveButton();
+            activeButton = buttonId;
+            document.getElementById(buttonId).classList.add('active');
+        }
+        
+        function clearActiveButton() {
+            if (activeButton) {
+                document.getElementById(activeButton).classList.remove('active');
+                activeButton = null;
+            }
+        }
+        
+        function updateDrawingMode(mode) {
+            document.getElementById('drawing-mode').textContent = mode;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+        
+        function updateStats() {
+            const data = tunnelDesigner.getTunnelData();
+            document.getElementById('total-segments').textContent = data.segments.length;
+            
+            const totalLength = data.segments.reduce((sum, seg) => sum + (seg.length || 0), 0);
+            document.getElementById('total-length').textContent = totalLength.toFixed(1) + ' m';
+        }
+        
+        // Callback functions
+        function onTunnelCreated(segment) {
+            updateStats();
+            updateStatus(`✅ Tünel segmenti oluşturuldu: ${segment.length.toFixed(2)}m`, 'success');
+            
+            const clickPos = `${(segment.position.split(' ')[0] / 20).toFixed(1)}m, ${(segment.position.split(' ')[1] / 20).toFixed(1)}m`;
+            document.getElementById('last-click').textContent = clickPos;
+            
+            logTest(`Tünel segmenti oluşturuldu: ${segment.name}, Uzunluk: ${segment.length.toFixed(2)}m`, true);
+        }
+        
+        function onTunnelModified(data) {
+            updateStats();
+            updateStatus('🔄 Tünel verisi güncellendi', 'info');
+        }
+        
+        function onStationAdded(station) {
+            updateStats();
+            updateStatus(`✅ İstasyon eklendi: ${station.stationId}`, 'success');
+            logTest(`İstasyon eklendi: ${station.stationId}`, true);
+        }
+        
+        // Test functions
+        function startTests() {
+            document.getElementById('test-results').style.display = 'block';
+            
+            // Temel test'ler
+            logTest('GoJS kütüphanesi yüklendi', typeof go !== 'undefined');
+            logTest('TunnelDesigner sınıfı mevcut', typeof TunnelDesigner !== 'undefined');
+            logTest('Diagram container mevcut', document.getElementById('tunnel-diagram') !== null);
+            
+            // Fonksiyonel testler
+            setTimeout(() => {
+                if (tunnelDesigner) {
+                    logTest('Diagram başlatıldı', tunnelDesigner.diagram !== null);
+                    logTest('Snap to grid aktif', tunnelDesigner.config.snapToGrid === true);
+                    logTest('Ölçüm gösterimi aktif', tunnelDesigner.config.showMeasurements === true);
+                    logTest('Grid görünür', tunnelDesigner.config.showGrid === true);
+                }
+            }, 1000);
+        }
+        
+        function logTest(testName, passed) {
+            const output = document.getElementById('test-output');
+            const icon = passed ? '✅' : '❌';
+            const status = passed ? 'BAŞARILI' : 'BAŞARISIZ';
+            const color = passed ? 'green' : 'red';
+            
+            output.innerHTML += `<div style="color: ${color}; margin: 5px 0;">
+                ${icon} <strong>${testName}:</strong> ${status}
+            </div>`;
+        }
+        
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Global erişim için
+        window.tunnelDesigner = tunnelDesigner;
+    </script>
+</body>
+</html>

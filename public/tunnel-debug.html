@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Designer Debug</title>
+    <script src="https://unpkg.com/gojs@3.0.26/release/go.js"></script>
+</head>
+<body>
+    <h1>Tunnel Designer Debug Test</h1>
+    <div id="debug-info"></div>
+    <div id="tunnel-diagram" style="width: 800px; height: 500px; border: 1px solid #ccc; margin: 20px 0;"></div>
+    
+    <script>
+        const debugInfo = document.getElementById('debug-info');
+        
+        function addDebugInfo(message) {
+            debugInfo.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+        
+        // GoJS kontrolü
+        if (typeof go !== 'undefined') {
+            addDebugInfo('✅ GoJS yüklü - Version: ' + go.version);
+        } else {
+            addDebugInfo('❌ GoJS yüklenmedi');
+        }
+        
+        // TunnelDesigner kontrolü
+        if (typeof window.TunnelDesigner !== 'undefined') {
+            addDebugInfo('✅ TunnelDesigner global olarak erişilebilir');
+            
+            try {
+                // Test initialization
+                const testDesigner = new window.TunnelDesigner('tunnel-diagram', {
+                    gridSize: 0.5,
+                    showMeasurements: true,
+                    showGrid: true,
+                    snapToGrid: true
+                });
+                
+                addDebugInfo('✅ TunnelDesigner başarıyla başlatıldı');
+                addDebugInfo('✅ Diagram objesi oluşturuldu');
+                
+                // Basit bir test
+                testDesigner.setDrawingMode('tunnel');
+                addDebugInfo('✅ Çizim modu başarıyla ayarlandı');
+                
+                testDesigner.exitDrawingMode();
+                addDebugInfo('✅ Çizim modundan başarıyla çıkıldı');
+                
+            } catch (error) {
+                addDebugInfo('❌ TunnelDesigner başlatma hatası: ' + error.message);
+                console.error('TunnelDesigner error:', error);
+            }
+        } else {
+            addDebugInfo('❌ TunnelDesigner global olarak erişilebilir değil');
+        }
+    </script>
+    
+    <!-- Vite built TunnelDesigner test -->
+    <script type="module">
+        try {
+            // Build edilmiş dosyayı dinamik import ile test et
+            const module = await import('/build/assets/tunnel-designer-Yg1AzX6h.js');
+            console.log('Vite module loaded:', module);
+            
+            if (module.default) {
+                addDebugInfo('✅ Vite TunnelDesigner module yüklendi');
+                
+                const viteDesigner = new module.default('tunnel-diagram', {
+                    gridSize: 0.5,
+                    showMeasurements: true,
+                    showGrid: true,
+                    snapToGrid: true
+                });
+                
+                addDebugInfo('✅ Vite TunnelDesigner başarıyla başlatıldı');
+            }
+        } catch (error) {
+            addDebugInfo('❌ Vite TunnelDesigner import hatası: ' + error.message);
+            console.error('Vite import error:', error);
+        }
+    </script>
+</body>
+</html>
