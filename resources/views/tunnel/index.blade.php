@@ -167,9 +167,6 @@
                     <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMineModal">
                         <i class="fas fa-plus"></i> Yeni Maden
                     </button>
-                    <a href="{{ route('mines.index') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-arrow-left"></i> Geri Dön
-                    </a>
                 </div>
             </div>
         </div>
@@ -204,9 +201,17 @@
                                                 <small class="text-muted">
                                                     {{ $mine->paths->count() }} Tünel
                                                 </small>
-                                                <button class="btn btn-success btn-sm">
-                                                    <i class="fas fa-pencil-alt"></i> Tasarla
-                                                </button>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-success" onclick="event.stopPropagation(); loadMineForDesign({{ $mine->id }})">
+                                                        <i class="fas fa-pencil-alt"></i> Tasarla
+                                                    </button>
+                                                    <button class="btn btn-outline-primary" onclick="event.stopPropagation(); openEditMineModal({{ $mine->id }}, @json($mine->name), @json($mine->description))">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteMine({{ $mine->id }}, @json($mine->name))">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -228,20 +233,15 @@
                 </h5>
                 <div class="d-flex flex-wrap justify-content-center">
                     {{-- Drag & Draw mode hidden by request --}}
-                    <div class="mode-button" data-mode="tunnel_drag" style="display:none;">
-                        <div class="mode-icon">🖱️</div>
-                        <div class="mode-title">Sürükle & Çiz</div>
-                        <div class="mode-desc">Farenizi sürükleyerek<br>kolay tünel çizin!</div>
+                    <div class="mode-button" data-mode="tunnel_drag">
+                        <div class="mode-icon">�</div>
+                        <div class="mode-title">Serbest Tünel</div>
+                        <div class="mode-desc">Nokta-nokta tıklayarak<br>serbest tünel çizin!</div>
                     </div>
                     <div class="mode-button" data-mode="tunnel_point">
                         <div class="mode-icon">📍</div>
                         <div class="mode-title">Nokta & Yol</div>
                         <div class="mode-desc">Noktalara tıklayarak<br>uzun yollar çizin</div>
-                    </div>
-                    <div class="mode-button" data-mode="station">
-                        <div class="mode-icon">🚉</div>
-                        <div class="mode-title">İstasyon</div>
-                        <div class="mode-desc">Maden istasyonları<br>ekleyin</div>
                     </div>
                     <div class="mode-button" data-mode="off" id="mode-off">
                         <div class="mode-icon">⏹️</div>
@@ -311,8 +311,8 @@
                                 </div>
                             </div>
                             
-                            <!-- Tunnel Parameters -->
-                            <div class="tunnel-params">
+                            <!-- Tunnel Parameters (only visible in tunnel_point mode) -->
+                            <div class="tunnel-params" id="tunnel-params" style="display: none;">
                                 <div class="param-group">
                                     <label>Genişlik</label>
                                     <input type="number" id="tunnel-width" value="3.0" step="0.5" min="1" max="10">
@@ -325,7 +325,7 @@
                                     <span class="unit">m</span>
                                 </div>
                                 
-                                <div class="param-group">
+                                <div class="param-group" id="cross-section-group">
                                     <label>Kesit</label>
                                     <select id="cross-section" class="form-select form-select-sm" style="min-width: 180px; height: 36px; font-size: 14px;">
                                         <option value="circle">🔵 Daire</option>
@@ -715,10 +715,9 @@
     function selectDrawingMode(mode) {
         console.log(`🎯 Setting drawing mode: ${mode}`);
         
-        // This project hides Drag & Draw selection. Block if attempted programmatically.
+        // tunnel_drag artık serbest nokta-nokta çizimi için aktif
         if (mode === 'tunnel_drag') {
-            showMessage('Sürükle & Çiz modu şu an devre dışı.', 'warning');
-            return;
+            console.log('🎯 Serbest tünel çizimi modu aktif');
         }
 
         if (!tunnelDesigner) {
@@ -745,6 +744,9 @@
                 
                 // Hide instructions
                 document.getElementById('mode-instructions').style.display = 'none';
+                // Hide params panel when off
+                const params = document.getElementById('tunnel-params');
+                if (params) params.style.display = 'none';
             } else {
                 if (typeof tunnelDesigner.setDrawingMode === 'function') {
                     tunnelDesigner.setDrawingMode(mode);
@@ -759,13 +761,16 @@
                 document.querySelector('.tunnel-designer-container').classList.add('drawing-mode');
                 
                 const modeNames = {
-                    'tunnel_drag': '🖱️ Sürükle & Çiz',
-                    'tunnel_point': '📍 Nokta & Yol',
-                    'station': '🚉 İstasyon Ekle'
+                    'tunnel_drag': '� Serbest Tünel',
+                    'tunnel_point': '📍 Nokta & Yol'
                 };
                 
                 document.getElementById('mode-text').textContent = modeNames[mode] || mode;
                 document.getElementById('shortcuts-help').style.display = 'block';
+                
+                // Show params only in tunnel_point
+                const params = document.getElementById('tunnel-params');
+                if (params) params.style.display = (mode === 'tunnel_point') ? 'flex' : 'none';
                 
                 // Show mode instructions
                 showModeInstructions(mode);
@@ -786,29 +791,34 @@
         
         const instructions = {
             'tunnel_drag': {
-                title: '🖱️ Sürükle & Çiz Modu - Kullanım Talimatları',
+                title: '� Serbest Tünel Çizimi - Kullanım Talimatları',
                 content: `
                     <div class="instruction-step">
                         <div class="step-number">1</div>
-                        <div class="step-text">Fare ile başlangıç noktasına <strong>tıklayın ve basılı tutun</strong></div>
+                        <div class="step-text">İlk nokta için herhangi bir yere <strong>tıklayın</strong> - kırmızı pointer belirir</div>
                     </div>
                     <div class="instruction-step">
                         <div class="step-number">2</div>
-                        <div class="step-text">Farenizi <strong>sürükleyerek</strong> tünel yönünü ve uzunluğunu belirleyin</div>
+                        <div class="step-text">Farenizi hareket ettirin - <strong>dotted çizgi</strong> ve <strong>mesafe</strong> görünür</div>
                     </div>
                     <div class="instruction-step">
                         <div class="step-number">3</div>
-                        <div class="step-text">İstediğiniz noktada <strong>fare butonunu bırakın</strong> - tünel otomatik çizilir!</div>
+                        <div class="step-text">İkinci nokta için <strong>tıklayın</strong> - tünel segment oluşur</div>
+                    </div>
+                    <div class="instruction-step">
+                        <div class="step-number">4</div>
+                        <div class="step-text">İstediğiniz kadar nokta ekleyin - <strong>çift tıklayın</strong> veya <strong>ESC</strong> ile bitirin</div>
                     </div>
                     <div class="instruction-tips">
                         <div class="tips-title">
                             <i class="fas fa-lightbulb"></i> İpuçları
                         </div>
                         <ul>
-                            <li><strong>Grid yapışması:</strong> Tüneller otomatik olarak grid'e hizalanır</li>
-                            <li><strong>Manyetik bağlantı:</strong> Yakın noktalar otomatik birleşir</li>
-                            <li><strong>Anlık önizleme:</strong> Çizim sırasında tünel şeklini görebilirsiniz</li>
-                            <li><strong>ESC tuşu:</strong> Çizimi iptal etmek için ESC'ye basın</li>
+                            <li><strong>Kırmızı nokta:</strong> Aktif çizim noktasını gösterir</li>
+                            <li><strong>Dotted çizgi:</strong> Bir sonraki segment önizlemesi</li>
+                            <li><strong>Mesafe gösterimi:</strong> Mouse yanında anlık mesafe</li>
+                            <li><strong>Minimum mesafe:</strong> 0.5m'den kısa segmentler kabul edilmez</li>
+                            <li><strong>Sürekli çizim:</strong> Sayısız nokta ile istediğiniz gibi çizin</li>
                         </ul>
                     </div>
                 `
@@ -845,34 +855,7 @@
                     </div>
                 `
             },
-            'station': {
-                title: '🚉 İstasyon Modu - Kullanım Talimatları',
-                content: `
-                    <div class="instruction-step">
-                        <div class="step-number">1</div>
-                        <div class="step-text">İstasyon eklemek istediğiniz yere <strong>tek tıklayın</strong></div>
-                    </div>
-                    <div class="instruction-step">
-                        <div class="step-number">2</div>
-                        <div class="step-text">İstasyon <strong>otomatik olarak oluşturulur</strong> ve numaralandırılır</div>
-                    </div>
-                    <div class="instruction-step">
-                        <div class="step-number">3</div>
-                        <div class="step-text">İhtiyacınıza göre <strong>istediğiniz kadar istasyon</strong> ekleyebilirsiniz</div>
-                    </div>
-                    <div class="instruction-tips">
-                        <div class="tips-title">
-                            <i class="fas fa-lightbulb"></i> İpuçları
-                        </div>
-                        <ul>
-                            <li><strong>Tünel üzerinde:</strong> İstasyonları tünel yolları üzerine yerleştirin</li>
-                            <li><strong>Otomatik isim:</strong> İstasyonlar S1, S2, S3... şeklinde numaralanır</li>
-                            <li><strong>Silme:</strong> İstasyonu seçip Delete tuşu ile silebilirsiniz</li>
-                            <li><strong>Düzenleme:</strong> İstasyon özelliklerini çift tıklayarak düzenleyebilirsiniz</li>
-                        </ul>
-                    </div>
-                `
-            }
+            
         };
         
         const modeInstruction = instructions[mode];
@@ -881,11 +864,11 @@
             contentEl.innerHTML = modeInstruction.content;
             instructionsPanel.style.display = 'block';
             
-            // Smooth scroll to instructions
+            // Smooth scroll to instructions (deferred for layout)
             setTimeout(() => {
-                instructionsPanel.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'nearest' 
+                instructionsPanel.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
                 });
             }, 100);
         }
@@ -894,11 +877,13 @@
         const width = parseFloat(document.getElementById('tunnel-width').value);
         const height = parseFloat(document.getElementById('tunnel-height').value);
         const crossSection = document.getElementById('cross-section').value;
-        
+
+        // Update defaults
         tunnelDesigner.config.defaultTunnelWidth = width;
         tunnelDesigner.config.defaultTunnelHeight = height;
         tunnelDesigner.config.defaultCrossSectionType = crossSection;
-        // If a segment is selected, apply the cross-section to it immediately
+
+        // If a segment is selected, apply to it immediately
         try {
             const selParts = tunnelDesigner.diagram.selection.toArray();
             selParts.forEach(p => {
@@ -1216,5 +1201,92 @@
         const card = document.querySelector(`.mine-card[onclick="loadMineForDesign(${mineId})"]`);
         if (card) card.classList.add('selected');
     }
+
+    // Edit Mine Modal handlers
+    window.openEditMineModal = function(id, name, description) {
+        const modal = document.getElementById('editMineModal');
+        if (!modal) return;
+        document.getElementById('edit-mine-id').value = id;
+        document.getElementById('edit-mine-name').value = name || '';
+        document.getElementById('edit-mine-description').value = description || '';
+        if (window.bootstrap) {
+            (bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal)).show();
+        }
+    };
+
+    window.confirmDeleteMine = async function(id, name) {
+        if (!confirm(`'${name}' madenini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+        try {
+            const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrf = tokenMeta ? tokenMeta.content : undefined;
+            const endpoints = [
+                `/api/mines/${id}`,
+                `/mines/${id}`
+            ];
+            let ok = false;
+            for (const url of endpoints) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {})
+                        }
+                    });
+                    if (res.ok) { ok = true; break; }
+                } catch {}
+            }
+            if (!ok) throw new Error('Silme başarısız');
+            showMessage('Maden silindi', 'success');
+            window.location.reload();
+        } catch (e) {
+            showMessage('Maden silinemedi: ' + e.message, 'error');
+        }
+    };
+
+    // Submit edit mine form
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('edit-mine-form');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const id = document.getElementById('edit-mine-id').value;
+                const name = document.getElementById('edit-mine-name').value.trim();
+                const description = document.getElementById('edit-mine-description').value.trim();
+                if (!name) { showMessage('Maden adı zorunlu', 'warning'); return; }
+                try {
+                    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+                    const csrf = tokenMeta ? tokenMeta.content : undefined;
+                    const payload = { name, description };
+                    const endpoints = [
+                        { url: `/api/mines/${id}`, method: 'PUT' },
+                        { url: `/mines/${id}`, method: 'PUT' }
+                    ];
+                    let ok = false;
+                    for (const ep of endpoints) {
+                        try {
+                            const res = await fetch(ep.url, {
+                                method: ep.method,
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {})
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                            if (res.ok) { ok = true; break; }
+                        } catch {}
+                    }
+                    if (!ok) throw new Error('Güncelleme başarısız');
+                    showMessage('Maden güncellendi', 'success');
+                    window.location.reload();
+                } catch (e) {
+                    showMessage('Güncelleme hatası: ' + e.message, 'error');
+                }
+            });
+        }
+    });
 </script>
 @endpush

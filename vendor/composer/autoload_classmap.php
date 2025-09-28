@@ -19,7 +19,7 @@ return array(
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
     'App\\Http\\Controllers\\DashBoardController' => $baseDir . '/app/Http/Controllers/DashBoardController.php',
     'App\\Http\\Controllers\\HomeController' => $baseDir . '/app/Http/Controllers/HomeController.php',
-    'App\\Http\\Controllers\\MineController' => $baseDir . '/app/Http/Controllers/MineController.php',
+    'App\\Http\\Controllers\\TunnelController' => $baseDir . '/app/Http/Controllers/TunnelController.php',
     'App\\Models\\Mine' => $baseDir . '/app/Models/Mine.php',
     'App\\Models\\MineLayer' => $baseDir . '/app/Models/MineLayer.php',
     'App\\Models\\MineModel' => $baseDir . '/app/Models/MineModel.php',

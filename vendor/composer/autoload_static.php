@@ -606,7 +606,7 @@ class ComposerStaticInit0c0e4c80c8b55a698469dbe0b060a275
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\DashBoardController' => __DIR__ . '/../..' . '/app/Http/Controllers/DashBoardController.php',
         'App\\Http\\Controllers\\HomeController' => __DIR__ . '/../..' . '/app/Http/Controllers/HomeController.php',
-        'App\\Http\\Controllers\\MineController' => __DIR__ . '/../..' . '/app/Http/Controllers/MineController.php',
+        'App\\Http\\Controllers\\TunnelController' => __DIR__ . '/../..' . '/app/Http/Controllers/TunnelController.php',
         'App\\Models\\Mine' => __DIR__ . '/../..' . '/app/Models/Mine.php',
         'App\\Models\\MineLayer' => __DIR__ . '/../..' . '/app/Models/MineLayer.php',
         'App\\Models\\MineModel' => __DIR__ . '/../..' . '/app/Models/MineModel.php',

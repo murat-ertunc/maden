@@ -44,11 +44,6 @@
                                     <i class="fas fa-dashboard"></i> Dashboard
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ route('mines.index') }}">
-                                    <i class="fas fa-mountain"></i> 3D Madenler
-                                </a>
-                            </li>
                         @endauth
                     </ul>
 
@@ -74,13 +69,8 @@
                                 </a>
 
                                 <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <a class="dropdown-item" href="{{ route('mines.index') }}">
-                                        <i class="fas fa-mountain"></i> Madenlerim
-                                    </a>
                                     <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item" href="{{ route('logout') }}"
-                                       onclick="event.preventDefault();
-                                                     document.getElementById('logout-form').submit();">
+                                    <a class="dropdown-item" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                         {{ __('Logout') }}
                                     </a>
 

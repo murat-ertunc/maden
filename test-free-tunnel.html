@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serbest Tünel Çizimi Test</title>
+    <script src="https://unpkg.com/gojs@3.0.11/release/go.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        #tunnel-designer {
+            width: 800px;
+            height: 600px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        button {
+            margin-right: 10px;
+            padding: 8px 16px;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #005a8b;
+        }
+        
+        button.active {
+            background: #ff6b35;
+        }
+    </style>
+</head>
+<body>
+    <h1>Serbest Tünel Çizimi Test</h1>
+    
+    <div class="controls">
+        <button id="btn-drag" onclick="startDrawingMode('tunnel_drag')">Serbest Tünel (Nokta-Nokta)</button>
+        <button id="btn-point" onclick="startDrawingMode('tunnel_point')">Geleneksel Tünel</button>
+        <button onclick="stopDrawing()">Çizimi Durdur</button>
+        <button onclick="clearAll()">Temizle</button>
+    </div>
+    
+    <div id="tunnel-designer"></div>
+    
+    <div>
+        <h3>Kullanım:</h3>
+        <ul>
+            <li><strong>Serbest Tünel:</strong> Noktalara tıklayın, kırmızı pointer ve dotted çizgi ile önizleme</li>
+            <li><strong>Mesafe gösterimi:</strong> Mouse'un yanında mesafe görünür</li>
+            <li><strong>Bitirme:</strong> Çift tıklayın veya ESC tuşuna basın</li>
+        </ul>
+    </div>
+
+    <script src="enhanced-tunnel-designer.js"></script>
+    <script>
+        let tunnelDesigner;
+        
+        function init() {
+            tunnelDesigner = new EnhancedTunnelDesigner('tunnel-designer', {
+                showGrid: true,
+                showMeasurements: true,
+                snapToGrid: true,
+                gridSize: 0.5
+            });
+            
+            console.log('Tunnel Designer initialized');
+        }
+        
+        function startDrawingMode(mode) {
+            // Remove active class from all buttons
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            
+            // Add active class to current button
+            if (mode === 'tunnel_drag') {
+                document.getElementById('btn-drag').classList.add('active');
+            } else if (mode === 'tunnel_point') {
+                document.getElementById('btn-point').classList.add('active');
+            }
+            
+            tunnelDesigner.enterDrawingMode(mode);
+        }
+        
+        function stopDrawing() {
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            tunnelDesigner.exitDrawingMode();
+        }
+        
+        function clearAll() {
+            tunnelDesigner.diagram.model = new go.GraphLinksModel();
+            stopDrawing();
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
