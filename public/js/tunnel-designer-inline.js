@@ -42,7 +42,7 @@ class TunnelDesigner {
         this.setupTemplates();
         this.setupEventHandlers();
         
-        console.log('✅ TunnelDesigner initialized successfully');
+
     }
     
     setupDiagram() {
@@ -167,7 +167,7 @@ class TunnelDesigner {
         this.diagram.addDiagramListener("ObjectSingleClicked", (e) => {
             const obj = e.subject.part;
             if (obj && obj.data) {
-                console.log('Selected object:', obj.data);
+
             }
         });
     }
@@ -176,7 +176,7 @@ class TunnelDesigner {
         this.drawingMode = mode;
         this.isDrawing = true;
         this.diagram.div.style.cursor = 'crosshair';
-        console.log(`📐 Drawing mode: ${mode}`);
+
     }
     
     exitDrawingMode() {
@@ -184,14 +184,14 @@ class TunnelDesigner {
         this.drawingMode = null;
         this.currentTunnel = null;
         this.diagram.div.style.cursor = 'default';
-        console.log('🔚 Drawing mode exited');
+
     }
     
     addTunnelPoint(point) {
         if (this.drawingMode !== 'tunnel') return;
         
         const snappedPoint = this.snapToGrid(point);
-        console.log(`📍 Tunnel point added: ${snappedPoint.x}, ${snappedPoint.y}`);
+
         
         if (!this.currentTunnel) {
             this.startNewTunnelSegment(snappedPoint);
@@ -209,7 +209,7 @@ class TunnelDesigner {
             crossSectionType: this.config.defaultCrossSectionType
         };
         
-        console.log('🚇 New tunnel segment started');
+
     }
     
     completeTunnelSegment(endPoint) {
@@ -238,7 +238,7 @@ class TunnelDesigner {
             this.addMeasurement(this.currentTunnel.startPoint, endPoint, segment.length);
         }
         
-        console.log(`✅ Tunnel segment completed: ${segment.length.toFixed(2)}m`);
+
         
         // Callback
         if (this.onTunnelCreated) {
@@ -313,7 +313,7 @@ class TunnelDesigner {
             const data = JSON.parse(jsonData);
             this.loadTunnelData(data);
         } catch (error) {
-            console.error('❌ Data import error:', error);
+
         }
     }
     
@@ -338,7 +338,7 @@ class TunnelDesigner {
         data.stations?.forEach(sta => this.tunnelData.stations.set(sta.key, sta));
         data.measurements?.forEach(meas => this.tunnelData.measurements.set(meas.key, meas));
         
-        console.log('✅ Tunnel data loaded');
+
     }
 }
 

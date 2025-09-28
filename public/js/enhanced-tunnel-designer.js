@@ -64,7 +64,7 @@ class EnhancedTunnelDesigner {
         
         // Listen moves/rotations to keep measurements in sync
         this.registerAutoUpdateListeners();
-        console.log('✅ Enhanced TunnelDesigner initialized successfully');
+
     }
     
     setupDiagram() {
@@ -647,7 +647,7 @@ class EnhancedTunnelDesigner {
             this.diagram.commitTransaction('updateSegmentAndMeasurement');
 
         } catch (err) {
-            console.error('updateMeasurementForSegment error:', err);
+
         }
     }
 
@@ -913,7 +913,7 @@ class EnhancedTunnelDesigner {
         // Add instruction overlay
         this.showDrawingInstructions(mode);
         
-        console.log(`🎨 Enhanced drawing mode: ${mode}`);
+
     }
     
     exitDrawingMode() {
@@ -944,7 +944,7 @@ class EnhancedTunnelDesigner {
                 this.clearTempSegments();
             }
         } catch (err) {
-            console.error('exitDrawingMode commit/clear error:', err);
+
         }
         
         // Reset visuals
@@ -952,7 +952,7 @@ class EnhancedTunnelDesigner {
         this.diagram.div.classList.remove('drawing-mode');
         this.hideDrawingInstructions();
         
-        console.log('🔚 Drawing mode exited');
+
     }
     
     cancelDrawing() {
@@ -971,7 +971,7 @@ class EnhancedTunnelDesigner {
                 this.clearTempSegments();
             }
         } catch (err) {
-            console.error('ESC cancel/commit error:', err);
+
         }
         
         // Serbest tünel çizimi için temizlik
@@ -986,7 +986,7 @@ class EnhancedTunnelDesigner {
         this.clearPreview();
         this.drawingPath = [];
         this.exitDrawingMode();
-        console.log('❌ Drawing cancelled / exited');
+
     }
     
     // Enhanced drawing methods
@@ -995,7 +995,7 @@ class EnhancedTunnelDesigner {
     this.isDragging = true;
     this.drawingState = 'dragging';
     this.dragEndPoint = null;
-    console.log('🖱️ Drag drawing started');
+
     }
     
     updateDragDrawing(currentPoint) {
@@ -1013,7 +1013,7 @@ class EnhancedTunnelDesigner {
         const length = this.calculateDistance(this.dragStartPoint, finalEndPoint);
         // Minimum length check
         if (length < 0.5) {
-            console.log('⚠️ Tunnel too short, minimum 0.5m');
+
             this.cancelDrawing();
             return;
         }
@@ -1026,14 +1026,14 @@ class EnhancedTunnelDesigner {
         this.clearPreview();
         // Clear any selection to not interfere with next draw
         this.diagram.clearSelection();
-        console.log(`✅ Drag drawing completed: ${length.toFixed(2)}m`);
+
     }
     
     addPathPoint(point) {
         const snappedPoint = this.snapToGrid(point);
         this.drawingPath.push(snappedPoint);
         
-        console.log(`📍 Path point ${this.drawingPath.length}: ${snappedPoint.x}, ${snappedPoint.y}`);
+
         
         // Create segment if we have 2+ points
         if (this.drawingPath.length >= 2) {
@@ -1049,7 +1049,7 @@ class EnhancedTunnelDesigner {
     
     finishPathDrawing() {
         if (this.drawingPath.length < 2) {
-            console.log('⚠️ Need at least 2 points for tunnel path');
+
             return;
         }
         
@@ -1062,7 +1062,7 @@ class EnhancedTunnelDesigner {
         this.drawingPath = [];
         this.exitDrawingMode();
         
-        console.log(`✅ Path drawing completed with ${this.tempSegments.length} segments`);
+
     }
     
     createTunnelSegment(startPoint, endPoint) {
@@ -1217,7 +1217,7 @@ class EnhancedTunnelDesigner {
                 this.freeTunnelPoints.push(snappedPoint);
                 this.createPointerIndicator(snappedPoint);
                 this.addPathPointMarker(snappedPoint, 0);
-                console.log('📍 İlk nokta eklendi:', snappedPoint);
+
                 return;
             }
             
@@ -1226,7 +1226,7 @@ class EnhancedTunnelDesigner {
             const length = this.calculateDistance(lastPoint, snappedPoint);
             
             if (length < (this.config.minSegmentLength || 0.5)) {
-                console.log(`⚠️ Nokta çok yakın, minimum ${(this.config.minSegmentLength || 0.5)}m gerekli`);
+
                 return;
             }
             
@@ -1240,9 +1240,9 @@ class EnhancedTunnelDesigner {
             // Anında kalıcı bir çizgi segmenti oluştur (serbest modda kesit değil çizgi)
             this.createFreeSegment(lastPoint, snappedPoint);
             
-            console.log(`📍 Yeni nokta eklendi: ${length.toFixed(2)}m mesafede`);
+
         } catch (err) {
-            console.error('Free tunnel point ekleme hatası:', err);
+
         }
     }
     
@@ -1261,7 +1261,7 @@ class EnhancedTunnelDesigner {
             this.updateDistanceLabel(snappedCur, distance);
             
         } catch (err) {
-            console.error('Preview güncelleme hatası:', err);
+
         }
     }
     
@@ -1292,7 +1292,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.addNodeData(pointerData);
             }
         } catch (err) {
-            console.error('Pointer indicator oluşturma hatası:', err);
+
         }
     }
     
@@ -1309,7 +1309,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.removeNodeData(data);
             });
         } catch (err) {
-            console.error('Pointer indicator temizleme hatası:', err);
+
         }
     }
     
@@ -1349,7 +1349,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.addNodeData(previewData);
             }
         } catch (err) {
-            console.error('Preview line güncelleme hatası:', err);
+
         }
     }
     
@@ -1366,7 +1366,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.removeNodeData(data);
             });
         } catch (err) {
-            console.error('Preview line temizleme hatası:', err);
+
         }
     }
     
@@ -1401,7 +1401,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.addNodeData(labelData);
             }
         } catch (err) {
-            console.error('Distance label güncelleme hatası:', err);
+
         }
     }
     
@@ -1418,7 +1418,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.removeNodeData(data);
             });
         } catch (err) {
-            console.error('Distance label temizleme hatası:', err);
+
         }
     }
 
@@ -1456,7 +1456,7 @@ class EnhancedTunnelDesigner {
             };
             this.diagram.model.addNodeData(data);
         } catch (err) {
-            console.error('Path point marker oluşturma hatası:', err);
+
         }
     }
 
@@ -1470,13 +1470,13 @@ class EnhancedTunnelDesigner {
             });
             toRemove.forEach(d => this.diagram.model.removeNodeData(d));
         } catch (err) {
-            console.error('Path point marker temizleme hatası:', err);
+
         }
     }
     
     finishFreeTunnelDrawing() {
         try {
-            console.log(`✅ Serbest tünel çizimi tamamlandı, toplam nokta: ${this.freeTunnelPoints.length} (segmentler her tıklamada oluşturuldu)`);
+
             
             // Tüm geçici elementleri temizle
             this.clearPointerIndicator();
@@ -1488,7 +1488,7 @@ class EnhancedTunnelDesigner {
             this.exitDrawingMode();
             
         } catch (err) {
-            console.error('Serbest tünel tamamlama hatası:', err);
+
         }
     }
     
@@ -1704,7 +1704,7 @@ class EnhancedTunnelDesigner {
                 this.diagram.model.addNodeData(data);
             }
         } catch (e) {
-            console.warn('snap indicator update failed', e);
+
         }
     }
     clearSnapIndicator() {
@@ -1800,7 +1800,7 @@ class EnhancedTunnelDesigner {
             const data = JSON.parse(jsonData);
             this.loadTunnelData(data);
         } catch (error) {
-            console.error('❌ Data import error:', error);
+
         }
     }
     
@@ -1830,7 +1830,7 @@ class EnhancedTunnelDesigner {
         // Try to link orphan measurements to nearest segment so they follow on move
         this.linkMeasurementsToSegments();
         
-        console.log('✅ Tunnel data loaded');
+
     }
 
     linkMeasurementsToSegments() {
@@ -1858,7 +1858,7 @@ class EnhancedTunnelDesigner {
                 }
             });
         } catch (err) {
-            console.error('linkMeasurementsToSegments error:', err);
+
         }
     }
 }

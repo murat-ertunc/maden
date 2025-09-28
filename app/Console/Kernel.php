@@ -9,6 +9,7 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         \App\Console\Commands\NormalizeOrientationCommand::class,
+        \App\Console\Commands\SetupProject::class,
     ];
 
     protected function schedule(Schedule $schedule): void

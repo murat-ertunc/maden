@@ -1,0 +1,50 @@
+# Dependencies
+/vendor/
+/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Laravel specific
+.env
+.env.local
+.env.production
+.env.testing
+/storage/*.key
+/storage/app/*
+!/storage/app/.gitignore
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# Build outputs
+/public/build/
+/public/hot
+/public/storage
+/public/css/app.css
+/public/js/app.js
+
+# IDE and system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+*.cache
+
+# Backup files
+*.bak
+*.backup
+composer.phar

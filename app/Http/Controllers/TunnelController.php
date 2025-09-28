@@ -35,13 +35,7 @@ class TunnelController extends Controller
         return view('tunnel.enhanced', compact('mines'));
     }
 
-    /**
-     * Tunnel Designer test sayfası
-     */
-    public function test()
-    {
-        return view('tunnel.test');
-    }
+
 
     /**
      * API: Tünel verilerini kaydet

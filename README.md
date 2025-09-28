@@ -1,13 +1,57 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 3D Mining Tunnel Designer
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel-based 3D mining tunnel design and visualization application with real-time miner tracking capabilities.
 
-## About Laravel
+## 🚀 Quick Setup
+
+### Prerequisites
+- PHP 8.2 or higher
+- Composer
+- Node.js & NPM
+- MySQL database
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd maden
+   ```
+
+2. **Setup environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env file with your database credentials
+   ```
+
+3. **Run the setup command:**
+   ```bash
+   php artisan project:setup
+   ```
+   
+   Or manually:
+   ```bash
+   composer install
+   npm install
+   php artisan key:generate
+   php artisan migrate
+   npm run build
+   ```
+
+4. **Start the development server:**
+   ```bash
+   php artisan serve
+   ```
+
+### Available Commands
+
+- `php artisan project:setup` - Complete project setup
+- `php artisan project:setup --force` - Force reinstall all dependencies
+- `composer run setup` - Run project setup via Composer
+- `composer run fresh-install` - Clean installation from scratch
+- `npm run setup` - Install NPM dependencies and build assets
+
+## About the Application
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 

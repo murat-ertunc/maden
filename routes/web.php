@@ -14,7 +14,6 @@ Route::middleware('auth')->group(function () {
     // Tunnel Designer Routes
     Route::get('/tunnel-designer', [\App\Http\Controllers\TunnelController::class, 'index'])->name('tunnel.index');
     Route::get('/tunnel-designer/enhanced', [\App\Http\Controllers\TunnelController::class, 'enhanced'])->name('tunnel.enhanced');
-    Route::get('/tunnel-designer/test', [\App\Http\Controllers\TunnelController::class, 'test'])->name('tunnel.test');
 });
 
 // API Routes for Tunnel Designer and Miner Tracking
