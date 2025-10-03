@@ -133,6 +133,82 @@
     .instruction-tips li {
         margin-bottom: 4px;
     }
+    
+    /* Monitoring Mode - Fullscreen Styles */
+    .monitoring-mode {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .monitoring-mode .card {
+        height: 100vh !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+    
+    .monitoring-mode .card-body {
+        height: 100vh !important;
+        padding: 0 !important;
+    }
+    
+    .monitoring-mode #tunnel-diagram {
+        height: 100vh !important;
+        width: 100vw !important;
+    }
+    
+    .monitoring-mode #tunnel-diagram canvas {
+        height: 100vh !important;
+        width: 100vw !important;
+    }
+    
+    .monitoring-exit-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: rgba(220, 53, 69, 0.95);
+        color: white;
+        border: 2px solid white;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        display: none;
+    }
+    
+    .monitoring-exit-btn:hover {
+        background: rgba(200, 35, 51, 1);
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    
+    .monitoring-exit-btn i {
+        margin-right: 8px;
+    }
+    
+    .monitoring-mode .monitoring-exit-btn {
+        display: block;
+    }
+    
+    /* Hide header and footer in monitoring mode */
+    body.monitoring-active .container-fluid > .row:not(.monitoring-canvas-row) {
+        display: none !important;
+    }
+    
+    body.monitoring-active {
+        overflow: hidden;
+    }
 </style>
 @endpush
 
@@ -144,7 +220,6 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h2 class="mb-1">🚇 Kolay Tünel Tasarım Arayüzü</h2>
-                    <p class="text-muted mb-0">Sürükle-bırak ile profesyonel tünel tasarımı - Çok daha kolay!</p>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#minesListModal">
@@ -214,9 +289,9 @@
     </div>
 
     <!-- Main Design Area -->
-    <div class="row">
+    <div class="row monitoring-canvas-row">
         <div class="col-12">
-            <div class="card">
+            <div class="card" id="monitoring-card">
                 <!-- Enhanced Controls -->
                 <div class="card-header bg-light">
                     <div class="tunnel-controls">
@@ -281,6 +356,9 @@
                                 <button type="button" class="btn btn-sm btn-outline-primary btn-icon" id="btn-save">
                                     <i class="fas fa-save"></i> <span>Kaydet</span>
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-info btn-icon" id="btn-monitoring">
+                                    <i class="fas fa-expand"></i> <span>İzleme Modu</span>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" id="btn-load">
                                     <i class="fas fa-folder-open"></i> <span>Yükle</span>
                                 </button>
@@ -298,6 +376,11 @@
                         <div id="tunnel-diagram" style="height: 650px; width: 100%;"></div>
                         <!-- Cover for GoJS watermark area (bottom-left). Note: For production, purchase a license. -->
                         <div id="gojs-watermark-cover" style="position:absolute; left:8px; bottom:8px; width:220px; height:60px; background:linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0)); pointer-events:none;"></div>
+                        
+                        <!-- Monitoring Mode Exit Button -->
+                        <button type="button" class="monitoring-exit-btn" id="btn-exit-monitoring">
+                            <i class="fas fa-times"></i> Çıkış
+                        </button>
                         
                         <!-- Keyboard Shortcuts Help -->
                         <div class="shortcuts-help" id="shortcuts-help" style="display: none;">
@@ -670,6 +753,8 @@
         
     // File operations
     document.getElementById('btn-save').addEventListener('click', saveTunnelData);
+    document.getElementById('btn-monitoring').addEventListener('click', enterMonitoringMode);
+    document.getElementById('btn-exit-monitoring').addEventListener('click', exitMonitoringMode);
     document.getElementById('btn-load').addEventListener('click', loadMineTunnelDataFromServer);
     document.getElementById('btn-export').addEventListener('click', exportTunnelData);
         
@@ -977,6 +1062,105 @@
         tunnelDesigner.tunnelData.measurements.clear();
         updateStats();
         showMessage('Tüm çizimler temizlendi', 'info');
+    }
+    
+    // Monitoring Mode Functions
+    function enterMonitoringMode() {
+        console.log('🖥️ Entering monitoring mode...');
+        
+        // Add monitoring mode class to body
+        document.body.classList.add('monitoring-active');
+        
+        // Add monitoring mode class to card
+        const card = document.getElementById('monitoring-card');
+        if (card) {
+            card.classList.add('monitoring-mode');
+        }
+        
+        // Resize diagram to fit new dimensions
+        setTimeout(() => {
+            if (tunnelDesigner && tunnelDesigner.diagram) {
+                // Force diagram to recalculate dimensions
+                const diagramDiv = document.getElementById('tunnel-diagram');
+                if (diagramDiv) {
+                    // Get actual viewport dimensions
+                    diagramDiv.style.width = '100vw';
+                    diagramDiv.style.height = '100vh';
+                }
+                
+                // Request update and zoom to fit
+                tunnelDesigner.diagram.requestUpdate();
+                setTimeout(() => {
+                    tunnelDesigner.diagram.zoomToFit();
+                }, 100);
+            }
+        }, 300);
+        
+        // Change button icon and text
+        const monitoringBtn = document.getElementById('btn-monitoring');
+        if (monitoringBtn) {
+            monitoringBtn.innerHTML = '<i class="fas fa-compress"></i> <span>Normal Mod</span>';
+            monitoringBtn.classList.remove('btn-outline-info');
+            monitoringBtn.classList.add('btn-outline-warning');
+        }
+        
+        showMessage('🖥️ İzleme modu aktif - Tam ekran görünüm', 'success');
+        
+        // Add ESC key listener for exit
+        document.addEventListener('keydown', monitoringEscapeHandler);
+    }
+    
+    function exitMonitoringMode() {
+        console.log('🖥️ Exiting monitoring mode...');
+        
+        // Remove monitoring mode class from body
+        document.body.classList.remove('monitoring-active');
+        
+        // Remove monitoring mode class from card
+        const card = document.getElementById('monitoring-card');
+        if (card) {
+            card.classList.remove('monitoring-mode');
+        }
+        
+        // Reset diagram div dimensions
+        const diagramDiv = document.getElementById('tunnel-diagram');
+        if (diagramDiv) {
+            diagramDiv.style.width = '';
+            diagramDiv.style.height = '';
+        }
+        
+        // Resize diagram to fit new dimensions
+        setTimeout(() => {
+            if (tunnelDesigner && tunnelDesigner.diagram) {
+                tunnelDesigner.diagram.requestUpdate();
+                setTimeout(() => {
+                    tunnelDesigner.diagram.zoomToFit();
+                }, 100);
+            }
+        }, 300);
+        
+        // Change button back to original
+        const monitoringBtn = document.getElementById('btn-monitoring');
+        if (monitoringBtn) {
+            monitoringBtn.innerHTML = '<i class="fas fa-expand"></i> <span>İzleme Modu</span>';
+            monitoringBtn.classList.remove('btn-outline-warning');
+            monitoringBtn.classList.add('btn-outline-info');
+        }
+        
+        showMessage('Normal görünüme dönüldü', 'info');
+        
+        // Remove ESC key listener
+        document.removeEventListener('keydown', monitoringEscapeHandler);
+    }
+    
+    // ESC key handler for monitoring mode
+    function monitoringEscapeHandler(e) {
+        if (e.key === 'Escape' && document.body.classList.contains('monitoring-active')) {
+            // Only exit monitoring if not drawing
+            if (!tunnelDesigner || !tunnelDesigner.isDrawing) {
+                exitMonitoringMode();
+            }
+        }
     }
     
     // API Functions
