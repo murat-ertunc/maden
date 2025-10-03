@@ -88,6 +88,7 @@ class TunnelController extends Controller
                         'material' => $material,
                         'tunnel_type' => $tunnelType,
                         'angle' => $segment['angle'] ?? 0,
+                        'length' => $segment['length'] ?? 0,
                         'gojs_data' => $segmentForStore
                     ],
                     'status' => 'active',
@@ -136,6 +137,7 @@ class TunnelController extends Controller
                 $seg['material'] = $seg['material'] ?? ($path->material ?? 'concrete');
                 $seg['tunnelType'] = $seg['tunnelType'] ?? ($path->properties['tunnel_type'] ?? 'main');
                 $seg['crossSectionType'] = $seg['crossSectionType'] ?? ($path->properties['cross_section_type'] ?? 'circle');
+                $seg['length'] = $seg['length'] ?? ($path->properties['length'] ?? 0);
                 $tunnelData['segments'][] = $seg;
             } else {
                 // Legacy format dönüştürme

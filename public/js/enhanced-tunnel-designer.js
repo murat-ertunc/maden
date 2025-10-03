@@ -1774,11 +1774,16 @@ class EnhancedTunnelDesigner {
             segmentKey: segmentKey || undefined
         };
         
+        this.diagram.startTransaction('addMeasurement');
         this.diagram.model.addNodeData(measurement);
+        this.diagram.commitTransaction('addMeasurement');
+        
         this.tunnelData.measurements.set(measurement.key, measurement);
         if (segmentKey) {
             this.segmentMeasurements.set(segmentKey, measurement.key);
         }
+        
+        console.log('📏 Measurement added:', measurement);
     }
     
     // Data methods
@@ -1810,11 +1815,23 @@ class EnhancedTunnelDesigner {
         this.tunnelData.stations.clear();
         this.tunnelData.measurements.clear();
         
-        // Load new data
+        // Process segments and recalculate length if missing
+        const processedSegments = (data.segments || []).map(seg => {
+            // If length is missing or 0, recalculate it
+            if (!seg.length || seg.length === 0) {
+                if (seg.from && seg.to) {
+                    const startPoint = go.Point.parse(seg.from);
+                    const endPoint = go.Point.parse(seg.to);
+                    seg.length = this.calculateDistance(startPoint, endPoint);
+                }
+            }
+            return seg;
+        });
+        
+        // Load segments and stations first
         const allNodes = [
-            ...(data.segments || []),
-            ...(data.stations || []),
-            ...(data.measurements || [])
+            ...processedSegments,
+            ...(data.stations || [])
         ];
         
         // Rebuild model and add nodes within a transaction to avoid warnings
@@ -1823,10 +1840,21 @@ class EnhancedTunnelDesigner {
         allNodes.forEach(nd => this.diagram.model.addNodeData(nd));
         this.diagram.commitTransaction('loadData');
         
-        // Update data storage
-        data.segments?.forEach(seg => this.tunnelData.segments.set(seg.key, seg));
+        // Update data storage for segments and stations
+        processedSegments.forEach(seg => this.tunnelData.segments.set(seg.key, seg));
         data.stations?.forEach(sta => this.tunnelData.stations.set(sta.key, sta));
-        data.measurements?.forEach(meas => this.tunnelData.measurements.set(meas.key, meas));
+        
+        // Recreate measurements for all segments if showMeasurements is enabled
+        if (this.config.showMeasurements) {
+            processedSegments.forEach(seg => {
+                if (seg.from && seg.to && seg.length) {
+                    const startPoint = go.Point.parse(seg.from);
+                    const endPoint = go.Point.parse(seg.to);
+                    this.addMeasurement(startPoint, endPoint, seg.length, seg.key);
+                }
+            });
+        }
+        
         // Try to link orphan measurements to nearest segment so they follow on move
         this.linkMeasurementsToSegments();
         

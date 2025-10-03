@@ -1053,6 +1053,13 @@
         document.getElementById('total-length').textContent = totalLength.toFixed(1);
         
         document.getElementById('total-stations').textContent = data.stations.length;
+        
+        // Debug: Check measurements
+        console.log('📊 Stats Update:', {
+            segments: data.segments.length,
+            measurements: data.measurements.length,
+            totalLength: totalLength.toFixed(1)
+        });
     }
     
     function clearAll() {
@@ -1226,6 +1233,7 @@
             const response = await fetch(`/api/mines/${currentMineId}/tunnel-data`);
             const tunnelData = await response.json();
             
+            console.log('📥 Loading tunnel data:', tunnelData);
             tunnelDesigner.loadTunnelData(tunnelData);
             updateStats();
             showMessage('Tünel verileri yüklendi', 'info');
