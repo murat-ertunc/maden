@@ -70,5 +70,5 @@ Route::get('/logout', [\App\Http\Controllers\HomeController::class, 'logoutUser'
 
 Route::get('/login-admin', function () {
     Auth::loginUsingId(1);
-    return redirect('/mines');
+    return redirect('/tunnel-designer');
 })->name('login-admin');
