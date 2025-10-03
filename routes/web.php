@@ -24,6 +24,8 @@ Route::middleware('auth')->prefix('api')->group(function () {
 
     // Mines API (lightweight JSON endpoints)
     Route::post('/mines', [\App\Http\Controllers\MineController::class, 'storeApi'])->name('api.mines.store');
+
+    Route::delete('/mines/{mine}', [\App\Http\Controllers\MineController::class, 'destroy'])->name('api.mines.destroy');
     
     // Miner Position Tracking API Routes (for Raspberry Pi)
     Route::post('/miner-position', [\App\Http\Controllers\TunnelController::class, 'receiveMinerPosition'])->name('api.miner.position');

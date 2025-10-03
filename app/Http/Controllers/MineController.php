@@ -145,7 +145,9 @@ class MineController extends Controller
         
         $mine->delete();
 
-        return redirect()->route('mines.index')
-            ->with('success', 'Maden silindi.');
+        return response()->json([
+            'success' => true,
+            'message' => 'Maden başarıyla silindi.'
+        ]);
     }
 }

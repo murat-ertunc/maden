@@ -5,23 +5,6 @@
 @push('styles')
 <link href="{{ asset('css/enhanced-tunnel-designer.css') }}" rel="stylesheet">
 <style>
-    .mine-card {
-        transition: transform 0.2s ease-in-out;
-        cursor: pointer;
-        border: 2px solid transparent;
-    }
-    
-    .mine-card:hover {
-        transform: translateY(-5px);
-        border-color: #007bff;
-        box-shadow: 0 4px 20px rgba(0,123,255,0.3);
-    }
-    
-    .mine-card.selected {
-        border-color: #28a745;
-        background-color: #f8fff9;
-    }
-    
     .drawing-mode-selector {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 12px;
@@ -164,6 +147,9 @@
                     <p class="text-muted mb-0">Sürükle-bırak ile profesyonel tünel tasarımı - Çok daha kolay!</p>
                 </div>
                 <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#minesListModal">
+                        <i class="fas fa-mountain"></i> Madenler
+                    </button>
                     <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMineModal">
                         <i class="fas fa-plus"></i> Yeni Maden
                     </button>
@@ -176,51 +162,6 @@
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
-    <!-- Mine Selection -->
-    @if($mines->count() > 0)
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5><i class="fas fa-mountain"></i> Maden Seçimi</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            @foreach($mines as $mine)
-                                <div class="col-md-4 mb-3">
-                                    <div class="card mine-card" onclick="loadMineForDesign({{ $mine->id }})">
-                                        <div class="card-body">
-                                            <h6 class="card-title">{{ $mine->name }}</h6>
-                                            <p class="card-text small text-muted">
-                                                {{ Str::limit($mine->description, 80) }}
-                                            </p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <small class="text-muted">
-                                                    {{ $mine->paths->count() }} Tünel
-                                                </small>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button class="btn btn-success" onclick="event.stopPropagation(); loadMineForDesign({{ $mine->id }})">
-                                                        <i class="fas fa-pencil-alt"></i> Tasarla
-                                                    </button>
-                                                    <button class="btn btn-outline-primary" onclick="event.stopPropagation(); openEditMineModal({{ $mine->id }}, @json($mine->name), @json($mine->description))">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteMine({{ $mine->id }}, @json($mine->name))">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     @endif
 
@@ -458,6 +399,102 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
                 <button type="button" class="btn btn-primary" id="btn-import-confirm">İçe Aktar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mines List Modal -->
+<div class="modal fade" id="minesListModal" tabindex="-1" aria-labelledby="minesListModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="minesListModalLabel">
+                    <i class="fas fa-mountain"></i> Madenler
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if($mines->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 30%;">Maden Adı</th>
+                                    <th style="width: 40%;">Açıklama</th>
+                                    <th style="width: 10%;" class="text-center">Tüneller</th>
+                                    <th style="width: 20%;" class="text-end">İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($mines as $mine)
+                                    <tr>
+                                        <td>
+                                            <strong>{{ $mine->name }}</strong>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ $mine->description ? Str::limit($mine->description, 60) : '-' }}
+                                            </small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info">{{ $mine->paths->count() }}</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-danger" onclick="confirmDeleteMine({{ $mine->id }}, '{{ $mine->name }}')" title="Sil">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-5">
+                        <i class="fas fa-mountain fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Henüz hiç maden eklenmemiş.</p>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMineModal" onclick="closeMinesListModal()">
+                            <i class="fas fa-plus"></i> İlk Madeni Ekle
+                        </button>
+                    </div>
+                @endif
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Mine Modal -->
+<div class="modal fade" id="editMineModal" tabindex="-1" aria-labelledby="editMineModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="edit-mine-form">
+                <input type="hidden" id="edit-mine-id">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editMineModalLabel">
+                        <i class="fas fa-edit"></i> Maden Düzenle
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit-mine-name" class="form-label">Maden Adı</label>
+                        <input type="text" class="form-control" id="edit-mine-name" name="name" placeholder="Örn: Kuzey Galeri" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-mine-description" class="form-label">Açıklama (opsiyonel)</label>
+                        <textarea class="form-control" id="edit-mine-description" name="description" rows="3" placeholder="Kısa açıklama..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Güncelle
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1202,16 +1239,32 @@
         if (card) card.classList.add('selected');
     }
 
+    // Close mines list modal
+    window.closeMinesListModal = function() {
+        const modal = document.getElementById('minesListModal');
+        if (modal && window.bootstrap) {
+            const instance = bootstrap.Modal.getInstance(modal);
+            if (instance) instance.hide();
+        }
+    };
+
     // Edit Mine Modal handlers
     window.openEditMineModal = function(id, name, description) {
+        // Close mines list modal first
+        closeMinesListModal();
+        
+        // Open edit modal
         const modal = document.getElementById('editMineModal');
         if (!modal) return;
         document.getElementById('edit-mine-id').value = id;
         document.getElementById('edit-mine-name').value = name || '';
         document.getElementById('edit-mine-description').value = description || '';
-        if (window.bootstrap) {
-            (bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal)).show();
-        }
+        
+        setTimeout(() => {
+            if (window.bootstrap) {
+                (bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal)).show();
+            }
+        }, 300);
     };
 
     window.confirmDeleteMine = async function(id, name) {
