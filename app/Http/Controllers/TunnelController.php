@@ -75,6 +75,16 @@ class TunnelController extends Controller
                 $segmentForStore['material'] = $material;
                 $segmentForStore['tunnelType'] = $tunnelType;
                 $segmentForStore['color'] = $color;
+                
+                // Bu segment'e ait gateway'leri filtrele
+                $segmentGateways = [];
+                if (isset($tunnelData['gateways'])) {
+                    foreach ($tunnelData['gateways'] as $gateway) {
+                        if (isset($gateway['segmentKey']) && $gateway['segmentKey'] === $segment['key']) {
+                            $segmentGateways[] = $gateway;
+                        }
+                    }
+                }
 
                 $mine->paths()->create([
                     'name' => $segment['name'] ?? 'TUNNEL',
@@ -89,7 +99,8 @@ class TunnelController extends Controller
                         'tunnel_type' => $tunnelType,
                         'angle' => $segment['angle'] ?? 0,
                         'length' => $segment['length'] ?? 0,
-                        'gojs_data' => $segmentForStore
+                        'gojs_data' => $segmentForStore,
+                        'gateways' => $segmentGateways
                     ],
                     'status' => 'active',
                     'width' => $width,
@@ -125,7 +136,8 @@ class TunnelController extends Controller
         $tunnelData = [
             'segments' => [],
             'stations' => [],
-            'measurements' => []
+            'measurements' => [],
+            'gateways' => []
         ];
 
         foreach ($paths as $path) {
@@ -139,6 +151,13 @@ class TunnelController extends Controller
                 $seg['crossSectionType'] = $seg['crossSectionType'] ?? ($path->properties['cross_section_type'] ?? 'circle');
                 $seg['length'] = $seg['length'] ?? ($path->properties['length'] ?? 0);
                 $tunnelData['segments'][] = $seg;
+                
+                // Load gateways for this segment
+                if (isset($path->properties['gateways'])) {
+                    foreach ($path->properties['gateways'] as $gateway) {
+                        $tunnelData['gateways'][] = $gateway;
+                    }
+                }
             } else {
                 // Legacy format dönüştürme
                 $tunnelData['segments'][] = $this->convertPathToSegment($path);

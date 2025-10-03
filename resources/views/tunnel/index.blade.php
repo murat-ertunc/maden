@@ -612,6 +612,38 @@
     </div>
 </div>
 
+<!-- Gateway (Alıcı) Ekleme Modal -->
+<div class="modal fade" id="gatewayModal" tabindex="-1" aria-labelledby="gatewayModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="gateway-form">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="gatewayModalLabel">
+                        <i class="fas fa-broadcast-tower"></i> Alıcı Ekle
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Metraj:</strong> <span id="gateway-meterage">0.0</span> metre
+                    </div>
+                    <div class="mb-3">
+                        <label for="gateway-id-input" class="form-label">Gateway ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="gateway-id-input" name="gatewayId" placeholder="Örn: GW-001" required>
+                        <div class="form-text">Alıcı cihazının benzersiz tanımlayıcısı</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -1067,6 +1099,8 @@
         tunnelDesigner.tunnelData.segments.clear();
         tunnelDesigner.tunnelData.stations.clear();
         tunnelDesigner.tunnelData.measurements.clear();
+        tunnelDesigner.tunnelData.gateways.clear();
+        tunnelDesigner.segmentGateways.clear();
         updateStats();
         showMessage('Tüm çizimler temizlendi', 'info');
     }
@@ -1489,6 +1523,57 @@
             showMessage('Maden silinemedi: ' + e.message, 'error');
         }
     };
+
+    // ========== GATEWAY (ALICI) FUNCTIONS ==========
+    
+    let gatewayCallback = null;
+    
+    window.openGatewayDialog = function(segment, position, meterage, callback) {
+        gatewayCallback = callback;
+        
+        // Metrajı göster
+        document.getElementById('gateway-meterage').textContent = meterage.toFixed(1);
+        
+        // Input'u temizle
+        document.getElementById('gateway-id-input').value = '';
+        
+        // Modal'ı aç
+        const modal = new bootstrap.Modal(document.getElementById('gatewayModal'));
+        modal.show();
+        
+        // Focus to input
+        setTimeout(() => {
+            document.getElementById('gateway-id-input').focus();
+        }, 500);
+    };
+    
+    // Gateway form submit
+    document.addEventListener('DOMContentLoaded', function() {
+        const gatewayForm = document.getElementById('gateway-form');
+        if (gatewayForm) {
+            gatewayForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const gatewayId = document.getElementById('gateway-id-input').value.trim();
+                if (!gatewayId) {
+                    showMessage('Gateway ID gerekli!', 'warning');
+                    return;
+                }
+                
+                // Callback'i çağır
+                if (gatewayCallback) {
+                    gatewayCallback(gatewayId);
+                    gatewayCallback = null;
+                }
+                
+                // Modal'ı kapat
+                const modal = bootstrap.Modal.getInstance(document.getElementById('gatewayModal'));
+                if (modal) modal.hide();
+                
+                showMessage('Alıcı başarıyla eklendi!', 'success');
+            });
+        }
+    });
 
     // Submit edit mine form
     document.addEventListener('DOMContentLoaded', function() {

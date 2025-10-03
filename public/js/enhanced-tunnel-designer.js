@@ -40,15 +40,26 @@ class EnhancedTunnelDesigner {
         this.tunnelData = {
             segments: new Map(),
             stations: new Map(),
-            measurements: new Map()
+            measurements: new Map(),
+            gateways: new Map()
         };
         // Map segmentKey -> measurementKey for fast updates
         this.segmentMeasurements = new Map();
+        // Map segmentKey -> [gatewayKeys]
+        this.segmentGateways = new Map();
         
         // Callbacks
         this.onTunnelCreated = null;
         this.onTunnelModified = null;
         this.onStationAdded = null;
+        this.onGatewayAdded = null;
+
+        // UI overlays
+        this.hoverMeterLabel = null;
+        this.gatewayContextMenu = null;
+        this.pendingGatewayContext = null;
+        this.boundHoverMouseMove = null;
+        this.boundHoverMouseLeave = null;
         
         this.init();
     }
@@ -64,6 +75,9 @@ class EnhancedTunnelDesigner {
         
         // Listen moves/rotations to keep measurements in sync
         this.registerAutoUpdateListeners();
+
+        // Additional interaction helpers
+        this.setupInteractionOverlays();
 
     }
     
@@ -104,7 +118,10 @@ class EnhancedTunnelDesigner {
                     resizable: true,
                     reshapable: false,
                     layerName: "Foreground",
-                    resizeObjectName: "SEGSHAPE"
+                    resizeObjectName: "SEGSHAPE",
+                    cursor: "pointer",
+                    toolTip: this.createSegmentTooltip(),
+                    click: (e, obj) => this.handleSegmentClick(e, obj)
                 },
                 // Remove default rectangular selection box for horseshoe (circle keeps some selection for length adjustment)
                 new go.Binding("selectionAdorned", "crossSectionType", t => t !== 'horseshoe'),
@@ -330,6 +347,49 @@ class EnhancedTunnelDesigner {
                 new go.Binding("text", "stationId"))
             )
         );
+        
+        // Gateway/Sensor template - Alıcı şablonu
+        this.diagram.nodeTemplateMap.add("gateway",
+            $(go.Node, "Spot",
+                {
+                    locationSpot: go.Spot.Center,
+                    selectable: true,
+                    deletable: true,
+                    cursor: "pointer"
+                },
+                new go.Binding("location", "position", go.Point.parse).makeTwoWay(go.Point.stringify),
+                
+                $(go.Panel, "Auto",
+                    $(go.Shape, "RoundedRectangle", {
+                        width: 50,
+                        height: 30,
+                        fill: "#00C853",
+                        stroke: "#00796B",
+                        strokeWidth: 2
+                    }),
+                    
+                    $(go.TextBlock, {
+                        margin: 3,
+                        font: "bold 9px sans-serif",
+                        stroke: "white",
+                        overflow: go.TextBlock.OverflowEllipsis,
+                        maxSize: new go.Size(45, NaN)
+                    },
+                    new go.Binding("text", "gatewayId"))
+                ),
+                
+                // Metraj gösterimi (altında)
+                $(go.TextBlock, {
+                    alignment: go.Spot.Bottom,
+                    alignmentFocus: go.Spot.Top,
+                    margin: new go.Margin(3, 4, 0, 4),
+                    font: "10px sans-serif",
+                    stroke: "#00796B",
+                    background: "rgba(255,255,255,0.9)"
+                },
+                new go.Binding("text", "meterage", m => `${m.toFixed(1)}m`))
+            )
+        );
     }
     
     setupMeasurementTemplate() {
@@ -486,7 +546,8 @@ class EnhancedTunnelDesigner {
                         selectable: true,
                         avoidable: false,
                         pickable: true,
-                        layerName: "Foreground"
+                        layerName: "Foreground",
+                        click: (e, obj) => this.handleSegmentClick(e, obj)
                     },
                 new go.Binding("position", "pos", go.Point.parse),
                     $(go.Shape, {
@@ -600,6 +661,226 @@ class EnhancedTunnelDesigner {
         this.diagram.addDiagramListener('ChangedSelection', () => {
             this.refreshHorseshoeHandlesForSelection();
         });
+    }
+
+    setupInteractionOverlays() {
+        if (!this.diagram || !this.diagram.div) return;
+
+        const host = this.diagram.div;
+        const computedStyle = window.getComputedStyle(host);
+        if (computedStyle.position === 'static') {
+            host.style.position = 'relative';
+        }
+
+        this.createHoverMeterLabel(host);
+        this.createGatewayContextMenu(host);
+
+        if (!this.boundHoverMouseMove) {
+            this.boundHoverMouseMove = (evt) => {
+                if (!this.diagram) return;
+                const rect = host.getBoundingClientRect();
+                const viewPoint = new go.Point(evt.clientX - rect.left, evt.clientY - rect.top);
+                const docPoint = this.diagram.transformViewToDoc(viewPoint);
+                this.handleDiagramPointerMove(docPoint);
+            };
+        }
+
+        if (!this.boundHoverMouseLeave) {
+            this.boundHoverMouseLeave = () => {
+                this.hideHoverMeterLabel();
+                this.hideGatewayContextMenu();
+            };
+        }
+
+        host.addEventListener('mousemove', this.boundHoverMouseMove);
+        host.addEventListener('mouseleave', this.boundHoverMouseLeave);
+
+        this.diagram.addDiagramListener('BackgroundSingleClicked', () => this.hideGatewayContextMenu());
+        this.diagram.addDiagramListener('ViewportBoundsChanged', () => this.hideGatewayContextMenu());
+    }
+
+    createHoverMeterLabel(host) {
+        if (this.hoverMeterLabel) return;
+        const label = document.createElement('div');
+        label.className = 'hover-meter-label';
+        Object.assign(label.style, {
+            position: 'absolute',
+            display: 'none',
+            pointerEvents: 'none',
+            transform: 'translate(-50%, -120%)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: '600',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            zIndex: '20'
+        });
+        host.appendChild(label);
+        this.hoverMeterLabel = label;
+    }
+
+    handleDiagramPointerMove(docPoint) {
+        if (!this.hoverMeterLabel || this.isDrawing || !docPoint) {
+            this.hideHoverMeterLabel();
+            return;
+        }
+
+        const part = this.diagram.findPartAt(docPoint, true);
+        const data = part && part.data;
+        if (data && (data.category === 'tunnel_segment' || data.category === 'free_tunnel_segment')) {
+            const startPoint = go.Point.parse(data.from);
+            const endPoint = go.Point.parse(data.to);
+            const totalLength = data.length || this.calculateDistance(startPoint, endPoint);
+            const meterage = this.calculateMeterageOnSegment(docPoint, startPoint, endPoint, totalLength);
+            this.showHoverMeterLabel(docPoint, `${meterage.toFixed(1)} m`);
+        } else {
+            this.hideHoverMeterLabel();
+        }
+    }
+
+    showHoverMeterLabel(docPoint, text) {
+        if (!this.hoverMeterLabel) return;
+        const viewPoint = this.diagram.transformDocToView(docPoint);
+        this.hoverMeterLabel.textContent = text;
+        this.hoverMeterLabel.style.left = `${viewPoint.x}px`;
+        this.hoverMeterLabel.style.top = `${viewPoint.y}px`;
+        this.hoverMeterLabel.style.display = 'block';
+    }
+
+    hideHoverMeterLabel() {
+        if (this.hoverMeterLabel) {
+            this.hoverMeterLabel.style.display = 'none';
+        }
+    }
+
+    createGatewayContextMenu(host) {
+        if (this.gatewayContextMenu) return;
+
+        const menu = document.createElement('div');
+        menu.className = 'gateway-context-menu';
+        Object.assign(menu.style, {
+            position: 'absolute',
+            display: 'none',
+            flexDirection: 'column',
+            gap: '10px',
+            padding: '10px 12px',
+            background: '#ffffff',
+            borderRadius: '8px',
+            border: '1px solid rgba(0,0,0,0.15)',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
+            zIndex: '30',
+            minWidth: '160px'
+        });
+
+        const info = document.createElement('div');
+        info.style.display = 'flex';
+        info.style.flexDirection = 'column';
+        info.style.gap = '4px';
+
+        const title = document.createElement('span');
+        title.textContent = 'Metraj';
+        title.style.fontSize = '11px';
+        title.style.fontWeight = '600';
+        title.style.color = '#607D8B';
+
+        const meterText = document.createElement('span');
+        meterText.style.fontSize = '13px';
+        meterText.style.fontWeight = '700';
+        meterText.style.color = '#00796B';
+
+        info.appendChild(title);
+        info.appendChild(meterText);
+
+        menu.appendChild(info);
+        this.gatewayContextInfo = meterText;
+
+        const actions = document.createElement('div');
+        Object.assign(actions.style, {
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'space-between'
+        });
+
+        const addButton = document.createElement('button');
+        addButton.type = 'button';
+        addButton.textContent = 'Alıcı ekle';
+        Object.assign(addButton.style, {
+            background: '#00C853',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            flex: '1'
+        });
+
+        addButton.addEventListener('click', () => {
+            if (!this.pendingGatewayContext) return;
+            const { segment, docPoint, meterage } = this.pendingGatewayContext;
+            this.hideGatewayContextMenu();
+            this.showAddGatewayDialog(segment, docPoint.copy ? docPoint.copy() : docPoint, meterage);
+        });
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.textContent = 'Çizgiyi sil';
+        Object.assign(deleteButton.style, {
+            background: '#FF5252',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            flex: '1'
+        });
+
+        deleteButton.addEventListener('click', () => {
+            if (!this.pendingGatewayContext) return;
+            const { segment } = this.pendingGatewayContext;
+            this.hideGatewayContextMenu();
+            this.deleteSegment(segment);
+        });
+
+        actions.appendChild(addButton);
+        actions.appendChild(deleteButton);
+
+        menu.appendChild(actions);
+
+        host.appendChild(menu);
+        this.gatewayContextMenu = menu;
+    }
+
+    showGatewayContextMenu(segment, docPoint, meterage) {
+        if (!this.gatewayContextMenu) return;
+
+        this.pendingGatewayContext = {
+            segment,
+            docPoint: docPoint.copy ? docPoint.copy() : docPoint,
+            meterage
+        };
+
+        if (this.gatewayContextInfo) {
+            this.gatewayContextInfo.textContent = `${meterage.toFixed(1)} m`;
+        }
+
+        const viewPoint = this.diagram.transformDocToView(docPoint);
+        this.gatewayContextMenu.style.left = `${viewPoint.x + 10}px`;
+        this.gatewayContextMenu.style.top = `${viewPoint.y + 10}px`;
+        this.gatewayContextMenu.style.display = 'flex';
+
+        this.hideHoverMeterLabel();
+    }
+
+    hideGatewayContextMenu() {
+        if (this.gatewayContextMenu) {
+            this.gatewayContextMenu.style.display = 'none';
+        }
+        this.pendingGatewayContext = null;
     }
 
     updateMeasurementForSegment(seg) {
@@ -1793,7 +2074,8 @@ class EnhancedTunnelDesigner {
         const segments = nodes.filter(n => (n.category === 'tunnel_segment' || n.category === 'free_tunnel_segment') && !n.isTemporary);
         const stations = nodes.filter(n => n.category === 'miner_station');
         const measurements = nodes.filter(n => n.category === 'measurement');
-        return { segments, stations, measurements };
+        const gateways = nodes.filter(n => n.category === 'gateway');
+        return { segments, stations, measurements, gateways };
     }
     
     exportTunnelData() {
@@ -1828,10 +2110,11 @@ class EnhancedTunnelDesigner {
             return seg;
         });
         
-        // Load segments and stations first
+        // Load segments, stations, and gateways
         const allNodes = [
             ...processedSegments,
-            ...(data.stations || [])
+            ...(data.stations || []),
+            ...(data.gateways || [])
         ];
         
         // Rebuild model and add nodes within a transaction to avoid warnings
@@ -1840,9 +2123,19 @@ class EnhancedTunnelDesigner {
         allNodes.forEach(nd => this.diagram.model.addNodeData(nd));
         this.diagram.commitTransaction('loadData');
         
-        // Update data storage for segments and stations
+        // Update data storage for segments, stations, and gateways
         processedSegments.forEach(seg => this.tunnelData.segments.set(seg.key, seg));
         data.stations?.forEach(sta => this.tunnelData.stations.set(sta.key, sta));
+        data.gateways?.forEach(gw => {
+            this.tunnelData.gateways.set(gw.key, gw);
+            // Track segment-gateway relationship
+            if (gw.segmentKey) {
+                if (!this.segmentGateways.has(gw.segmentKey)) {
+                    this.segmentGateways.set(gw.segmentKey, []);
+                }
+                this.segmentGateways.get(gw.segmentKey).push(gw.key);
+            }
+        });
         
         // Recreate measurements for all segments if showMeasurements is enabled
         if (this.config.showMeasurements) {
@@ -1888,6 +2181,200 @@ class EnhancedTunnelDesigner {
         } catch (err) {
 
         }
+    }
+    
+    // ========== GATEWAY/SENSOR (ALICI) METHODS ==========
+    
+    createSegmentTooltip() {
+        const $ = go.GraphObject.make;
+        return $(go.Adornment, "Auto",
+            $(go.Shape, "RoundedRectangle", {
+                fill: "rgba(0, 0, 0, 0.8)",
+                stroke: "#00C853",
+                strokeWidth: 2
+            }),
+            $(go.TextBlock, {
+                margin: 8,
+                font: "bold 12px sans-serif",
+                stroke: "white"
+            },
+            new go.Binding("text", "", (data) => {
+                // Bu tooltip mouse hareket ettikçe güncellenmeyecek
+                // Gerçek metraj hesaplaması click handler'da yapılacak
+                return `Tıklayarak alıcı ekle`;
+            }))
+        );
+    }
+    
+    handleSegmentClick(e, obj) {
+        // Eğer çizim modundaysak, alıcı ekleme yapma
+        if (this.isDrawing) return;
+
+        const segment = obj?.part?.data;
+        if (!segment || !segment.from || !segment.to) return;
+
+        // Varsayılan seçimi engelle
+        if (e) {
+            e.handled = true;
+        }
+        this.diagram.clearSelection();
+
+        // Mouse'un tıkladığı noktayı al
+        const clickPoint = (e && e.documentPoint) ? e.documentPoint : this.diagram.lastInput.documentPoint;
+
+        // Segment'in başlangıç ve bitiş noktalarını al
+        const startPoint = go.Point.parse(segment.from);
+        const endPoint = go.Point.parse(segment.to);
+
+        // Mouse'un segment üzerindeki metrajını hesapla
+        const meterage = this.calculateMeterageOnSegment(clickPoint, startPoint, endPoint, segment.length);
+
+        // Konteks menüyü göster
+        this.showGatewayContextMenu(segment, clickPoint, meterage);
+    }
+
+    deleteSegment(segment) {
+        if (!segment) return;
+
+        const segKey = segment.key;
+
+        try {
+            this.diagram.startTransaction('deleteSegment');
+
+            // Remove measurement linked to this segment
+            if (segKey && this.segmentMeasurements && this.segmentMeasurements.has(segKey)) {
+                const measurementKey = this.segmentMeasurements.get(segKey);
+                if (measurementKey) {
+                    const measurementData = this.diagram.model.findNodeDataForKey(measurementKey);
+                    if (measurementData) {
+                        this.diagram.model.removeNodeData(measurementData);
+                    }
+                    this.tunnelData.measurements.delete(measurementKey);
+                }
+                this.segmentMeasurements.delete(segKey);
+            }
+
+            // Remove gateways tied to this segment
+            if (segKey && this.segmentGateways && this.segmentGateways.has(segKey)) {
+                const gatewayKeys = this.segmentGateways.get(segKey) || [];
+                gatewayKeys.forEach((gatewayKey) => {
+                    const gatewayData = this.diagram.model.findNodeDataForKey(gatewayKey);
+                    if (gatewayData) {
+                        this.diagram.model.removeNodeData(gatewayData);
+                    }
+                    this.tunnelData.gateways.delete(gatewayKey);
+                });
+                this.segmentGateways.delete(segKey);
+            }
+
+            // Remove the segment itself
+            this.diagram.model.removeNodeData(segment);
+            if (segKey) {
+                this.tunnelData.segments.delete(segKey);
+            }
+
+            // Cleanup any custom handles associated with this segment
+            if (segment.crossSectionType === 'horseshoe' && this.hsHandles && this.hsHandles.has(segKey)) {
+                this.removeHorseshoeHandles();
+            }
+            if (this.circleHandle && this.circleHandle.segmentKey === segKey) {
+                this.removeCircleHandle();
+            }
+
+            this.diagram.commitTransaction('deleteSegment');
+        } catch (err) {
+            try { this.diagram.rollbackTransaction('deleteSegment'); } catch (_) { /* noop */ }
+            console.error('Segment deletion failed', err);
+            return;
+        }
+
+        this.hideGatewayContextMenu();
+        this.hideHoverMeterLabel();
+        this.pendingGatewayContext = null;
+        this.diagram.clearSelection();
+
+        if (typeof this.onTunnelModified === 'function') {
+            this.onTunnelModified(this.getTunnelData());
+        }
+    }
+    
+    calculateMeterageOnSegment(clickPoint, startPoint, endPoint, totalLength) {
+        // Segment vektörü
+        const segmentVector = new go.Point(
+            endPoint.x - startPoint.x,
+            endPoint.y - startPoint.y
+        );
+        
+        // Click noktasının başlangıç noktasına göre vektörü
+        const clickVector = new go.Point(
+            clickPoint.x - startPoint.x,
+            clickPoint.y - startPoint.y
+        );
+        
+        // Segment vektörünün uzunluğu (piksel)
+        const segmentLengthPx = Math.sqrt(
+            segmentVector.x * segmentVector.x +
+            segmentVector.y * segmentVector.y
+        );
+        
+        // Nokta'nın segment üzerine projeksiyon yüzdesi (0-1 arası)
+        const dotProduct = clickVector.x * segmentVector.x + clickVector.y * segmentVector.y;
+        const projectionRatio = dotProduct / (segmentLengthPx * segmentLengthPx);
+        
+        // Sınırlandır (0-1 arası)
+        const clampedRatio = Math.max(0, Math.min(1, projectionRatio));
+        
+        // Metrajı hesapla
+        const meterage = totalLength * clampedRatio;
+        
+        return meterage;
+    }
+    
+    showAddGatewayDialog(segment, position, meterage) {
+        // Global callback çağır - UI tarafında modal açılacak
+        if (window.openGatewayDialog) {
+            window.openGatewayDialog(segment, position, meterage, (gatewayId) => {
+                this.addGateway(segment.key, position, meterage, gatewayId);
+            });
+        } else {
+            // Fallback - basit prompt
+            const gatewayId = prompt(`Alıcı ID girin (Metraj: ${meterage.toFixed(1)}m):`);
+            if (gatewayId && gatewayId.trim()) {
+                this.addGateway(segment.key, position, meterage, gatewayId.trim());
+            }
+        }
+    }
+    
+    addGateway(segmentKey, position, meterage, gatewayId) {
+        const gateway = {
+            key: `gateway_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            category: 'gateway',
+            position: go.Point.stringify(position),
+            meterage: meterage,
+            gatewayId: gatewayId,
+            segmentKey: segmentKey
+        };
+        
+        this.diagram.startTransaction('addGateway');
+        this.diagram.model.addNodeData(gateway);
+        this.diagram.commitTransaction('addGateway');
+        
+        this.tunnelData.gateways.set(gateway.key, gateway);
+        
+        // Segment'e ait gateway'leri takip et
+        if (!this.segmentGateways.has(segmentKey)) {
+            this.segmentGateways.set(segmentKey, []);
+        }
+        this.segmentGateways.get(segmentKey).push(gateway.key);
+        
+        console.log('📡 Gateway added:', gateway);
+        
+        // Callback
+        if (this.onGatewayAdded) {
+            this.onGatewayAdded(gateway);
+        }
+        
+        return gateway;
     }
 }
 
