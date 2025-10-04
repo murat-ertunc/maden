@@ -10,6 +10,8 @@ class EnhancedTunnelDesigner {
             defaultTunnelWidth: config.defaultTunnelWidth || 3.0,
             defaultTunnelHeight: config.defaultTunnelHeight || 3.0,
             defaultCrossSectionType: config.defaultCrossSectionType || 'circle',
+            defaultStartWidth: config.defaultStartWidth ?? 1.0,
+            defaultEndWidth: config.defaultEndWidth ?? 1.0,
             magneticSnap: config.magneticSnap !== false,
             // New UX opts
             snapToSegments: config.snapToSegments !== false, // snap to existing lines
@@ -60,6 +62,13 @@ class EnhancedTunnelDesigner {
         this.pendingGatewayContext = null;
         this.boundHoverMouseMove = null;
         this.boundHoverMouseLeave = null;
+    this.angleRingOverlay = null;
+    this.angleRingPrimaryLabel = null;
+    this.angleRingSecondaryLabel = null;
+    this.angleRingDeltaLabel = null;
+    this.angleRingBaseLine = null;
+    this.angleRingNewLine = null;
+    this.angleRingState = null;
         
         this.init();
     }
@@ -104,6 +113,12 @@ class EnhancedTunnelDesigner {
             "animationManager.isEnabled": false,
             "undoManager.isEnabled": true
         });
+
+        const meterExtent = 5000;
+        const pixelExtent = meterExtent * 20;
+        const halfExtent = pixelExtent / 2;
+        this.diagram.scrollMode = go.Diagram.InfiniteScroll;
+        this.diagram.fixedBounds = new go.Rect(-halfExtent, -halfExtent, pixelExtent, pixelExtent);
     }
     
     setupTemplates() {
@@ -139,16 +154,34 @@ class EnhancedTunnelDesigner {
                     strokeWidth: 2.5
                 },
                 new go.Binding("fill", "crossSectionType", (type) => {
-                    // Show rectangular body only for rectangle cross-section; otherwise hide it
-                    return type === 'rectangle' ? "rgba(100, 149, 237, 0.35)" : "transparent";
+                    const palette = {
+                        rectangle: "rgba(100, 149, 237, 0.35)",
+                        circle: "rgba(76, 175, 80, 0.25)",
+                        horseshoe: "rgba(255, 99, 132, 0.25)"
+                    };
+                    return palette[type] || "rgba(100, 149, 237, 0.3)";
                 }),
                 new go.Binding("stroke", "crossSectionType", (type) => {
-                    return type === 'rectangle' ? "#1f5bbd" : "transparent";
+                    const palette = {
+                        rectangle: "#1f5bbd",
+                        circle: "#2e7d32",
+                        horseshoe: "#c2185b"
+                    };
+                    return palette[type] || "#1f5bbd";
                 }),
                 new go.Binding("geometryString", "", (data) => {
-                    const w = (data.length || 5) * 20; // length in pixels
-                    const h = (data.height ?? data.width ?? 3) * 10; // cross-section height in pixels
-                    return `M0 0 L${w} 0 L${w} ${h} L0 ${h} Z`;
+                    const lengthPx = Math.max(2, (data.length || 0.5) * 20);
+                    const startMeters = Math.max(0.05, data.startWidth ?? data.width ?? 1);
+                    const endMeters = Math.max(0.05, data.endWidth ?? data.width ?? 1);
+                    const halfStart = (startMeters * 20) / 2;
+                    const halfEnd = (endMeters * 20) / 2;
+                    const maxHalf = Math.max(halfStart, halfEnd);
+                    const topStart = (maxHalf - halfStart).toFixed(2);
+                    const bottomStart = (maxHalf + halfStart).toFixed(2);
+                    const topEnd = (maxHalf - halfEnd).toFixed(2);
+                    const bottomEnd = (maxHalf + halfEnd).toFixed(2);
+                    const len = lengthPx.toFixed(2);
+                    return `M0 ${topStart} L${len} ${topEnd} L${len} ${bottomEnd} L0 ${bottomStart} Z`;
                 })),
 
                 // Cross-section overlay: non-horseshoe (circle/rectangle)
@@ -225,12 +258,9 @@ class EnhancedTunnelDesigner {
                 },
                 new go.Binding("text", "", (data) => {
                     const icon = this.getCrossSectionIcon(data.crossSectionType);
-                    if (data.crossSectionType === 'circle') {
-                        const dMeters = (data.crossParams && data.crossParams.diameter) ? data.crossParams.diameter : (data.height ?? data.width ?? 0);
-                        const d = (dMeters || 0).toFixed(2);
-                        return `${icon} Ø${d}m | L:${(data.length || 0).toFixed(1)}m`;
-                    }
-                    return `${icon} ${(data.width ?? 0).toFixed(2)}×${(data.height ?? 0).toFixed(2)}m | L:${(data.length || 0).toFixed(1)}m`;
+                    const startW = (data.startWidth ?? data.width ?? this.config.defaultStartWidth ?? 0).toFixed(2);
+                    const endW = (data.endWidth ?? data.width ?? this.config.defaultEndWidth ?? 0).toFixed(2);
+                    return `${icon} Giriş:${startW}m → Çıkış:${endW}m | L:${(data.length || 0).toFixed(1)}m`;
                 }))
             )
         );
@@ -466,14 +496,14 @@ class EnhancedTunnelDesigner {
                         pickable: false,
                         layerName: "Foreground"
                     },
-                new go.Binding("position", "pos", go.Point.parse),
+                new go.Binding("position", "pos", go.Point.parse).makeTwoWay(go.Point.stringify),
                 
                     $(go.Shape, {
                         geometryString: "M0 0 L10 10",
                         stroke: "#ff4444",
                         strokeWidth: 4,
                         strokeDashArray: [10, 6],
-                    strokeCap: "round",
+                        strokeCap: "round",
                         opacity: 0.8
                     },
                     new go.Binding("geometryString", "", function(data) {
@@ -491,32 +521,6 @@ class EnhancedTunnelDesigner {
                     }))
                 )
             );
-
-        this.diagram.nodeTemplateMap.add("distance_label",
-            $(go.Node, "Auto",
-                {
-                    selectable: false,
-                    avoidable: false,
-                    pickable: false,
-                    layerName: "Foreground"
-                },
-                new go.Binding("location", "loc", go.Point.parse),
-                
-                $(go.Shape, "RoundedRectangle", {
-                    fill: "rgba(255,255,255,0.95)",
-                    stroke: "#0066cc",
-                    strokeWidth: 1
-                }),
-                
-                $(go.TextBlock, {
-                    font: "bold 12px sans-serif",
-                    stroke: "#0066cc",
-                    margin: 6,
-                    segmentOffset: new go.Point(15, -15)
-                },
-                new go.Binding("text", "text"))
-            )
-        );
 
         // Serbest çizimde yerleştirilen tüm noktaları (ilk nokta dahil) küçük işaretçilerle göster
         this.diagram.nodeTemplateMap.add("path_point",
@@ -551,24 +555,12 @@ class EnhancedTunnelDesigner {
                     },
                 new go.Binding("position", "pos", go.Point.parse),
                     $(go.Shape, {
-                        geometryString: "M0 0 L10 10",
+                        geometryString: "M0 0 L10 0 L10 10 L0 10 Z",
+                        fill: "rgba(31, 91, 189, 0.35)",
                         stroke: "#1f5bbd",
-                        strokeWidth: 4,
-                        strokeCap: "round"
+                        strokeWidth: 1.4
                     },
-                    new go.Binding("geometryString", "", function(data) {
-                        if (data.from && data.to) {
-                            const from = go.Point.parse(data.from);
-                            const to = go.Point.parse(data.to);
-                        const pos = data.pos ? go.Point.parse(data.pos) : new go.Point(Math.min(from.x, to.x), Math.min(from.y, to.y));
-                        const fx = from.x - pos.x;
-                        const fy = from.y - pos.y;
-                        const tx = to.x - pos.x;
-                        const ty = to.y - pos.y;
-                        return `M${fx} ${fy} L${tx} ${ty}`;
-                        }
-                        return "M0 0 L0 0";
-                    }))
+                    new go.Binding("geometryString", "geometryString", (geom) => geom || "M0 0 L0 0"))
                 )
             );
     }
@@ -674,6 +666,7 @@ class EnhancedTunnelDesigner {
 
         this.createHoverMeterLabel(host);
         this.createGatewayContextMenu(host);
+    this.createAngleRingOverlay(host);
 
         if (!this.boundHoverMouseMove) {
             this.boundHoverMouseMove = (evt) => {
@@ -696,7 +689,10 @@ class EnhancedTunnelDesigner {
         host.addEventListener('mouseleave', this.boundHoverMouseLeave);
 
         this.diagram.addDiagramListener('BackgroundSingleClicked', () => this.hideGatewayContextMenu());
-        this.diagram.addDiagramListener('ViewportBoundsChanged', () => this.hideGatewayContextMenu());
+        this.diagram.addDiagramListener('ViewportBoundsChanged', () => {
+            this.hideGatewayContextMenu();
+            this.refreshAngleRingPosition();
+        });
     }
 
     createHoverMeterLabel(host) {
@@ -800,8 +796,8 @@ class EnhancedTunnelDesigner {
         const actions = document.createElement('div');
         Object.assign(actions.style, {
             display: 'flex',
-            gap: '8px',
-            justifyContent: 'space-between'
+            flexDirection: 'column',
+            gap: '8px'
         });
 
         const addButton = document.createElement('button');
@@ -814,8 +810,7 @@ class EnhancedTunnelDesigner {
             borderRadius: '4px',
             padding: '6px 10px',
             cursor: 'pointer',
-            fontWeight: '600',
-            flex: '1'
+            fontWeight: '600'
         });
 
         addButton.addEventListener('click', () => {
@@ -823,6 +818,25 @@ class EnhancedTunnelDesigner {
             const { segment, docPoint, meterage } = this.pendingGatewayContext;
             this.hideGatewayContextMenu();
             this.showAddGatewayDialog(segment, docPoint.copy ? docPoint.copy() : docPoint, meterage);
+        });
+
+        const extendButton = document.createElement('button');
+        extendButton.type = 'button';
+        extendButton.textContent = 'Çizgi ekle';
+        Object.assign(extendButton.style, {
+            background: '#2196F3',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            fontWeight: '600'
+        });
+
+        extendButton.addEventListener('click', () => {
+            if (!this.pendingGatewayContext) return;
+            this.hideGatewayContextMenu();
+            this.handleExtendSegmentRequest();
         });
 
         const deleteButton = document.createElement('button');
@@ -835,8 +849,7 @@ class EnhancedTunnelDesigner {
             borderRadius: '4px',
             padding: '6px 10px',
             cursor: 'pointer',
-            fontWeight: '600',
-            flex: '1'
+            fontWeight: '600'
         });
 
         deleteButton.addEventListener('click', () => {
@@ -847,6 +860,7 @@ class EnhancedTunnelDesigner {
         });
 
         actions.appendChild(addButton);
+        actions.appendChild(extendButton);
         actions.appendChild(deleteButton);
 
         menu.appendChild(actions);
@@ -855,17 +869,21 @@ class EnhancedTunnelDesigner {
         this.gatewayContextMenu = menu;
     }
 
-    showGatewayContextMenu(segment, docPoint, meterage) {
+    showGatewayContextMenu(segment, docPoint, meterage, anchorContext = null) {
         if (!this.gatewayContextMenu) return;
 
         this.pendingGatewayContext = {
             segment,
             docPoint: docPoint.copy ? docPoint.copy() : docPoint,
-            meterage
+            meterage,
+            anchorKey: anchorContext?.anchorKey,
+            anchorPoint: anchorContext?.anchorPoint ? (anchorContext.anchorPoint.copy ? anchorContext.anchorPoint.copy() : new go.Point(anchorContext.anchorPoint.x, anchorContext.anchorPoint.y)) : null,
+            baseAngleDeg: anchorContext?.baseAngleDeg
         };
 
         if (this.gatewayContextInfo) {
-            this.gatewayContextInfo.textContent = `${meterage.toFixed(1)} m`;
+            const anchorLabel = anchorContext?.anchorKey === 'start' ? ' (başlangıç ucu)' : (anchorContext?.anchorKey === 'end' ? ' (bitiş ucu)' : '');
+            this.gatewayContextInfo.textContent = `${meterage.toFixed(1)} m${anchorLabel}`;
         }
 
         const viewPoint = this.diagram.transformDocToView(docPoint);
@@ -881,6 +899,168 @@ class EnhancedTunnelDesigner {
             this.gatewayContextMenu.style.display = 'none';
         }
         this.pendingGatewayContext = null;
+    }
+
+    createAngleRingOverlay(host) {
+        if (this.angleRingOverlay) return;
+
+        const ring = document.createElement('div');
+        ring.className = 'angle-ring-overlay';
+        Object.assign(ring.style, {
+            position: 'absolute',
+            display: 'none',
+            width: '180px',
+            height: '180px',
+            borderRadius: '50%',
+            border: '2px solid rgba(255,152,0,0.65)',
+            background: 'radial-gradient(circle at center, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 65%, rgba(0,0,0,0) 100%)',
+            boxShadow: '0 0 12px rgba(255,152,0,0.45)',
+            pointerEvents: 'none',
+            transform: 'translate(-50%, -50%)',
+            zIndex: '32'
+        });
+
+        const createLabel = (styles) => {
+            const label = document.createElement('div');
+            Object.assign(label.style, {
+                position: 'absolute',
+                color: '#fff',
+                fontWeight: '700',
+                fontSize: '13px',
+                padding: '4px 8px',
+                borderRadius: '14px',
+                background: 'rgba(33,33,33,0.85)',
+                boxShadow: '0 3px 8px rgba(0,0,0,0.35)',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+                ...styles
+            });
+            ring.appendChild(label);
+            return label;
+        };
+
+        this.angleRingPrimaryLabel = createLabel({ top: '-28px', left: '50%', transform: 'translate(-50%, 0)' });
+        this.angleRingSecondaryLabel = createLabel({ bottom: '-28px', left: '50%', transform: 'translate(-50%, 0)' });
+        this.angleRingDeltaLabel = createLabel({ left: '50%', top: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(25,118,210,0.9)', fontSize: '12px' });
+
+        const baseLine = document.createElement('div');
+        Object.assign(baseLine.style, {
+            position: 'absolute',
+            width: '3px',
+            height: '74px',
+            left: '50%',
+            top: '50%',
+            transformOrigin: '50% 100%',
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(0,188,212,0.95)',
+            borderRadius: '2px',
+            boxShadow: '0 0 6px rgba(0,188,212,0.6)'
+        });
+
+        const newLine = document.createElement('div');
+        Object.assign(newLine.style, {
+            position: 'absolute',
+            width: '3px',
+            height: '74px',
+            left: '50%',
+            top: '50%',
+            transformOrigin: '50% 100%',
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(244,67,54,0.95)',
+            borderRadius: '2px',
+            boxShadow: '0 0 6px rgba(244,67,54,0.6)'
+        });
+
+        ring.appendChild(baseLine);
+        ring.appendChild(newLine);
+
+        this.angleRingBaseLine = baseLine;
+        this.angleRingNewLine = newLine;
+
+        host.appendChild(ring);
+        this.angleRingOverlay = ring;
+    }
+
+    showAngleRing(basePoint, baseAngleDeg) {
+        if (!this.angleRingOverlay || !this.diagram) return;
+
+        const point = basePoint.copy ? basePoint.copy() : new go.Point(basePoint.x, basePoint.y);
+        const normalizedAngle = this.normalizeAngle(baseAngleDeg);
+
+        this.angleRingState = {
+            basePoint: point,
+            baseAngleDeg: normalizedAngle,
+            currentAngleDeg: normalizedAngle
+        };
+
+        this.angleRingOverlay.style.display = 'block';
+        this.angleRingPrimaryLabel.textContent = '0°';
+        this.angleRingSecondaryLabel.textContent = '360°';
+        this.angleRingDeltaLabel.textContent = 'Δ 0°';
+
+        const rotation = normalizedAngle - 90;
+        this.angleRingBaseLine.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
+        this.angleRingNewLine.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
+
+        this.refreshAngleRingPosition();
+    }
+
+    updateAngleRing(currentPoint) {
+        if (!this.angleRingOverlay || !this.angleRingState || !this.diagram) return;
+        if (!currentPoint) return;
+
+        const target = currentPoint.copy ? currentPoint.copy() : new go.Point(currentPoint.x, currentPoint.y);
+        const base = this.angleRingState.basePoint;
+        const dx = target.x - base.x;
+        const dy = target.y - base.y;
+        const lengthSq = dx * dx + dy * dy;
+
+        this.refreshAngleRingPosition();
+
+        if (lengthSq < 1) {
+            this.angleRingPrimaryLabel.textContent = '0°';
+            this.angleRingSecondaryLabel.textContent = '360°';
+            this.angleRingDeltaLabel.textContent = 'Δ 0°';
+            return;
+        }
+
+        const absoluteAngle = this.normalizeAngle((Math.atan2(dy, dx) * 180) / Math.PI);
+        const baseAngle = this.angleRingState.baseAngleDeg;
+        const diffRaw = this.normalizeAngle(absoluteAngle - baseAngle);
+        const complement = diffRaw === 0 ? 360 : (360 - diffRaw);
+        const smaller = diffRaw <= complement ? diffRaw : complement;
+        const larger = diffRaw <= complement ? complement : diffRaw;
+
+        this.angleRingPrimaryLabel.textContent = `${smaller.toFixed(0)}°`;
+        this.angleRingSecondaryLabel.textContent = `${larger.toFixed(0)}°`;
+        this.angleRingDeltaLabel.textContent = `Δ ${diffRaw.toFixed(0)}°`;
+
+        const baseRotation = baseAngle - 90;
+        const newRotation = absoluteAngle - 90;
+        this.angleRingBaseLine.style.transform = `translate(-50%, -100%) rotate(${baseRotation}deg)`;
+        this.angleRingNewLine.style.transform = `translate(-50%, -100%) rotate(${newRotation}deg)`;
+
+        this.angleRingState.currentAngleDeg = absoluteAngle;
+    }
+
+    refreshAngleRingPosition() {
+        if (!this.angleRingOverlay || !this.angleRingState || !this.diagram) return;
+        const viewPoint = this.diagram.transformDocToView(this.angleRingState.basePoint);
+        this.angleRingOverlay.style.left = `${viewPoint.x}px`;
+        this.angleRingOverlay.style.top = `${viewPoint.y}px`;
+    }
+
+    hideAngleRing() {
+        if (this.angleRingOverlay) {
+            this.angleRingOverlay.style.display = 'none';
+        }
+        this.angleRingState = null;
+    }
+
+    normalizeAngle(angleDegrees) {
+        let value = angleDegrees % 360;
+        if (value < 0) value += 360;
+        return value;
     }
 
     updateMeasurementForSegment(seg) {
@@ -1228,6 +1408,7 @@ class EnhancedTunnelDesigner {
 
         }
         
+        this.hideAngleRing();
         // Reset visuals
         this.diagram.div.style.cursor = 'default';
         this.diagram.div.classList.remove('drawing-mode');
@@ -1268,6 +1449,7 @@ class EnhancedTunnelDesigner {
         this.drawingPath = [];
         this.exitDrawingMode();
 
+        this.hideAngleRing();
     }
     
     // Enhanced drawing methods
@@ -1299,12 +1481,16 @@ class EnhancedTunnelDesigner {
             return;
         }
         // Create tunnel segment with from/to
-        this.createTunnelSegment(this.dragStartPoint, finalEndPoint);
+        this.createTunnelSegment(this.dragStartPoint, finalEndPoint, {
+            startWidth: this.config.defaultStartWidth,
+            endWidth: this.config.defaultEndWidth
+        });
         // Reset drag state
         this.isDragging = false;
         this.dragStartPoint = null;
         this.dragEndPoint = null;
         this.clearPreview();
+        this.hideAngleRing();
         // Clear any selection to not interfere with next draw
         this.diagram.clearSelection();
 
@@ -1322,7 +1508,13 @@ class EnhancedTunnelDesigner {
             const start = this.drawingPath[lastIndex - 1];
             const end = this.drawingPath[lastIndex];
             
-            this.createTempSegment(start, end, lastIndex - 1);
+            this.createTempSegment(start, end, lastIndex - 1, {
+                startWidth: this.config.defaultStartWidth,
+                endWidth: this.config.defaultEndWidth
+            });
+
+            const segmentAngle = this.calculateAngle(start, end);
+            this.showAngleRing(end, segmentAngle);
         }
         
         this.updatePathInstructions();
@@ -1343,14 +1535,17 @@ class EnhancedTunnelDesigner {
         this.drawingPath = [];
         this.exitDrawingMode();
         
+        this.hideAngleRing();
 
     }
     
-    createTunnelSegment(startPoint, endPoint) {
+    createTunnelSegment(startPoint, endPoint, overrides = {}) {
         const midPoint = new go.Point(
             (startPoint.x + endPoint.x) / 2,
             (startPoint.y + endPoint.y) / 2
         );
+        const startWidth = Math.max(0.05, overrides.startWidth ?? this.config.defaultStartWidth ?? 1);
+        const endWidth = Math.max(0.05, overrides.endWidth ?? this.config.defaultEndWidth ?? 1);
         const segment = {
             key: this.generateSegmentId(),
             category: 'tunnel_segment',
@@ -1370,13 +1565,15 @@ class EnhancedTunnelDesigner {
                 archAngle: 180
             },
             length: this.calculateDistance(startPoint, endPoint),
-            angle: this.calculateAngle(startPoint, endPoint)
+            angle: this.calculateAngle(startPoint, endPoint),
+            startWidth,
+            endWidth
         };
         
-    // Add to diagram
-    this.diagram.startTransaction('addSegment');
-    this.diagram.model.addNodeData(segment);
-    this.diagram.commitTransaction('addSegment');
+        // Add to diagram
+        this.diagram.startTransaction('addSegment');
+        this.diagram.model.addNodeData(segment);
+        this.diagram.commitTransaction('addSegment');
         
         // Store in data
         this.tunnelData.segments.set(segment.key, segment);
@@ -1395,11 +1592,13 @@ class EnhancedTunnelDesigner {
         return segment;
     }
     
-    createTempSegment(startPoint, endPoint, index) {
+    createTempSegment(startPoint, endPoint, index, overrides = {}) {
         const midPoint = new go.Point(
             (startPoint.x + endPoint.x) / 2,
             (startPoint.y + endPoint.y) / 2
         );
+        const startWidth = Math.max(0.05, overrides.startWidth ?? this.config.defaultStartWidth ?? 1);
+        const endWidth = Math.max(0.05, overrides.endWidth ?? this.config.defaultEndWidth ?? 1);
         const segment = {
             key: `temp_${index}`,
             category: 'tunnel_segment',
@@ -1420,12 +1619,14 @@ class EnhancedTunnelDesigner {
             },
             length: this.calculateDistance(startPoint, endPoint),
             angle: this.calculateAngle(startPoint, endPoint),
-            isTemporary: true
+            isTemporary: true,
+            startWidth,
+            endWidth
         };
         
-    this.diagram.startTransaction('addTempSegment');
-    this.diagram.model.addNodeData(segment);
-    this.diagram.commitTransaction('addTempSegment');
+        this.diagram.startTransaction('addTempSegment');
+        this.diagram.model.addNodeData(segment);
+        this.diagram.commitTransaction('addTempSegment');
         this.tempSegments.push(segment);
         
         return segment;
@@ -1473,6 +1674,7 @@ class EnhancedTunnelDesigner {
         });
         
         this.tempSegments = [];
+        this.hideAngleRing();
     }
     
     clearTempSegments() {
@@ -1519,7 +1721,12 @@ class EnhancedTunnelDesigner {
             this.addPathPointMarker(snappedPoint, this.freeTunnelPoints.length - 1);
 
             // Anında kalıcı bir çizgi segmenti oluştur (serbest modda kesit değil çizgi)
-            this.createFreeSegment(lastPoint, snappedPoint);
+            const newSegment = this.createFreeSegment(lastPoint, snappedPoint);
+
+            if (newSegment) {
+                const segmentAngle = this.calculateAngle(lastPoint, snappedPoint);
+                this.showAngleRing(snappedPoint, segmentAngle);
+            }
             
 
         } catch (err) {
@@ -1540,6 +1747,7 @@ class EnhancedTunnelDesigner {
             
             // Mesafe labelını güncelle
             this.updateDistanceLabel(snappedCur, distance);
+            this.updateAngleRing(snappedCur);
             
         } catch (err) {
 
@@ -1704,19 +1912,31 @@ class EnhancedTunnelDesigner {
     }
 
     // Free-mode: kalıcı çizgi segmenti oluştur
-    createFreeSegment(startPoint, endPoint) {
+    createFreeSegment(startPoint, endPoint, overrides = {}) {
         const from = (startPoint.copy ? startPoint.copy() : new go.Point(startPoint.x, startPoint.y));
         const to = (endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y));
-        const pos = new go.Point(Math.min(from.x, to.x), Math.min(from.y, to.y));
+        const startWidth = Math.max(0.05, overrides.startWidth ?? this.config.defaultStartWidth ?? 1);
+        const endWidth = Math.max(0.05, overrides.endWidth ?? this.config.defaultEndWidth ?? 1);
+        const shape = this.computeFreeSegmentGeometry(from, to, startWidth, endWidth);
+
+        if (!shape) {
+            console.warn('⚠️ Free segment could not be created due to invalid geometry.');
+            return null;
+        }
+
         const seg = {
             key: this.generateSegmentId(),
             category: 'free_tunnel_segment',
-            pos: go.Point.stringify(pos),
+            pos: go.Point.stringify(shape.position),
             from: go.Point.stringify(from),
             to: go.Point.stringify(to),
             length: this.calculateDistance(from, to),
-            angle: this.calculateAngle(from, to)
+            angle: this.calculateAngle(from, to),
+            startWidth,
+            endWidth,
+            geometryString: shape.geometry
         };
+
         this.diagram.startTransaction('addFreeSeg');
         this.diagram.model.addNodeData(seg);
         this.diagram.commitTransaction('addFreeSeg');
@@ -1767,6 +1987,7 @@ class EnhancedTunnelDesigner {
             // Drawing state'i sıfırla
             this.freeTunnelPoints = [];
             this.exitDrawingMode();
+            this.hideAngleRing();
             
         } catch (err) {
 
@@ -1814,6 +2035,8 @@ class EnhancedTunnelDesigner {
             this.previewNode = preview;
             this.diagram.commitTransaction('addPreview');
         }
+
+        this.updateAngleRing(endPoint);
     }
     
     updatePointPreview(mousePoint) {
@@ -1823,6 +2046,7 @@ class EnhancedTunnelDesigner {
         const angle = this.calculateAngle(lastPoint, snappedPoint);
         
         this.updateDragPreview(lastPoint, snappedPoint, length, angle);
+        this.updateAngleRing(snappedPoint);
     }
     
     clearPreview() {
@@ -1998,6 +2222,46 @@ class EnhancedTunnelDesigner {
         }
     }
     
+    computeFreeSegmentGeometry(startPoint, endPoint, startWidthMeters, endWidthMeters) {
+        if (!startPoint || !endPoint) return null;
+
+        const startWidth = Math.max(0.05, startWidthMeters ?? this.config.defaultStartWidth ?? 1);
+        const endWidth = Math.max(0.05, endWidthMeters ?? this.config.defaultEndWidth ?? 1);
+
+        const dx = endPoint.x - startPoint.x;
+        const dy = endPoint.y - startPoint.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        if (length < 0.0001) return null;
+
+        const halfStart = (startWidth * 20) / 2;
+        const halfEnd = (endWidth * 20) / 2;
+
+        const nx = -dy / length;
+        const ny = dx / length;
+
+        const p1 = new go.Point(startPoint.x + nx * halfStart, startPoint.y + ny * halfStart);
+        const p2 = new go.Point(endPoint.x + nx * halfEnd, endPoint.y + ny * halfEnd);
+        const p3 = new go.Point(endPoint.x - nx * halfEnd, endPoint.y - ny * halfEnd);
+        const p4 = new go.Point(startPoint.x - nx * halfStart, startPoint.y - ny * halfStart);
+
+        const minX = Math.min(p1.x, p2.x, p3.x, p4.x);
+        const minY = Math.min(p1.y, p2.y, p3.y, p4.y);
+
+        const local = [p1, p2, p3, p4].map(pt => ({
+            x: (pt.x - minX).toFixed(2),
+            y: (pt.y - minY).toFixed(2)
+        }));
+
+        const geometry = `M${local[0].x} ${local[0].y} L${local[1].x} ${local[1].y} L${local[2].x} ${local[2].y} L${local[3].x} ${local[3].y} Z`;
+
+        return {
+            position: new go.Point(minX, minY),
+            geometry,
+            startWidth,
+            endWidth
+        };
+    }
+    
     calculateDistance(point1, point2) {
         const dx = point2.x - point1.x;
         const dy = point2.y - point1.y;
@@ -2107,6 +2371,33 @@ class EnhancedTunnelDesigner {
                     seg.length = this.calculateDistance(startPoint, endPoint);
                 }
             }
+
+            if (seg.category === 'tunnel_segment') {
+                if (typeof seg.startWidth !== 'number') {
+                    seg.startWidth = this.config.defaultStartWidth ?? 1;
+                }
+                if (typeof seg.endWidth !== 'number') {
+                    seg.endWidth = seg.startWidth;
+                }
+            }
+
+            if (seg.category === 'free_tunnel_segment') {
+                const startPoint = seg.from ? go.Point.parse(seg.from) : null;
+                const endPoint = seg.to ? go.Point.parse(seg.to) : null;
+                if (typeof seg.startWidth !== 'number') {
+                    seg.startWidth = this.config.defaultStartWidth ?? 1;
+                }
+                if (typeof seg.endWidth !== 'number') {
+                    seg.endWidth = seg.startWidth;
+                }
+                if (startPoint && endPoint) {
+                    const shape = this.computeFreeSegmentGeometry(startPoint, endPoint, seg.startWidth, seg.endWidth);
+                    if (shape) {
+                        seg.geometryString = shape.geometry;
+                        seg.pos = go.Point.stringify(shape.position);
+                    }
+                }
+            }
             return seg;
         });
         
@@ -2184,7 +2475,45 @@ class EnhancedTunnelDesigner {
     }
     
     // ========== GATEWAY/SENSOR (ALICI) METHODS ==========
-    
+    resolveSegmentAnchor(segment, referencePoint = null) {
+        if (!segment || !segment.from || !segment.to) return null;
+
+        const startPoint = go.Point.parse(segment.from);
+        const endPoint = go.Point.parse(segment.to);
+        let anchorKey = 'end';
+        let anchorPoint = endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y);
+
+        if (referencePoint) {
+            const docPoint = referencePoint.copy ? referencePoint.copy() : new go.Point(referencePoint.x, referencePoint.y);
+            const distStart = Math.pow(docPoint.x - startPoint.x, 2) + Math.pow(docPoint.y - startPoint.y, 2);
+            const distEnd = Math.pow(docPoint.x - endPoint.x, 2) + Math.pow(docPoint.y - endPoint.y, 2);
+            anchorKey = distStart <= distEnd ? 'start' : 'end';
+            anchorPoint = anchorKey === 'start' ? (startPoint.copy ? startPoint.copy() : new go.Point(startPoint.x, startPoint.y)) : (endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y));
+        }
+
+        let baseVector;
+        if (anchorKey === 'start') {
+            baseVector = new go.Point(endPoint.x - startPoint.x, endPoint.y - startPoint.y);
+        } else {
+            baseVector = new go.Point(startPoint.x - endPoint.x, startPoint.y - endPoint.y);
+        }
+
+        if (Math.abs(baseVector.x) < 0.001 && Math.abs(baseVector.y) < 0.001) {
+            baseVector = new go.Point(1, 0);
+        }
+
+        const baseAngleDeg = this.normalizeAngle((Math.atan2(baseVector.y, baseVector.x) * 180) / Math.PI);
+
+        return {
+            segment,
+            anchorKey,
+            anchorPoint,
+            baseAngleDeg,
+            startPoint,
+            endPoint
+        };
+    }
+
     createSegmentTooltip() {
         const $ = go.GraphObject.make;
         return $(go.Adornment, "Auto",
@@ -2205,13 +2534,124 @@ class EnhancedTunnelDesigner {
             }))
         );
     }
-    
-    handleSegmentClick(e, obj) {
-        // Eğer çizim modundaysak, alıcı ekleme yapma
-        if (this.isDrawing) return;
 
+    handleExtendSegmentRequest() {
+        if (!this.pendingGatewayContext || !this.pendingGatewayContext.segment) {
+            return;
+        }
+
+        const context = this.pendingGatewayContext;
+        const anchorPoint = context.anchorPoint ? (context.anchorPoint.copy ? context.anchorPoint.copy() : new go.Point(context.anchorPoint.x, context.anchorPoint.y)) : null;
+        const payload = {
+            segmentKey: context.segment.key,
+            anchorKey: context.anchorKey || 'end',
+            baseAngleDeg: context.baseAngleDeg ?? 0,
+            anchorPoint: anchorPoint ? { x: anchorPoint.x, y: anchorPoint.y } : null,
+            startWidth: this.config.defaultStartWidth,
+            endWidth: this.config.defaultEndWidth
+        };
+
+        const confirmHandler = (angleDelta, lengthMeters) => {
+            this.manualExtendSegment(context, angleDelta, lengthMeters);
+        };
+
+        if (window.openSegmentExtensionDialog) {
+            window.openSegmentExtensionDialog(payload, confirmHandler);
+        } else {
+            const lengthPrompt = parseFloat(prompt('Uzunluk (metre):', `${Math.max(this.config.minSegmentLength || 0.5, 5).toFixed(2)}`));
+            if (!lengthPrompt || lengthPrompt <= 0) return;
+            const anglePrompt = parseFloat(prompt('Açı (derece):', '0')) || 0;
+            confirmHandler(anglePrompt, lengthPrompt);
+        }
+    }
+
+    manualExtendSegment(context, angleDelta, lengthMeters) {
+        if (!context || !context.segment || !context.anchorPoint) return;
+
+        const minLength = this.config.minSegmentLength || 0.5;
+        if (lengthMeters < minLength) {
+            if (typeof window.showMessage === 'function') {
+                window.showMessage(`Uzunluk en az ${minLength.toFixed(2)} m olmalı.`, 'warning');
+            }
+            return;
+        }
+
+    this.hideGatewayContextMenu();
+    const rawAnchor = context.anchorPoint.copy ? context.anchorPoint.copy() : new go.Point(context.anchorPoint.x, context.anchorPoint.y);
+    const anchorPoint = this.snapToGrid ? this.snapToGrid(rawAnchor) : rawAnchor;
+        const baseAngle = context.baseAngleDeg ?? 0;
+        const absoluteAngle = this.normalizeAngle(baseAngle + angleDelta);
+
+    let endPoint = this.calculateEndPoint(anchorPoint, lengthMeters, absoluteAngle);
+        if (this.config.snapToGrid) {
+            endPoint = this.snapToGrid(endPoint);
+        }
+
+        const segment = this.createTunnelSegment(anchorPoint, endPoint, {
+            startWidth: this.config.defaultStartWidth,
+            endWidth: this.config.defaultEndWidth
+        });
+
+        if (segment) {
+            if (this.diagram) {
+                this.diagram.clearSelection();
+            }
+            const part = this.diagram.findPartForKey(segment.key);
+            if (part) {
+                this.diagram.select(part);
+            }
+        }
+
+        this.hideAngleRing();
+        this.pendingGatewayContext = null;
+    }
+    
+    startDrawingFromSegmentEndpoint(segment, clickPoint) {
+        const anchor = this.resolveSegmentAnchor(segment, clickPoint);
+        if (!anchor) return;
+
+        const anchorPoint = anchor.anchorPoint.copy ? anchor.anchorPoint.copy() : new go.Point(anchor.anchorPoint.x, anchor.anchorPoint.y);
+
+        this.hideGatewayContextMenu();
+        this.pendingGatewayContext = null;
+        this.hideAngleRing();
+
+        if (this.drawingMode === 'tunnel_drag') {
+            this.clearPointerIndicator();
+            this.clearPreviewLine();
+            this.clearDistanceLabel();
+            this.clearPathPointMarkers();
+            this.freeTunnelPoints = [];
+            this.addFreeTunnelPoint(anchorPoint);
+        } else if (this.drawingMode === 'tunnel_point') {
+            this.clearPreview();
+            this.clearTempSegments();
+            this.drawingPath = [];
+            this.tempSegments = [];
+            this.drawingPath.push(anchorPoint.copy ? anchorPoint.copy() : new go.Point(anchorPoint.x, anchorPoint.y));
+            this.updatePathInstructions();
+        }
+
+        this.showAngleRing(anchorPoint, anchor.baseAngleDeg);
+
+        if (typeof this.diagram?.clearSelection === 'function') {
+            this.diagram.clearSelection();
+        }
+    }
+
+    handleSegmentClick(e, obj) {
         const segment = obj?.part?.data;
         if (!segment || !segment.from || !segment.to) return;
+
+        const clickPoint = (e && e.documentPoint) ? e.documentPoint : this.diagram.lastInput.documentPoint;
+
+        if (this.isDrawing) {
+            if (this.drawingMode === 'tunnel_drag' || this.drawingMode === 'tunnel_point') {
+                if (e) e.handled = true;
+                this.startDrawingFromSegmentEndpoint(segment, clickPoint);
+            }
+            return;
+        }
 
         // Varsayılan seçimi engelle
         if (e) {
@@ -2219,18 +2659,12 @@ class EnhancedTunnelDesigner {
         }
         this.diagram.clearSelection();
 
-        // Mouse'un tıkladığı noktayı al
-        const clickPoint = (e && e.documentPoint) ? e.documentPoint : this.diagram.lastInput.documentPoint;
-
-        // Segment'in başlangıç ve bitiş noktalarını al
-        const startPoint = go.Point.parse(segment.from);
-        const endPoint = go.Point.parse(segment.to);
-
-        // Mouse'un segment üzerindeki metrajını hesapla
+        const anchor = this.resolveSegmentAnchor(segment, clickPoint);
+        const startPoint = anchor?.startPoint || go.Point.parse(segment.from);
+        const endPoint = anchor?.endPoint || go.Point.parse(segment.to);
         const meterage = this.calculateMeterageOnSegment(clickPoint, startPoint, endPoint, segment.length);
 
-        // Konteks menüyü göster
-        this.showGatewayContextMenu(segment, clickPoint, meterage);
+        this.showGatewayContextMenu(segment, clickPoint, meterage, anchor);
     }
 
     deleteSegment(segment) {

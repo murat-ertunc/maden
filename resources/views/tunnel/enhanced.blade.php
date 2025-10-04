@@ -144,6 +144,18 @@
                             <!-- Tunnel Parameters -->
                             <div class="tunnel-params">
                                 <div class="param-group">
+                                    <label>Giriş Genişliği</label>
+                                    <input type="number" id="tunnel-start-width" value="1.0" step="0.1" min="0.1" max="20">
+                                    <span class="unit">m</span>
+                                </div>
+
+                                <div class="param-group">
+                                    <label>Çıkış Genişliği</label>
+                                    <input type="number" id="tunnel-end-width" value="1.0" step="0.1" min="0.1" max="20">
+                                    <span class="unit">m</span>
+                                </div>
+
+                                <div class="param-group">
                                     <label>Genişlik</label>
                                     <input type="number" id="tunnel-width" value="3.0" step="0.5" min="1" max="10">
                                     <span class="unit">m</span>
@@ -388,6 +400,39 @@
         </div>
     </div>
 </div>
+
+<!-- Segment Extension Modal -->
+<div class="modal fade" id="extendSegmentModal" tabindex="-1" aria-labelledby="extendSegmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="extendSegmentModalLabel">
+                    <i class="fas fa-plus"></i> Segment Uzatma
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="extend-angle" class="form-label">Açı (°)</label>
+                    <input type="number" class="form-control" id="extend-angle" step="0.1" value="0">
+                    <div class="form-text">Pozitif değerler saat yönünde, negatif değerler saat yönünün tersinde döndürür.</div>
+                    <div class="text-muted small mt-2" id="extend-angle-reference"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="extend-length" class="form-label">Uzunluk (m)</label>
+                    <input type="number" class="form-control" id="extend-length" step="0.1" min="0.1" value="5">
+                </div>
+                <div class="alert alert-info" role="alert">
+                    Yeni segmentin giriş ve çıkış genişlikleri, kontrol panelindeki değerler kullanılarak uygulanır.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="extend-segment-confirm">Segment Oluştur</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -395,6 +440,9 @@
 <script>
     let tunnelDesigner = null;
     let currentMineId = null;
+    let extendSegmentModalInstance = null;
+    let pendingSegmentExtension = null;
+    let extendAngleReferenceEl = null;
     
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 Enhanced Tunnel Designer Loading...');
@@ -413,6 +461,9 @@
     
     function initializeTunnelDesigner() {
         try {
+            const startWidth = parseFloat(document.getElementById('tunnel-start-width')?.value) || 1.0;
+            const endWidth = parseFloat(document.getElementById('tunnel-end-width')?.value) || 1.0;
+
             tunnelDesigner = new EnhancedTunnelDesigner('tunnel-diagram', {
                 gridSize: 0.5,
                 showGrid: true,
@@ -422,7 +473,9 @@
                 showPreview: true,
                 defaultTunnelWidth: 3.0,
                 defaultTunnelHeight: 3.0,
-                defaultCrossSectionType: 'circle'
+                defaultCrossSectionType: 'circle',
+                defaultStartWidth: startWidth,
+                defaultEndWidth: endWidth
             });
             
             // Set callbacks
@@ -446,7 +499,7 @@
         });
         
         // Parameter changes
-        ['tunnel-width', 'tunnel-height', 'cross-section'].forEach(id => {
+        ['tunnel-start-width', 'tunnel-end-width', 'tunnel-width', 'tunnel-height', 'cross-section'].forEach(id => {
             document.getElementById(id).addEventListener('change', updateTunnelParams);
         });
         
@@ -486,6 +539,40 @@
         document.getElementById('grid-size').addEventListener('input', function() {
             document.getElementById('grid-size-value').textContent = this.value;
         });
+
+        // Segment extension modal setup
+        const extendModalEl = document.getElementById('extendSegmentModal');
+        if (extendModalEl) {
+            extendSegmentModalInstance = new bootstrap.Modal(extendModalEl);
+            extendAngleReferenceEl = document.getElementById('extend-angle-reference');
+            const confirmButton = document.getElementById('extend-segment-confirm');
+
+            if (confirmButton) {
+                confirmButton.addEventListener('click', () => {
+                    if (!pendingSegmentExtension || typeof pendingSegmentExtension.onConfirm !== 'function') {
+                        return;
+                    }
+
+                    const angleInput = document.getElementById('extend-angle');
+                    const lengthInput = document.getElementById('extend-length');
+                    const angleDelta = angleInput ? parseFloat(angleInput.value) : 0;
+                    const lengthValue = lengthInput ? parseFloat(lengthInput.value) : 0;
+
+                    if (isNaN(lengthValue) || lengthValue <= 0) {
+                        showMessage('Lütfen 0.1 metreden büyük bir uzunluk değeri girin.', 'warning');
+                        return;
+                    }
+
+                    pendingSegmentExtension.onConfirm(isNaN(angleDelta) ? 0 : angleDelta, lengthValue);
+                    pendingSegmentExtension = null;
+                    extendSegmentModalInstance.hide();
+                });
+            }
+
+            extendModalEl.addEventListener('hidden.bs.modal', () => {
+                pendingSegmentExtension = null;
+            });
+        }
         
         // Mouse coordinates tracking
         if (tunnelDesigner && tunnelDesigner.diagram) {
@@ -564,10 +651,14 @@
     }
     
     function updateTunnelParams() {
+        const startWidth = parseFloat(document.getElementById('tunnel-start-width').value) || 1.0;
+        const endWidth = parseFloat(document.getElementById('tunnel-end-width').value) || 1.0;
         const width = parseFloat(document.getElementById('tunnel-width').value);
         const height = parseFloat(document.getElementById('tunnel-height').value);
         const crossSection = document.getElementById('cross-section').value;
         
+        tunnelDesigner.config.defaultStartWidth = startWidth;
+        tunnelDesigner.config.defaultEndWidth = endWidth;
         tunnelDesigner.config.defaultTunnelWidth = width;
         tunnelDesigner.config.defaultTunnelHeight = height;
         tunnelDesigner.config.defaultCrossSectionType = crossSection;
@@ -578,6 +669,8 @@
                 if (d && d.category === 'tunnel_segment') {
                     const model = tunnelDesigner.diagram.model;
                     model.startTransaction('setCrossSection');
+                    model.setDataProperty(d, 'startWidth', startWidth);
+                    model.setDataProperty(d, 'endWidth', endWidth);
                     model.setDataProperty(d, 'crossSectionType', crossSection);
                     const cp = {
                         diameter: height,
@@ -597,11 +690,61 @@
                     }
                     model.commitTransaction('setCrossSection');
                 }
+                if (d && d.category === 'free_tunnel_segment') {
+                    const model = tunnelDesigner.diagram.model;
+                    model.startTransaction('setFreeWidth');
+                    model.setDataProperty(d, 'startWidth', startWidth);
+                    model.setDataProperty(d, 'endWidth', endWidth);
+                    if (d.from && d.to) {
+                        const from = go.Point.parse(d.from);
+                        const to = go.Point.parse(d.to);
+                        const shape = tunnelDesigner.computeFreeSegmentGeometry(from, to, startWidth, endWidth);
+                        if (shape) {
+                            model.setDataProperty(d, 'geometryString', shape.geometry);
+                            model.setDataProperty(d, 'pos', go.Point.stringify(shape.position));
+                        }
+                    }
+                    model.commitTransaction('setFreeWidth');
+                }
             });
         } catch (e) {}
 
-        console.log(`⚙️ Tunnel params updated: ${width}×${height}m, ${crossSection}`);
+        console.log(`⚙️ Tunnel params updated: giriş ${startWidth}m, çıkış ${endWidth}m, kesit ${crossSection}, gövde ${width}×${height}m`);
     }
+
+    window.openSegmentExtensionDialog = function(anchorContext, onConfirm) {
+        if (!extendSegmentModalInstance) {
+            extendSegmentModalInstance = new bootstrap.Modal(document.getElementById('extendSegmentModal'));
+        }
+
+        pendingSegmentExtension = {
+            context: anchorContext,
+            onConfirm
+        };
+
+        const angleInput = document.getElementById('extend-angle');
+        const lengthInput = document.getElementById('extend-length');
+        if (angleInput) {
+            angleInput.value = '0';
+        }
+        if (lengthInput) {
+            lengthInput.value = '5';
+        }
+
+        if (extendAngleReferenceEl && anchorContext && typeof anchorContext.baseAngleDeg === 'number') {
+            const normalized = ((anchorContext.baseAngleDeg % 360) + 360) % 360;
+            const anchorLabel = anchorContext.anchorKey === 'start' ? 'Başlangıç ucu' : 'Bitiş ucu';
+            let widthInfo = '';
+            if (typeof anchorContext.startWidth === 'number' && typeof anchorContext.endWidth === 'number') {
+                widthInfo = ` | Genişlik (giriş/çıkış): ${anchorContext.startWidth.toFixed(2)}m / ${anchorContext.endWidth.toFixed(2)}m`;
+            }
+            extendAngleReferenceEl.textContent = `${anchorLabel} | Referans açı: ${normalized.toFixed(1)}°${widthInfo}`;
+        } else if (extendAngleReferenceEl) {
+            extendAngleReferenceEl.textContent = '';
+        }
+
+        extendSegmentModalInstance.show();
+    };
     
     function updateStats() {
         if (!tunnelDesigner) return;

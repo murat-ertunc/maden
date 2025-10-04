@@ -168,6 +168,10 @@
     border-radius: 0 4px 4px 0;
 }
 
+.gateway-context-menu button {
+    width: 100%;
+}
+
 /* Quick Access Buttons */
 .quick-tools {
     display: flex;

@@ -325,6 +325,18 @@
                                         @endforeach
                                     </select>
                                 </div>
+
+                                <div class="input-group input-group-sm" style="width: 170px;">
+                                    <span class="input-group-text">Giriş</span>
+                                    <input type="number" id="tunnel-start-width" class="form-control" value="1.0" step="0.1" min="0.1" max="20" title="Tünel başlangıç genişliği (metre)">
+                                    <span class="input-group-text">m</span>
+                                </div>
+
+                                <div class="input-group input-group-sm" style="width: 170px;">
+                                    <span class="input-group-text">Çıkış</span>
+                                    <input type="number" id="tunnel-end-width" class="form-control" value="1.0" step="0.1" min="0.1" max="20" title="Tünel bitiş genişliği (metre)">
+                                    <span class="input-group-text">m</span>
+                                </div>
                             </div>
                             
                             <!-- Tunnel Parameters (only visible in tunnel_point mode) -->
@@ -728,7 +740,12 @@
         
         try {
             console.log('🔧 Initializing EnhancedTunnelDesigner...');
-            
+
+            const startWidthInput = document.getElementById('tunnel-start-width');
+            const endWidthInput = document.getElementById('tunnel-end-width');
+            const startWidth = parseFloat(startWidthInput?.value) || 1.0;
+            const endWidth = parseFloat(endWidthInput?.value) || 1.0;
+
             tunnelDesigner = new EnhancedTunnelDesigner('tunnel-diagram', {
                 gridSize: 0.5,
                 showGrid: true,
@@ -738,7 +755,9 @@
                 showPreview: true,
                 defaultTunnelWidth: 3.0,
                 defaultTunnelHeight: 3.0,
-                defaultCrossSectionType: 'circle'
+                defaultCrossSectionType: 'circle',
+                defaultStartWidth: startWidth,
+                defaultEndWidth: endWidth
             });
             
             // Set callbacks
@@ -764,8 +783,12 @@
         });
         
         // Parameter changes
-        ['tunnel-width', 'tunnel-height', 'cross-section'].forEach(id => {
-            document.getElementById(id).addEventListener('change', updateTunnelParams);
+        ['tunnel-start-width', 'tunnel-end-width', 'tunnel-width', 'tunnel-height', 'cross-section'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', updateTunnelParams);
+                el.addEventListener('input', updateTunnelParams);
+            }
         });
         
         // Control buttons
@@ -1028,11 +1051,15 @@
         }
     }
     function updateTunnelParams() {
+        const startWidth = parseFloat(document.getElementById('tunnel-start-width').value) || 1.0;
+        const endWidth = parseFloat(document.getElementById('tunnel-end-width').value) || 1.0;
         const width = parseFloat(document.getElementById('tunnel-width').value);
         const height = parseFloat(document.getElementById('tunnel-height').value);
         const crossSection = document.getElementById('cross-section').value;
 
         // Update defaults
+        tunnelDesigner.config.defaultStartWidth = startWidth;
+        tunnelDesigner.config.defaultEndWidth = endWidth;
         tunnelDesigner.config.defaultTunnelWidth = width;
         tunnelDesigner.config.defaultTunnelHeight = height;
         tunnelDesigner.config.defaultCrossSectionType = crossSection;
@@ -1045,8 +1072,9 @@
                 if (d && d.category === 'tunnel_segment') {
                     const model = tunnelDesigner.diagram.model;
                     model.startTransaction('setCrossSection');
+                    model.setDataProperty(d, 'startWidth', startWidth);
+                    model.setDataProperty(d, 'endWidth', endWidth);
                     model.setDataProperty(d, 'crossSectionType', crossSection);
-                    // initialize sensible defaults
                     const cp = {
                         diameter: height,
                         leftWidth: width * 0.4,
@@ -1065,13 +1093,29 @@
                     }
                     model.commitTransaction('setCrossSection');
                 }
+                if (d && d.category === 'free_tunnel_segment') {
+                    const model = tunnelDesigner.diagram.model;
+                    model.startTransaction('setFreeWidth');
+                    model.setDataProperty(d, 'startWidth', startWidth);
+                    model.setDataProperty(d, 'endWidth', endWidth);
+                    if (d.from && d.to) {
+                        const from = go.Point.parse(d.from);
+                        const to = go.Point.parse(d.to);
+                        const shape = tunnelDesigner.computeFreeSegmentGeometry(from, to, startWidth, endWidth);
+                        if (shape) {
+                            model.setDataProperty(d, 'geometryString', shape.geometry);
+                            model.setDataProperty(d, 'pos', go.Point.stringify(shape.position));
+                        }
+                    }
+                    model.commitTransaction('setFreeWidth');
+                }
             });
             if (typeof tunnelDesigner.refreshHorseshoeHandlesForSelection === 'function') {
                 tunnelDesigner.refreshHorseshoeHandlesForSelection();
             }
         } catch (e) { console.warn(e); }
 
-        console.log(`⚙️ Tunnel params updated: ${width}×${height}m, ${crossSection}`);
+        console.log(`⚙️ Tunnel params updated: giriş ${startWidth}m, çıkış ${endWidth}m, kesit ${crossSection}, gövde ${width}×${height}m`);
     }
     
     function updateStats() {
