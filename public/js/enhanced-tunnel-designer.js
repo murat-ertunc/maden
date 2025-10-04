@@ -516,6 +516,34 @@ class EnhancedTunnelDesigner {
             )
         );
 
+        // Distance label that follows the mouse cursor in tunnel_drag mode
+        this.diagram.nodeTemplateMap.add("distance_label",
+            $(go.Node, "Auto",
+                {
+                    selectable: false,
+                    avoidable: false,
+                    pickable: false,
+                    layerName: "Foreground"
+                },
+                new go.Binding("location", "loc", go.Point.parse),
+                
+                $(go.Shape, "RoundedRectangle", {
+                    fill: "rgba(0, 0, 0, 0.85)",
+                    stroke: "#FFD700",
+                    strokeWidth: 2,
+                    parameter1: 4
+                }),
+                
+                $(go.TextBlock, {
+                    margin: new go.Margin(8, 12),
+                    font: "bold 16px 'Segoe UI', Arial, sans-serif",
+                    stroke: "#FFD700",
+                    text: "0m"
+                },
+                new go.Binding("text", "text"))
+            )
+        );
+
         // Snap feedback indicator at current mouse snapped position
         this.diagram.nodeTemplateMap.add("snap_indicator",
             $(go.Node,
@@ -612,16 +640,50 @@ class EnhancedTunnelDesigner {
                     new go.Binding("geometryString", "geometryString", (geom) => geom || "M0 0 L0 0"))
                 )
             );
+
+        this.diagram.nodeTemplateMap.add("line_segment",
+            $(go.Node,
+                {
+                    locationSpot: go.Spot.Center,
+                    selectable: true,
+                    rotatable: true,
+                    avoidable: false,
+                    pickable: true,
+                    layerName: "Foreground",
+                    cursor: "pointer",
+                    toolTip: this.createSegmentTooltip(),
+                    click: (e, obj) => this.handleSegmentClick(e, obj)
+                },
+                new go.Binding("location", "position", go.Point.parse).makeTwoWay(go.Point.stringify),
+                new go.Binding("angle", "angle").makeTwoWay(),
+                $(go.Shape,
+                    {
+                        name: "LINEPATH",
+                        stroke: "#1f5bbd",
+                        strokeWidth: 4,
+                        strokeCap: "round"
+                    },
+                    new go.Binding("stroke", "strokeColor", (c) => c || "#1f5bbd"),
+                    new go.Binding("strokeWidth", "strokeWidthPx", (w) => w || 4),
+                    new go.Binding("geometryString", "", (data) => {
+                        const lengthMeters = Math.max(0.05, data.length || 0.5);
+                        const half = (lengthMeters * 20) / 2;
+                        return `M${(-half).toFixed(2)} 0 L${(half).toFixed(2)} 0`;
+                    })
+                )
+            )
+        );
     }
 
     registerAutoUpdateListeners() {
         // Update measurement when a segment is moved or rotated
+        const measurementCategories = new Set(['tunnel_segment', 'free_tunnel_segment', 'line_segment']);
         const updateForSelection = () => {
             this.diagram.selection.each(part => {
                 const data = part.data;
-                if (data && data.category === 'tunnel_segment') {
+                if (data && measurementCategories.has(data.category)) {
                     this.updateMeasurementForSegment(data);
-                    if (data.crossSectionType === 'horseshoe' && this.hsHandles && this.hsHandles.has(data.key)) {
+                    if (data.category === 'tunnel_segment' && data.crossSectionType === 'horseshoe' && this.hsHandles && this.hsHandles.has(data.key)) {
                         this.updateHorseshoeHandlesPositions(data);
                     }
                 }
@@ -641,7 +703,7 @@ class EnhancedTunnelDesigner {
         });
         this.diagram.addDiagramListener('PartRotated', (e) => {
             const part = e.subject && e.subject.part;
-            if (part && part.data && part.data.category === 'tunnel_segment') {
+            if (part && part.data && measurementCategories.has(part.data.category)) {
                 this.updateMeasurementForSegment(part.data);
             }
         });
@@ -775,7 +837,7 @@ class EnhancedTunnelDesigner {
 
         const part = this.diagram.findPartAt(docPoint, true);
         const data = part && part.data;
-        if (data && (data.category === 'tunnel_segment' || data.category === 'free_tunnel_segment')) {
+    if (data && (data.category === 'tunnel_segment' || data.category === 'free_tunnel_segment' || data.category === 'line_segment')) {
             const startPoint = go.Point.parse(data.from);
             const endPoint = go.Point.parse(data.to);
             const totalLength = data.length || this.calculateDistance(startPoint, endPoint);
@@ -869,45 +931,6 @@ class EnhancedTunnelDesigner {
             this.showAddGatewayDialog(segment, docPoint.copy ? docPoint.copy() : docPoint, meterage);
         });
 
-        const extendButton = document.createElement('button');
-        extendButton.type = 'button';
-        extendButton.textContent = 'Çizgi ekle';
-        Object.assign(extendButton.style, {
-            background: '#2196F3',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '6px 10px',
-            cursor: 'pointer',
-            fontWeight: '600'
-        });
-
-        extendButton.addEventListener('click', () => {
-            if (!this.pendingGatewayContext) return;
-            this.hideGatewayContextMenu();
-            this.handleExtendSegmentRequest();
-        });
-
-        const trimButton = document.createElement('button');
-        trimButton.type = 'button';
-        trimButton.textContent = 'Kesişimleri kaldır';
-        Object.assign(trimButton.style, {
-            background: '#FFC107',
-            color: '#263238',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '6px 10px',
-            cursor: 'pointer',
-            fontWeight: '600'
-        });
-
-        trimButton.addEventListener('click', () => {
-            if (!this.pendingGatewayContext) return;
-            const { segment } = this.pendingGatewayContext;
-            this.hideGatewayContextMenu();
-            this.removeSegmentIntersections(segment);
-        });
-
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
         deleteButton.textContent = 'Çizgiyi sil';
@@ -929,8 +952,6 @@ class EnhancedTunnelDesigner {
         });
 
     actions.appendChild(addButton);
-    actions.appendChild(extendButton);
-    actions.appendChild(trimButton);
     actions.appendChild(deleteButton);
 
         menu.appendChild(actions);
@@ -1069,7 +1090,7 @@ class EnhancedTunnelDesigner {
 
         model.nodeDataArray.forEach((data) => {
             if (!data || data.key === segment.key) return;
-            if (data.category !== 'tunnel_segment' && data.category !== 'free_tunnel_segment') return;
+            if (data.category !== 'tunnel_segment' && data.category !== 'free_tunnel_segment' && data.category !== 'line_segment') return;
 
             const otherStart = data.from ? go.Point.parse(data.from) : null;
             const otherEnd = data.to ? go.Point.parse(data.to) : null;
@@ -1726,11 +1747,8 @@ class EnhancedTunnelDesigner {
             this.cancelDrawing();
             return;
         }
-        // Create tunnel segment with from/to
-        this.createTunnelSegment(this.dragStartPoint, finalEndPoint, {
-            startWidth: this.config.defaultStartWidth,
-            endWidth: this.config.defaultEndWidth
-        });
+        // Create line segment with no width/height applied
+        this.createLineSegment(this.dragStartPoint, finalEndPoint);
         // Reset drag state
         this.isDragging = false;
         this.dragStartPoint = null;
@@ -1835,6 +1853,44 @@ class EnhancedTunnelDesigner {
             this.onTunnelCreated(segment);
         }
         
+        return segment;
+    }
+
+    createLineSegment(startPoint, endPoint, overrides = {}) {
+        const midPoint = new go.Point(
+            (startPoint.x + endPoint.x) / 2,
+            (startPoint.y + endPoint.y) / 2
+        );
+        const length = this.calculateDistance(startPoint, endPoint);
+        const angle = this.calculateAngle(startPoint, endPoint);
+        const segment = {
+            key: this.generateSegmentId(),
+            category: 'line_segment',
+            name: `L-${this.generateShortId()}`,
+            from: go.Point.stringify(startPoint),
+            to: go.Point.stringify(endPoint),
+            position: go.Point.stringify(midPoint),
+            length,
+            angle,
+            strokeColor: overrides.strokeColor || '#1f5bbd',
+            strokeWidthPx: overrides.strokeWidthPx || 4
+        };
+
+        this.diagram.startTransaction('addLineSegment');
+        this.diagram.model.addNodeData(segment);
+        this.diagram.commitTransaction('addLineSegment');
+
+        this.tunnelData.segments.set(segment.key, segment);
+
+        if (this.config.showMeasurements) {
+            this.addMeasurement(startPoint, endPoint, length, segment.key);
+            this.updateMeasurementForSegment(segment);
+        }
+
+        if (this.onTunnelCreated) {
+            this.onTunnelCreated(segment);
+        }
+
         return segment;
     }
     
@@ -1986,13 +2042,20 @@ class EnhancedTunnelDesigner {
             
             const lastPoint = this.freeTunnelPoints[this.freeTunnelPoints.length - 1];
             const snappedCur = this.snapToGrid(currentPoint);
-            const distance = this.calculateDistance(lastPoint, snappedCur);
+            
+            // Calculate cumulative distance from the very beginning
+            let cumulativeDistance = 0;
+            for (let i = 1; i < this.freeTunnelPoints.length; i++) {
+                cumulativeDistance += this.calculateDistance(this.freeTunnelPoints[i - 1], this.freeTunnelPoints[i]);
+            }
+            // Add distance from last point to current cursor position
+            cumulativeDistance += this.calculateDistance(lastPoint, snappedCur);
             
             // Dotted line preview güncelle
             this.updatePreviewLine(lastPoint, snappedCur);
             
-            // Mesafe labelını güncelle
-            this.updateDistanceLabel(snappedCur, distance);
+            // Mesafe labelını güncelle (cumulative distance from beginning)
+            this.updateDistanceLabel(snappedCur, cumulativeDistance);
             this.updateAngleRing(snappedCur);
             
         } catch (err) {
@@ -2159,37 +2222,7 @@ class EnhancedTunnelDesigner {
 
     // Free-mode: kalıcı çizgi segmenti oluştur
     createFreeSegment(startPoint, endPoint, overrides = {}) {
-        const from = (startPoint.copy ? startPoint.copy() : new go.Point(startPoint.x, startPoint.y));
-        const to = (endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y));
-        const startWidth = Math.max(0.05, overrides.startWidth ?? this.config.defaultStartWidth ?? 1);
-        const endWidth = Math.max(0.05, overrides.endWidth ?? this.config.defaultEndWidth ?? 1);
-        const shape = this.computeFreeSegmentGeometry(from, to, startWidth, endWidth);
-
-        if (!shape) {
-            console.warn('⚠️ Free segment could not be created due to invalid geometry.');
-            return null;
-        }
-
-        const seg = {
-            key: this.generateSegmentId(),
-            category: 'free_tunnel_segment',
-            pos: go.Point.stringify(shape.position),
-            from: go.Point.stringify(from),
-            to: go.Point.stringify(to),
-            length: this.calculateDistance(from, to),
-            angle: this.calculateAngle(from, to),
-            startWidth,
-            endWidth,
-            geometryString: shape.geometry
-        };
-
-        this.diagram.startTransaction('addFreeSeg');
-        this.diagram.model.addNodeData(seg);
-        this.diagram.commitTransaction('addFreeSeg');
-        if (this.config.showMeasurements) {
-            this.addMeasurement(from, to, seg.length, seg.key);
-        }
-        return seg;
+        return this.createLineSegment(startPoint, endPoint, overrides);
     }
 
     // --- Free tunnel path point markers ---
@@ -2252,6 +2285,14 @@ class EnhancedTunnelDesigner {
     }
     
     updateDragPreview(startPoint, endPoint, length, angle) {
+        if (this.drawingMode === 'tunnel_drag') {
+            this.clearPreview();
+            this.updatePreviewLine(startPoint, endPoint);
+            this.updateDistanceLabel(endPoint, length);
+            this.updateAngleRing(endPoint);
+            return;
+        }
+
         const midPoint = new go.Point(
             (startPoint.x + endPoint.x) / 2,
             (startPoint.y + endPoint.y) / 2
@@ -2302,6 +2343,8 @@ class EnhancedTunnelDesigner {
             this.diagram.commitTransaction('removePreview');
             this.previewNode = null;
         }
+        this.clearPreviewLine();
+        this.clearDistanceLabel();
     }
     
     // UI Instructions
@@ -2396,7 +2439,7 @@ class EnhancedTunnelDesigner {
         if (this.config.snapToSegments) {
             const nodes = (this.diagram && this.diagram.model) ? this.diagram.model.nodeDataArray : [];
             for (const n of nodes) {
-                if (n.category !== 'tunnel_segment' && n.category !== 'free_tunnel_segment') continue;
+                if (n.category !== 'tunnel_segment' && n.category !== 'free_tunnel_segment' && n.category !== 'line_segment') continue;
                 if (!n.from || !n.to) continue;
                 const a = go.Point.parse(n.from);
                 const b = go.Point.parse(n.to);
@@ -2624,7 +2667,11 @@ class EnhancedTunnelDesigner {
     getTunnelData() {
         // Prefer live model data to include user edits (resize/move/rotate)
         const nodes = this.diagram && this.diagram.model ? this.diagram.model.nodeDataArray : [];
-        const segments = nodes.filter(n => (n.category === 'tunnel_segment' || n.category === 'free_tunnel_segment') && !n.isTemporary);
+        const segments = nodes.filter(n => (
+            n.category === 'tunnel_segment' ||
+            n.category === 'free_tunnel_segment' ||
+            n.category === 'line_segment'
+        ) && !n.isTemporary);
         const stations = nodes.filter(n => n.category === 'miner_station');
         const measurements = nodes.filter(n => n.category === 'measurement');
         const gateways = nodes.filter(n => n.category === 'gateway');
@@ -2685,6 +2732,23 @@ class EnhancedTunnelDesigner {
                         seg.geometryString = shape.geometry;
                         seg.pos = go.Point.stringify(shape.position);
                     }
+                }
+            }
+
+            if (seg.category === 'line_segment') {
+                const startPoint = seg.from ? go.Point.parse(seg.from) : null;
+                const endPoint = seg.to ? go.Point.parse(seg.to) : null;
+                if (startPoint && endPoint) {
+                    const midPoint = new go.Point((startPoint.x + endPoint.x) / 2, (startPoint.y + endPoint.y) / 2);
+                    seg.position = go.Point.stringify(midPoint);
+                    seg.angle = this.calculateAngle(startPoint, endPoint);
+                    seg.length = seg.length || this.calculateDistance(startPoint, endPoint);
+                }
+                if (typeof seg.strokeWidthPx !== 'number') {
+                    seg.strokeWidthPx = 4;
+                }
+                if (!seg.strokeColor) {
+                    seg.strokeColor = '#1f5bbd';
                 }
             }
             return seg;

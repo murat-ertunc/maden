@@ -209,6 +209,48 @@
     body.monitoring-active {
         overflow: hidden;
     }
+
+    .tunnel-designer-container {
+        position: relative;
+    }
+
+    #beacons-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    .beacon-marker {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        margin-left: -9px;
+        margin-top: -9px;
+        border-radius: 50%;
+        background: rgba(255, 0, 102, 0.75);
+        box-shadow: 0 0 12px rgba(255, 0, 102, 0.8);
+        animation: beaconPulse 1.4s ease-in-out infinite;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        pointer-events: auto;
+        cursor: pointer;
+    }
+
+    .beacon-marker[data-confidence="low"] {
+        background: rgba(255, 165, 0, 0.75);
+        box-shadow: 0 0 12px rgba(255, 165, 0, 0.8);
+    }
+
+    .beacon-marker[data-confidence="single"] {
+        background: rgba(76, 175, 80, 0.75);
+        box-shadow: 0 0 12px rgba(76, 175, 80, 0.8);
+    }
+
+    @keyframes beaconPulse {
+        0% { transform: scale(0.75); opacity: 0.8; }
+        50% { transform: scale(1.2); opacity: 0.4; }
+        100% { transform: scale(0.75); opacity: 0.8; }
+    }
 </style>
 @endpush
 
@@ -329,13 +371,13 @@
                                     </select>
                                 </div>
 
-                                <div class="input-group input-group-sm" style="width: 170px;">
+                                <div class="input-group input-group-sm d-none" style="width: 170px;">
                                     <span class="input-group-text">Giriş</span>
                                     <input type="number" id="tunnel-start-width" class="form-control" value="1.0" step="0.1" min="0.1" max="20" title="Tünel başlangıç genişliği (metre)">
                                     <span class="input-group-text">m</span>
                                 </div>
 
-                                <div class="input-group input-group-sm" style="width: 170px;">
+                                <div class="input-group input-group-sm d-none" style="width: 170px;">
                                     <span class="input-group-text">Çıkış</span>
                                     <input type="number" id="tunnel-end-width" class="form-control" value="1.0" step="0.1" min="0.1" max="20" title="Tünel bitiş genişliği (metre)">
                                     <span class="input-group-text">m</span>
@@ -389,6 +431,7 @@
                 <div class="card-body p-0">
                     <div class="tunnel-designer-container">
                         <div id="tunnel-diagram" style="height: 650px; width: 100%;"></div>
+                        <div id="beacons-layer"></div>
                         <!-- Cover for GoJS watermark area (bottom-left). Note: For production, purchase a license. -->
                         <div id="gojs-watermark-cover" style="position:absolute; left:8px; bottom:8px; width:220px; height:60px; background:linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0)); pointer-events:none;"></div>
                         
@@ -816,6 +859,671 @@
         address: () => document.getElementById('miner-address')
     };
 
+    const PIXELS_PER_METER = 20;
+    const rssiCalibrationSeed = @json($rssiMap ?? []);
+    const rssiCalibration = Object.entries(rssiCalibrationSeed)
+        .reduce(function(acc, entry) {
+            if (!entry || entry.length < 2) {
+                return acc;
+            }
+            const key = Number(entry[0]);
+            const value = Number(entry[1]);
+            if (Number.isFinite(key) && Number.isFinite(value)) {
+                acc[key] = value;
+            }
+            return acc;
+        }, {});
+    const calibrationKeys = Object.keys(rssiCalibration).map(Number).sort((a, b) => a - b);
+    let gatewayReferenceSeed = @json($gatewayRefs ?? []);
+    if(gatewayReferenceSeed === [] || gatewayReferenceSeed === null) {
+        gatewayReferenceSeed = {};
+    }
+    const staticGatewayReferences = new Map();
+    Object.keys(gatewayReferenceSeed || {}).forEach(function(id) {
+        if (!id) return;
+        const coords = gatewayReferenceSeed[id];
+        if (!coords) return;
+        const x = Number(coords.x);
+        const y = Number(coords.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+            staticGatewayReferences.set(String(id), { x, y });
+        }
+    });
+    const gatewayReferences = new Map(staticGatewayReferences);
+    const beaconPollInterval = Number(@json($beaconPollInterval ?? 10000));
+    const beaconState = {
+        data: new Map(),
+        timer: null,
+        resizeBound: false,
+        meta: null
+    };
+
+    function distanceForRssiValue(rssi) {
+        if (!Number.isFinite(rssi) || !calibrationKeys.length) {
+            return null;
+        }
+
+        const exactKey = Math.round(rssi);
+        if (Object.prototype.hasOwnProperty.call(rssiCalibration, exactKey)) {
+            return rssiCalibration[exactKey];
+        }
+
+        const minKey = calibrationKeys[0];
+        const maxKey = calibrationKeys[calibrationKeys.length - 1];
+
+        if (rssi <= minKey) {
+            return rssiCalibration[minKey];
+        }
+
+        if (rssi >= maxKey) {
+            return rssiCalibration[maxKey];
+        }
+
+        let lowerKey = minKey;
+        let upperKey = maxKey;
+
+        for (const key of calibrationKeys) {
+            if (key < rssi) {
+                lowerKey = key;
+                continue;
+            }
+            upperKey = key;
+            break;
+        }
+
+        if (lowerKey === upperKey) {
+            return rssiCalibration[lowerKey];
+        }
+
+        const lowerValue = rssiCalibration[lowerKey];
+        const upperValue = rssiCalibration[upperKey];
+        const ratio = (rssi - lowerKey) / (upperKey - lowerKey);
+
+        return lowerValue + ratio * (upperValue - lowerValue);
+    }
+
+    function getGatewayPosition(gatewayId) {
+        if (!gatewayId) return null;
+        const key = String(gatewayId);
+        if (gatewayReferences.has(key)) {
+            return gatewayReferences.get(key);
+        }
+
+        if (tunnelDesigner && tunnelDesigner.tunnelData && tunnelDesigner.tunnelData.gateways instanceof Map) {
+            var iterator = tunnelDesigner.tunnelData.gateways.values();
+            for (const gateway of iterator) {
+                if ((gateway.gatewayId || gateway.id) === gatewayId) {
+                    if (gateway.position) {
+                        const parsed = parseGoPoint(gateway.position);
+                        if (parsed) {
+                            return parsed;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function parseGoPoint(value) {
+        if (!value) return null;
+        if (typeof value === 'string') {
+            const [x, y] = value.split(/\s+/).map(Number);
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+                return { x: x / PIXELS_PER_METER, y: y / PIXELS_PER_METER };
+            }
+        }
+        if (typeof value === 'object' && value !== null && Number.isFinite(value.x) && Number.isFinite(value.y)) {
+            return { x: Number(value.x) / PIXELS_PER_METER, y: Number(value.y) / PIXELS_PER_METER };
+        }
+        return null;
+    }
+
+    function resetGatewayReferences() {
+        gatewayReferences.clear();
+        staticGatewayReferences.forEach((coords, id) => {
+            gatewayReferences.set(id, coords);
+        });
+    }
+
+    function mergeGatewayReferences(raw, options) {
+        if (!raw) {
+            return;
+        }
+
+        const preferPayload = !!(options && options.preferPayload);
+
+        if (preferPayload) {
+            resetGatewayReferences();
+        }
+
+        function applyEntry(id, value) {
+            if (!id) return;
+            const key = String(id).trim();
+            if (!key) return;
+
+            const coords = normalizeGatewayCoords(value);
+            if (!coords) return;
+
+            gatewayReferences.set(key, coords);
+        }
+
+        if (raw instanceof Map) {
+            raw.forEach((value, key) => applyEntry(key, value));
+            return;
+        }
+
+        if (Array.isArray(raw)) {
+            raw.forEach((item) => {
+                if (!item) return;
+                const candidateId = item.gateway_id || item.gatewayId || item.id || item.identifier || item.code || item.name;
+                applyEntry(candidateId || '', item);
+            });
+            return;
+        }
+
+        if (typeof raw === 'object') {
+            Object.keys(raw).forEach((key) => {
+                const value = raw[key];
+                const candidateFromValue = value && (value.gateway_id || value.gatewayId);
+                const targetId = candidateFromValue || key;
+                applyEntry(targetId || key, value || {});
+            });
+        }
+    }
+
+    function normalizeGatewayCoords(value) {
+        if (!value) return null;
+
+        if (typeof value === 'string') {
+            return parseGoPoint(value);
+        }
+
+        if (Array.isArray(value) && value.length >= 2) {
+            const x = Number(value[0]);
+            const y = Number(value[1]);
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+                return { x, y };
+            }
+        }
+
+        if (typeof value === 'number') {
+            return null;
+        }
+
+        if (typeof value === 'object') {
+            if (value.position) {
+                const parsed = parseGoPoint(value.position);
+                if (parsed) return parsed;
+            }
+
+            if (value.pos) {
+                const parsed = parseGoPoint(value.pos);
+                if (parsed) return parsed;
+            }
+
+            const possibleX = [value.x, value.X, value.longitude, value.long, value.lng];
+            const possibleY = [value.y, value.Y, value.latitude, value.lat, value.latY, value.z, value.Z];
+            const xCandidate = possibleX.find((candidate) => Number.isFinite(Number(candidate)));
+            const yCandidate = possibleY.find((candidate) => Number.isFinite(Number(candidate)));
+
+            if (Number.isFinite(Number(xCandidate)) && Number.isFinite(Number(yCandidate))) {
+                return { x: Number(xCandidate), y: Number(yCandidate) };
+            }
+
+            if (value.coordinates && typeof value.coordinates === 'object') {
+                return normalizeGatewayCoords(value.coordinates);
+            }
+        }
+
+        return null;
+    }
+
+    function groupBeaconReadings(rows) {
+        const groups = new Map();
+        if (!Array.isArray(rows)) {
+            return groups;
+        }
+
+        rows.forEach((row) => {
+            if (!row) return;
+
+            const beaconIdRaw = row.beacon_id;
+            const beaconIdAlt = row.beaconId;
+            const beaconId = beaconIdRaw !== undefined && beaconIdRaw !== null && beaconIdRaw !== ''
+                ? beaconIdRaw
+                : beaconIdAlt;
+            if (!beaconId) return;
+
+            const gatewayIdRaw = row.gateway_id;
+            const gatewayIdAlt = row.gatewayId;
+            const gatewayId = gatewayIdRaw !== undefined && gatewayIdRaw !== null && gatewayIdRaw !== ''
+                ? gatewayIdRaw
+                : gatewayIdAlt;
+            if (!gatewayId) return;
+            const rssi = Number(row.rssi);
+            if (!Number.isFinite(rssi)) return;
+
+            const key = String(beaconId);
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    beaconId: key,
+                    readings: [],
+                    latestTimestamp: row.timestamp,
+                });
+            }
+
+            const group = groups.get(key);
+            group.readings.push({
+                beacon_id: key,
+                gateway_id: String(gatewayId),
+                rssi,
+                timestamp: row.timestamp,
+            });
+
+            if (!group.latestTimestamp || (row.timestamp && row.timestamp > group.latestTimestamp)) {
+                group.latestTimestamp = row.timestamp;
+            }
+        });
+
+        return groups;
+    }
+
+    function distancePointToSegment(px, py, sx, sy, ex, ey) {
+        const dx = ex - sx;
+        const dy = ey - sy;
+        if (dx === 0 && dy === 0) {
+            return Math.hypot(px - sx, py - sy);
+        }
+
+        const t = ((px - sx) * dx + (py - sy) * dy) / (dx * dx + dy * dy);
+        const clamped = Math.max(0, Math.min(1, t));
+        const projX = sx + clamped * dx;
+        const projY = sy + clamped * dy;
+        return Math.hypot(px - projX, py - projY);
+    }
+
+    function getTunnelSegmentsMeters() {
+        if (!tunnelDesigner || typeof tunnelDesigner.getTunnelData !== 'function') {
+            return [];
+        }
+        const data = tunnelDesigner.getTunnelData();
+        if (!data || !Array.isArray(data.segments)) {
+            return [];
+        }
+
+        return data.segments
+            .map((segment) => {
+                if (segment.from && segment.to) {
+                    const start = parseGoPoint(segment.from);
+                    const end = parseGoPoint(segment.to);
+                    if (start && end) {
+                        return { start, end };
+                    }
+                }
+
+                if (segment.position && Number.isFinite(segment.length) && Number.isFinite(segment.angle)) {
+                    const center = parseGoPoint(segment.position);
+                    if (!center) return null;
+                    const half = Number(segment.length) / 2;
+                    const angleRad = Number(segment.angle) * Math.PI / 180;
+                    const dx = Math.cos(angleRad) * half;
+                    const dy = Math.sin(angleRad) * half;
+                    return {
+                        start: { x: center.x - dx, y: center.y - dy },
+                        end: { x: center.x + dx, y: center.y + dy },
+                    };
+                }
+
+                return null;
+            })
+            .filter(Boolean);
+    }
+
+    function distanceToTunnelMeters(point) {
+        if (!point) return Number.POSITIVE_INFINITY;
+        const segments = getTunnelSegmentsMeters();
+        if (!segments.length) return Number.POSITIVE_INFINITY;
+        let best = Number.POSITIVE_INFINITY;
+        for (const segment of segments) {
+            const dist = distancePointToSegment(point.x, point.y, segment.start.x, segment.start.y, segment.end.x, segment.end.y);
+            if (dist < best) {
+                best = dist;
+            }
+        }
+        return best;
+    }
+
+    function solvePosition(observations) {
+        const obs = observations.filter((o) => Number.isFinite(o.distance) && Number.isFinite(o.x) && Number.isFinite(o.y));
+        if (!obs.length) {
+            return null;
+        }
+
+        if (obs.length === 1) {
+            return {
+                position: { x: obs[0].x, y: obs[0].y },
+                confidence: 'single',
+            };
+        }
+
+        if (obs.length === 2) {
+            const [a, b] = obs;
+            const intersections = circleIntersections(a, b);
+            if (intersections.length === 0) {
+                // Fallback to weighted midpoint along the connecting line.
+                const total = a.distance + b.distance;
+                const ratio = total > 0 ? a.distance / total : 0.5;
+                return {
+                    position: {
+                        x: a.x + (b.x - a.x) * ratio,
+                        y: a.y + (b.y - a.y) * ratio,
+                    },
+                    confidence: 'low',
+                };
+            }
+
+            if (intersections.length === 1) {
+                return { position: intersections[0], confidence: 'medium' };
+            }
+
+            const distA = distanceToTunnelMeters(intersections[0]);
+            const distB = distanceToTunnelMeters(intersections[1]);
+            const bestPoint = distA <= distB ? intersections[0] : intersections[1];
+            return { position: bestPoint, confidence: 'medium' };
+        }
+
+        // Weighted average for 3+ observations.
+        let sumWeights = 0;
+        let sumX = 0;
+        let sumY = 0;
+        obs.forEach((o) => {
+            const distance = Math.max(o.distance, 0.01);
+            const weight = 1 / distance;
+            sumWeights += weight;
+            sumX += weight * o.x;
+            sumY += weight * o.y;
+        });
+
+        if (sumWeights === 0) {
+            return null;
+        }
+
+        return {
+            position: { x: sumX / sumWeights, y: sumY / sumWeights },
+            confidence: 'high',
+        };
+    }
+
+    function circleIntersections(a, b) {
+        const x0 = a.x;
+        const y0 = a.y;
+        const r0 = Math.max(a.distance, 0.01);
+        const x1 = b.x;
+        const y1 = b.y;
+        const r1 = Math.max(b.distance, 0.01);
+
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const d = Math.hypot(dx, dy);
+
+        if (d === 0) {
+            return [];
+        }
+
+        if (d > r0 + r1 || d < Math.abs(r0 - r1)) {
+            return [];
+        }
+
+        const aDist = ((r0 ** 2) - (r1 ** 2) + (d ** 2)) / (2 * d);
+        const hSquared = (r0 ** 2) - (aDist ** 2);
+        const h = hSquared <= 0 ? 0 : Math.sqrt(hSquared);
+
+        const midpointX = x0 + (aDist * dx) / d;
+        const midpointY = y0 + (aDist * dy) / d;
+
+        if (h === 0) {
+            return [{ x: midpointX, y: midpointY }];
+        }
+
+        const rx = -(dy) * (h / d);
+        const ry = dx * (h / d);
+
+        return [
+            { x: midpointX + rx, y: midpointY + ry },
+            { x: midpointX - rx, y: midpointY - ry },
+        ];
+    }
+
+    function formatTooltip({ beaconId, latestTimestamp, gateways, generatedAt, source }) {
+        const gatewayList = Array.isArray(gateways) ? gateways : [];
+        const lines = [
+            `Beacon: ${beaconId}`,
+            latestTimestamp ? `Son Güncelleme: ${formatTimestamp(latestTimestamp)}` : null,
+            generatedAt ? `Veri Üretimi: ${formatTimestamp(generatedAt)}` : null,
+            source ? `Kaynak: ${source}` : null,
+            gatewayList.length ? 'Gateway Okumaları:' : null,
+            ...gatewayList.map((gw) => `- ${gw.gatewayId}: RSSI ${gw.rssi} dBm ≈ ${gw.distance.toFixed(2)} m`)
+        ].filter(Boolean);
+
+        return lines.join('\n');
+    }
+
+    function formatTimestamp(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return date.toLocaleString('tr-TR', { hour12: false });
+    }
+
+    function resolveBeaconGroup(group) {
+        const details = [];
+        const observations = [];
+
+        group.readings.forEach((reading) => {
+            if (!reading) {
+                return;
+            }
+
+            const readingGatewayId = reading.gateway_id !== undefined && reading.gateway_id !== null && reading.gateway_id !== ''
+                ? reading.gateway_id
+                : reading.gatewayId;
+            const gatewayId = String(readingGatewayId !== undefined && readingGatewayId !== null ? readingGatewayId : '');
+            if (!gatewayId) {
+                return;
+            }
+
+            const gateway = getGatewayPosition(gatewayId);
+            const distance = distanceForRssiValue(reading.rssi);
+            if (!gateway || !Number.isFinite(distance)) {
+                return;
+            }
+
+            observations.push({
+                gatewayId,
+                x: gateway.x,
+                y: gateway.y,
+                distance,
+            });
+
+            details.push({
+                gatewayId,
+                rssi: reading.rssi,
+                distance,
+            });
+        });
+
+        if (!observations.length) {
+            return null;
+        }
+
+        const result = solvePosition(observations);
+        if (!result) {
+            return null;
+        }
+
+        return {
+            beaconId: group.beaconId,
+            position: result.position,
+            confidence: result.confidence,
+            latestTimestamp: group.latestTimestamp,
+            gateways: details,
+        };
+    }
+
+    function ensureBeaconLayerSize() {
+    const layer = document.getElementById('beacons-layer');
+    const diagramDiv = tunnelDesigner && tunnelDesigner.diagram ? tunnelDesigner.diagram.div : null;
+        if (!layer || !diagramDiv) {
+            return;
+        }
+
+        const rect = diagramDiv.getBoundingClientRect();
+        layer.style.width = `${rect.width}px`;
+        layer.style.height = `${rect.height}px`;
+    }
+
+    function renderBeacons() {
+        const layer = document.getElementById('beacons-layer');
+        if (!layer || !tunnelDesigner || !tunnelDesigner.diagram) {
+            return;
+        }
+
+        ensureBeaconLayerSize();
+        layer.innerHTML = '';
+
+        beaconState.data.forEach((entry) => {
+            if (!entry.position) return;
+            const docPoint = new go.Point(entry.position.x * PIXELS_PER_METER, entry.position.y * PIXELS_PER_METER);
+            const viewPoint = tunnelDesigner.diagram.transformDocToView(docPoint);
+            if (!viewPoint) return;
+
+            const marker = document.createElement('div');
+            marker.className = 'beacon-marker';
+            marker.style.left = `${viewPoint.x}px`;
+            marker.style.top = `${viewPoint.y}px`;
+            marker.dataset.beaconId = entry.beaconId;
+            marker.dataset.confidence = entry.confidence;
+            marker.title = formatTooltip(entry);
+            layer.appendChild(marker);
+        });
+    }
+
+    async function fetchBeaconData() {
+        try {
+            const params = new URLSearchParams();
+            if (currentMineId) {
+                params.set('mine_id', currentMineId);
+            }
+
+            const endpoint = `/api/beacons/latest${params.toString() ? `?${params.toString()}` : ''}`;
+
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const payloadMeta = payload && typeof payload === 'object' ? payload.meta : undefined;
+            const payloadGateways = payload && typeof payload === 'object' ? payload.gateways : undefined;
+            const payloadData = payload && typeof payload === 'object' ? payload.data : undefined;
+
+            const hasMineId = payloadMeta && payloadMeta.mine_id !== undefined && payloadMeta.mine_id !== null;
+            const nextMineKey = hasMineId ? String(payloadMeta.mine_id) : (currentMineId ? String(currentMineId) : null);
+
+            const prevHasMine = beaconState.meta && beaconState.meta.mine_id !== undefined && beaconState.meta.mine_id !== null;
+            const prevMineKey = prevHasMine ? String(beaconState.meta.mine_id) : null;
+
+            if (payloadGateways) {
+                const shouldReplace = nextMineKey && prevMineKey && nextMineKey !== prevMineKey;
+                mergeGatewayReferences(payloadGateways, {
+                    preferPayload: shouldReplace || (!prevMineKey && !!nextMineKey)
+                });
+            } else if (nextMineKey && prevMineKey && nextMineKey !== prevMineKey) {
+                resetGatewayReferences();
+            }
+
+            const metaClone = {};
+            if (payloadMeta && typeof payloadMeta === 'object') {
+                Object.keys(payloadMeta).forEach((key) => {
+                    metaClone[key] = payloadMeta[key];
+                });
+            }
+            metaClone.mine_id = nextMineKey;
+            beaconState.meta = metaClone;
+
+            const rows = Array.isArray(payloadData) ? payloadData : [];
+            const groups = groupBeaconReadings(rows);
+            beaconState.data.clear();
+
+            groups.forEach((group) => {
+                const resolved = resolveBeaconGroup(group);
+                if (resolved) {
+                    const sourceValue = payloadMeta && payloadMeta.source !== undefined && payloadMeta.source !== null
+                        ? payloadMeta.source
+                        : 'unknown';
+                    const generatedValue = payloadMeta ? payloadMeta.generated_at : null;
+                    const mineIdValue = payloadMeta && payloadMeta.mine_id !== undefined && payloadMeta.mine_id !== null
+                        ? payloadMeta.mine_id
+                        : nextMineKey;
+                    resolved.source = sourceValue;
+                    resolved.generatedAt = generatedValue;
+                    resolved.mineId = mineIdValue;
+                    beaconState.data.set(group.beaconId, resolved);
+                }
+            });
+
+            renderBeacons();
+        } catch (error) {
+            console.warn('Beacon verileri alınırken hata oluştu:', error);
+        }
+    }
+
+    function initializeBeaconTracking() {
+        if (beaconState.timer) {
+            clearInterval(beaconState.timer);
+        }
+
+        const prevMineKey = beaconState.meta && beaconState.meta.mine_id !== undefined && beaconState.meta.mine_id !== null
+            ? String(beaconState.meta.mine_id)
+            : null;
+        const nextMineKey = currentMineId ? String(currentMineId) : null;
+
+        if (nextMineKey && prevMineKey && nextMineKey !== prevMineKey) {
+            resetGatewayReferences();
+        }
+
+        beaconState.data.clear();
+        renderBeacons();
+
+        fetchBeaconData();
+        const interval = Math.max(Number.isFinite(beaconPollInterval) ? beaconPollInterval : 10000, 3000);
+        beaconState.timer = setInterval(fetchBeaconData, interval);
+
+        if (tunnelDesigner && tunnelDesigner.diagram && !tunnelDesigner.diagram.__beaconLayerListenerBound) {
+            tunnelDesigner.diagram.addDiagramListener('ViewportBoundsChanged', () => {
+                requestAnimationFrame(renderBeacons);
+            });
+            tunnelDesigner.diagram.__beaconLayerListenerBound = true;
+        }
+
+        if (!beaconState.resizeBound) {
+            window.addEventListener('resize', () => {
+                requestAnimationFrame(renderBeacons);
+            });
+            beaconState.resizeBound = true;
+        }
+    }
+
     function escapeHtml(value) {
         if (value === null || value === undefined) return '';
         return String(value)
@@ -1194,7 +1902,7 @@
 
             // Setup miners modal interactions
             initializeMinerModalHandlers();
-            
+
             console.log('✅ Enhanced Tunnel Designer Ready!');
             showMessage('🎯 Kolay tünel çizimi aktif! Nokta & Yol moduyla çizime başlayın.', 'success');
 
@@ -1215,6 +1923,9 @@
                     loadMineTunnelDataFromServer();
                 }
             }
+
+            // Begin or resume beacon polling after selection state is known
+            initializeBeaconTracking();
         }
         
         waitForDependencies();
@@ -1317,6 +2028,7 @@
                 if (currentMineId) {
                     localStorage.setItem('lastMineId', currentMineId);
                     loadMineTunnelDataFromServer();
+                    initializeBeaconTracking();
                 }
             });
         }

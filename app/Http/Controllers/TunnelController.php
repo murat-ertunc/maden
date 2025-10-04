@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\DataTransferObjects\BeaconReading;
 use App\Models\Mine;
+use App\Models\MinePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class TunnelController extends Controller
 {
+    private const PIXELS_PER_METER = 20;
+
     /**
      * Tunnel Designer ana sayfası
      */
@@ -19,7 +23,11 @@ class TunnelController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('tunnel.index', compact('mines'));
+        $rssiMap = config('mining.rssi_map', []);
+        $gatewayRefs = config('mining.gateways', []);
+        $beaconPollInterval = (int) config('mining.poll_interval_ms', 10000);
+
+        return view('tunnel.index', compact('mines', 'rssiMap', 'gatewayRefs', 'beaconPollInterval'));
     }
 
     /**
@@ -33,6 +41,51 @@ class TunnelController extends Controller
             ->get();
 
         return view('tunnel.enhanced', compact('mines'));
+    }
+
+
+
+    /**
+     * API: Latest beacon readings (mock data for positioning prototype).
+     */
+    public function latestBeacons(Request $request)
+    {
+        $mineId = $request->integer('mine_id');
+        $gateways = [];
+
+        if ($mineId) {
+            $mine = Mine::where('id', $mineId)
+                ->where('user_id', Auth::id())
+                ->with('paths')
+                ->first();
+
+            if ($mine) {
+                $gateways = $this->collectGatewayCoordinates($mine);
+            }
+        }
+
+        $readings = [
+            ["beacon_id" => "A4:C1:38:00:00:01", "gateway_id" => "GW01", "rssi" => -62, "timestamp" => "2025-10-03T14:01:12"],
+            ["beacon_id" => "A4:C1:38:00:00:02", "gateway_id" => "GW02", "rssi" => -70, "timestamp" => "2025-10-03T14:01:15"],
+            ["beacon_id" => "A4:C1:38:00:00:03", "gateway_id" => "GW01", "rssi" => -58, "timestamp" => "2025-10-03T14:01:20"],
+            ["beacon_id" => "A4:C1:38:00:00:01", "gateway_id" => "GW03", "rssi" => -75, "timestamp" => "2025-10-03T14:01:25"],
+            ["beacon_id" => "A4:C1:38:00:00:04", "gateway_id" => "GW04", "rssi" => -67, "timestamp" => "2025-10-03T14:01:30"],
+            ["beacon_id" => "A4:C1:38:00:00:02", "gateway_id" => "GW01", "rssi" => -64, "timestamp" => "2025-10-03T14:01:35"],
+            ["beacon_id" => "A4:C1:38:00:00:05", "gateway_id" => "GW03", "rssi" => -69, "timestamp" => "2025-10-03T14:01:42"],
+            ["beacon_id" => "A4:C1:38:00:00:03", "gateway_id" => "GW02", "rssi" => -60, "timestamp" => "2025-10-03T14:01:50"],
+        ];
+
+        $dto = array_map(static fn (array $reading) => BeaconReading::fromArray($reading)->toArray(), $readings);
+
+        return response()->json([
+            'data' => $dto,
+            'gateways' => $gateways,
+            'meta' => [
+                'mine_id' => $mineId,
+                'generated_at' => now()->toISOString(),
+                'source' => 'mock',
+            ],
+        ]);
     }
 
 
@@ -237,6 +290,149 @@ class TunnelController extends Controller
             'total_miners' => count($positions),
             'last_updated' => now()->toISOString()
         ]);
+    }
+
+    private function collectGatewayCoordinates(Mine $mine): array
+    {
+        $result = [];
+        $paths = $mine->paths ?? $mine->paths()->get();
+
+        foreach ($paths as $path) {
+            $gateways = data_get($path->properties, 'gateways', []);
+            if (!is_array($gateways)) {
+                continue;
+            }
+
+            foreach ($gateways as $gateway) {
+                if (!is_array($gateway)) {
+                    continue;
+                }
+
+                $gatewayId = $this->extractGatewayId($gateway);
+                if (!$gatewayId || isset($result[$gatewayId])) {
+                    continue;
+                }
+
+                $point = $this->resolveGatewayPoint($gateway, $path);
+                if (!$point) {
+                    continue;
+                }
+
+                $result[$gatewayId] = [
+                    'x' => $point['x'],
+                    'y' => $point['y'],
+                    'segment_key' => $gateway['segmentKey'] ?? $gateway['segment_key'] ?? null,
+                    'path_id' => $path->id,
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    private function extractGatewayId(array $gateway): ?string
+    {
+        foreach (['gateway_id', 'gatewayId', 'id', 'identifier', 'code'] as $key) {
+            if (!empty($gateway[$key])) {
+                return (string) $gateway[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveGatewayPoint(array $gateway, MinePath $path): ?array
+    {
+        $position = $gateway['position'] ?? $gateway['pos'] ?? null;
+        if ($position) {
+            $point = $this->parseGoPointToMeters($position);
+            if ($point) {
+                return $point;
+            }
+        }
+
+        if (isset($gateway['meterage']) && is_numeric($gateway['meterage'])) {
+            $point = $this->pointAlongPath((float) $gateway['meterage'], $path->path_points ?? []);
+            if ($point) {
+                return $point;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseGoPointToMeters(mixed $value): ?array
+    {
+        if (is_string($value)) {
+            $parts = preg_split('/\s+/', trim($value));
+            if (count($parts) >= 2) {
+                $x = (float) $parts[0] / self::PIXELS_PER_METER;
+                $y = (float) $parts[1] / self::PIXELS_PER_METER;
+                return ['x' => $x, 'y' => $y];
+            }
+        }
+
+        if (is_array($value)) {
+            if (isset($value['x'], $value['y'])) {
+                return [
+                    'x' => (float) $value['x'] / self::PIXELS_PER_METER,
+                    'y' => (float) $value['y'] / self::PIXELS_PER_METER,
+                ];
+            }
+
+            if (isset($value['x'], $value['z'])) {
+                return [
+                    'x' => (float) $value['x'],
+                    'y' => (float) $value['z'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function pointAlongPath(float $meterage, ?array $points): ?array
+    {
+        if (!$points || count($points) < 2) {
+            return null;
+        }
+
+        $remaining = $meterage;
+
+        for ($index = 1; $index < count($points); $index++) {
+            $start = $points[$index - 1];
+            $end = $points[$index];
+
+            $startX = (float) ($start['x'] ?? 0);
+            $startZ = (float) ($start['z'] ?? 0);
+            $endX = (float) ($end['x'] ?? 0);
+            $endZ = (float) ($end['z'] ?? 0);
+
+            $segmentLength = hypot($endX - $startX, $endZ - $startZ);
+            if ($segmentLength <= 0.0) {
+                continue;
+            }
+
+            if ($remaining <= $segmentLength) {
+                $ratio = $remaining / $segmentLength;
+                return [
+                    'x' => $startX + ($endX - $startX) * $ratio,
+                    'y' => $startZ + ($endZ - $startZ) * $ratio,
+                ];
+            }
+
+            $remaining -= $segmentLength;
+        }
+
+        $last = end($points);
+        if (is_array($last)) {
+            return [
+                'x' => (float) ($last['x'] ?? 0),
+                'y' => (float) ($last['z'] ?? 0),
+            ];
+        }
+
+        return null;
     }
 
     /**
