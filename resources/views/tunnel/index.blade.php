@@ -225,6 +225,9 @@
                     <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#minesListModal">
                         <i class="fas fa-mountain"></i> Madenler
                     </button>
+                    <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#minersModal" id="btn-open-miners">
+                        <i class="fas fa-hard-hat"></i> Madenciler
+                    </button>
                     <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMineModal">
                         <i class="fas fa-plus"></i> Yeni Maden
                     </button>
@@ -561,6 +564,121 @@
     </div>
 </div>
 
+        <!-- Miners Management Modal -->
+        <div class="modal fade" id="minersModal" tabindex="-1" aria-labelledby="minersModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="minersModalLabel">
+                            <i class="fas fa-hard-hat"></i> Madenci Yönetimi
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="miners-modal-alert" class="alert" role="alert" style="display: none;"></div>
+                        <div class="row g-4">
+                            <div class="col-lg-6">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="fas fa-user-plus text-primary"></i>
+                                    <h6 class="fw-bold mb-0">Madenci Oluştur / Güncelle</h6>
+                                </div>
+                                <form id="miner-form" class="card border-primary-subtle shadow-sm">
+                                    <div class="card-body">
+                                        <input type="hidden" id="miner-id">
+                                        <div id="miner-form-feedback" style="display:none;" class="alert" role="alert"></div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label for="miner-first-name" class="form-label">Ad <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="miner-first-name" placeholder="Örn: Ahmet" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="miner-last-name" class="form-label">Soyad <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="miner-last-name" placeholder="Örn: Yılmaz" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="miner-phone" class="form-label">Telefon</label>
+                                                <input type="tel" class="form-control" id="miner-phone" placeholder="0 5XX XXX XX XX">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="miner-age" class="form-label">Yaş</label>
+                                                <input type="number" class="form-control" id="miner-age" min="16" max="80" placeholder="Örn: 34">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="miner-blood-type" class="form-label">Kan Grubu</label>
+                                                <select id="miner-blood-type" class="form-select">
+                                                    <option value="">Seçiniz</option>
+                                                    <option value="A+">A+</option>
+                                                    <option value="A-">A-</option>
+                                                    <option value="B+">B+</option>
+                                                    <option value="B-">B-</option>
+                                                    <option value="AB+">AB+</option>
+                                                    <option value="AB-">AB-</option>
+                                                    <option value="0+">0+</option>
+                                                    <option value="0-">0-</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="miner-beacon-id" class="form-label">Beacon ID</label>
+                                                <input type="text" class="form-control" id="miner-beacon-id" placeholder="Örn: BEACON-123">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="miner-address" class="form-label">Adres</label>
+                                                <textarea id="miner-address" class="form-control" rows="3" placeholder="Madencinin adresi..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex justify-content-between gap-2">
+                                        <button type="button" class="btn btn-outline-secondary" id="miner-reset-btn">
+                                            <i class="fas fa-eraser"></i> Formu Temizle
+                                        </button>
+                                        <button type="submit" class="btn btn-primary" id="miner-submit-btn">
+                                            <i class="fas fa-save"></i> Kaydet
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="fas fa-users text-success"></i>
+                                    <h6 class="fw-bold mb-0">Madenci Listesi</h6>
+                                    <button type="button" class="btn btn-outline-success btn-sm ms-auto" id="miner-refresh-btn">
+                                        <i class="fas fa-sync"></i> Yenile
+                                    </button>
+                                </div>
+                                <div class="card shadow-sm border-success-subtle">
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover table-sm align-middle mb-0" id="miners-table">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Madenci</th>
+                                                        <th>İletişim</th>
+                                                        <th>Kan / Yaş</th>
+                                                        <th>Beacon</th>
+                                                        <th>Adres</th>
+                                                        <th class="text-end">İşlemler</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="miners-table-body">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center text-muted py-4">Kayıt bulunamadı.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 <!-- Edit Mine Modal -->
 <div class="modal fade" id="editMineModal" tabindex="-1" aria-labelledby="editMineModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -670,6 +788,381 @@
 <script>
     let tunnelDesigner = null;
     let currentMineId = null;
+    const minerState = {
+        list: [],
+        loading: false,
+        initialized: false,
+        activeId: null
+    };
+
+    const minerApiBase = '/api/miners';
+
+    const minerSelectors = {
+        modal: () => document.getElementById('minersModal'),
+        tableBody: () => document.getElementById('miners-table-body'),
+        alert: () => document.getElementById('miners-modal-alert'),
+        form: () => document.getElementById('miner-form'),
+        formFeedback: () => document.getElementById('miner-form-feedback'),
+        submitBtn: () => document.getElementById('miner-submit-btn'),
+        resetBtn: () => document.getElementById('miner-reset-btn'),
+        refreshBtn: () => document.getElementById('miner-refresh-btn'),
+        id: () => document.getElementById('miner-id'),
+        firstName: () => document.getElementById('miner-first-name'),
+        lastName: () => document.getElementById('miner-last-name'),
+        phone: () => document.getElementById('miner-phone'),
+        age: () => document.getElementById('miner-age'),
+        bloodType: () => document.getElementById('miner-blood-type'),
+        beacon: () => document.getElementById('miner-beacon-id'),
+        address: () => document.getElementById('miner-address')
+    };
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.content : undefined;
+    }
+
+    function showMinerAlert(type, message, { autoHide = true } = {}) {
+        const el = minerSelectors.alert();
+        if (!el) return;
+        el.className = `alert alert-${type}`;
+        el.textContent = message;
+        el.style.display = 'block';
+        if (autoHide) {
+            setTimeout(() => {
+                if (el.textContent === message) {
+                    el.style.display = 'none';
+                }
+            }, 3500);
+        }
+    }
+
+    function hideMinerAlert() {
+        const el = minerSelectors.alert();
+        if (el) {
+            el.style.display = 'none';
+            el.textContent = '';
+            el.className = 'alert';
+        }
+    }
+
+    function showMinerFormFeedback(type, message) {
+        const el = minerSelectors.formFeedback();
+        if (!el) return;
+        el.className = `alert alert-${type}`;
+        el.textContent = message;
+        el.style.display = 'block';
+    }
+
+    function clearMinerFormFeedback() {
+        const el = minerSelectors.formFeedback();
+        if (!el) return;
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = 'alert';
+    }
+
+    function resetMinerForm() {
+        const { id, firstName, lastName, phone, age, bloodType, beacon, address, submitBtn } = minerSelectors;
+        if (id()) id().value = '';
+        if (firstName()) firstName().value = '';
+        if (lastName()) lastName().value = '';
+        if (phone()) phone().value = '';
+        if (age()) age().value = '';
+        if (bloodType()) bloodType().value = '';
+        if (beacon()) beacon().value = '';
+        if (address()) address().value = '';
+        clearMinerFormFeedback();
+        setMinerSubmitState(false);
+        minerState.activeId = null;
+    }
+
+    function setMinerSubmitState(isUpdate) {
+        const btn = minerSelectors.submitBtn();
+        if (!btn) return;
+        btn.innerHTML = isUpdate
+            ? '<i class="fas fa-sync"></i> Güncelle'
+            : '<i class="fas fa-save"></i> Kaydet';
+        btn.classList.toggle('btn-success', isUpdate);
+        btn.classList.toggle('btn-primary', !isUpdate);
+    }
+
+    function setMinerFormLoading(isLoading) {
+        const form = minerSelectors.form();
+        const btn = minerSelectors.submitBtn();
+        if (btn) {
+            btn.disabled = isLoading;
+            btn.innerHTML = isLoading
+                ? '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> İşleniyor...'
+                : (minerState.activeId ? '<i class="fas fa-sync"></i> Güncelle' : '<i class="fas fa-save"></i> Kaydet');
+        }
+        if (form) {
+            Array.from(form.elements).forEach((el) => {
+                el.disabled = isLoading && el !== btn;
+            });
+        }
+    }
+
+    function setMinersTableLoading() {
+        const tbody = minerSelectors.tableBody();
+        if (!tbody) return;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Madenci listesi yükleniyor...
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderMinersTable(miners = minerState.list) {
+        const tbody = minerSelectors.tableBody();
+        if (!tbody) return;
+        if (!miners || miners.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Kayıt bulunamadı.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = miners.map((miner, index) => {
+            const id = String(miner.id ?? '');
+            const first = escapeHtml(miner.first_name ?? '');
+            const last = escapeHtml(miner.last_name ?? '');
+            const fullName = `${first} ${last}`.trim() || '—';
+            const phone = escapeHtml(miner.phone ?? '');
+            const address = escapeHtml(miner.address ?? '');
+            const contactParts = [phone, address].filter((part) => part && part.length > 0);
+            const contact = contactParts.length ? contactParts.join('<br>') : '-';
+            const blood = escapeHtml(miner.blood_type ?? '-');
+            const age = miner.age ? escapeHtml(String(miner.age)) : '-';
+            const beacon = miner.beacon_id ? escapeHtml(miner.beacon_id) : '-';
+            const rowAddress = address || '-';
+            return `
+                <tr data-miner-id="${id}">
+                    <td>${index + 1}</td>
+                    <td class="fw-semibold">${fullName}</td>
+                    <td>${contact || '-'}</td>
+                    <td>${blood} / ${age}</td>
+                    <td>${beacon}</td>
+                    <td>${rowAddress}</td>
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary" data-action="edit-miner" data-id="${id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" data-action="delete-miner" data-id="${id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function fetchMiners({ showLoader = true, silent = false } = {}) {
+        if (minerState.loading) return;
+        minerState.loading = true;
+        if (showLoader) setMinersTableLoading();
+        hideMinerAlert();
+        try {
+            const res = await fetch(minerApiBase, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (!res.ok) {
+                throw new Error('Madenci listesi alınamadı');
+            }
+            const data = await res.json();
+            const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+            minerState.list = list;
+            renderMinersTable(list);
+            if (!silent) {
+                showMinerAlert('success', 'Madenciler başarıyla yenilendi.');
+            }
+            minerState.initialized = true;
+        } catch (error) {
+            renderMinersTable([]);
+            showMinerAlert('danger', error.message || 'Madenci listesi alınırken hata oluştu.');
+        } finally {
+            minerState.loading = false;
+        }
+    }
+
+    function fillMinerForm(miner) {
+        const { id, firstName, lastName, phone, age, bloodType, beacon, address } = minerSelectors;
+        if (id()) id().value = miner.id ?? '';
+        if (firstName()) firstName().value = miner.first_name ?? '';
+        if (lastName()) lastName().value = miner.last_name ?? '';
+        if (phone()) phone().value = miner.phone ?? '';
+        if (age()) age().value = miner.age ?? '';
+        if (bloodType()) bloodType().value = miner.blood_type ?? '';
+        if (beacon()) beacon().value = miner.beacon_id ?? '';
+        if (address()) address().value = miner.address ?? '';
+        setMinerSubmitState(true);
+        minerState.activeId = miner.id ?? null;
+    }
+
+    async function deleteMiner(id) {
+        if (!id) return;
+        const target = minerState.list.find((m) => String(m.id) === String(id));
+        const fullName = target ? `${target.first_name ?? ''} ${target.last_name ?? ''}`.trim() : '';
+        if (!confirm(`'${fullName || 'Bu madenci'}' kaydını silmek istediğinize emin misiniz?`)) return;
+
+        const csrf = getCsrfToken();
+        try {
+            const res = await fetch(`${minerApiBase}/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {})
+                }
+            });
+            if (!res.ok) {
+                throw new Error('Madenci silinemedi');
+            }
+            showMinerAlert('success', 'Madenci silindi.');
+            await fetchMiners({ silent: true });
+            if (minerState.activeId === id) {
+                resetMinerForm();
+            }
+        } catch (error) {
+            showMinerAlert('danger', error.message || 'Madenci silinirken hata oluştu.');
+        }
+    }
+
+    async function handleMinerSubmit(event) {
+        event.preventDefault();
+        clearMinerFormFeedback();
+        hideMinerAlert();
+
+        const payload = {
+            first_name: minerSelectors.firstName()?.value.trim() ?? '',
+            last_name: minerSelectors.lastName()?.value.trim() ?? '',
+            phone: minerSelectors.phone()?.value.trim() || null,
+            age: minerSelectors.age()?.value ? Number(minerSelectors.age().value) : null,
+            blood_type: minerSelectors.bloodType()?.value || null,
+            beacon_id: minerSelectors.beacon()?.value.trim() || null,
+            address: minerSelectors.address()?.value.trim() || null
+        };
+
+        if (!payload.first_name || !payload.last_name) {
+            showMinerFormFeedback('warning', 'Ad ve Soyad alanları zorunludur.');
+            return;
+        }
+
+        const id = minerSelectors.id()?.value;
+        const csrf = getCsrfToken();
+        const method = id ? 'PUT' : 'POST';
+        const endpoint = id ? `${minerApiBase}/${id}` : minerApiBase;
+
+        setMinerFormLoading(true);
+        try {
+            const res = await fetch(endpoint, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {})
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 422) {
+                const data = await res.json();
+                const errors = data?.errors ? Object.values(data.errors).flat() : ['Doğrulama hatası'];
+                showMinerFormFeedback('danger', errors.join(' '));
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error('İşlem tamamlanamadı');
+            }
+
+            await res.json().catch(() => ({}));
+            showMinerAlert('success', id ? 'Madenci güncellendi.' : 'Madenci oluşturuldu.');
+            await fetchMiners({ silent: true });
+            resetMinerForm();
+        } catch (error) {
+            showMinerFormFeedback('danger', error.message || 'Beklenmeyen bir hata oluştu.');
+        } finally {
+            setMinerFormLoading(false);
+        }
+    }
+
+    function attachMinerTableEvents() {
+        const tbody = minerSelectors.tableBody();
+        if (!tbody) return;
+        tbody.addEventListener('click', async (event) => {
+            const editBtn = event.target.closest('[data-action="edit-miner"]');
+            const deleteBtn = event.target.closest('[data-action="delete-miner"]');
+            if (editBtn) {
+                const id = editBtn.dataset.id;
+                const miner = minerState.list.find((m) => String(m.id) === String(id));
+                if (miner) {
+                    fillMinerForm(miner);
+                    clearMinerFormFeedback();
+                }
+            } else if (deleteBtn) {
+                const id = deleteBtn.dataset.id;
+                await deleteMiner(id);
+            }
+        });
+    }
+
+    function initializeMinerModalHandlers() {
+        const modalEl = minerSelectors.modal();
+        if (!modalEl) return;
+
+        const form = minerSelectors.form();
+        if (form && !form.dataset.bound) {
+            form.addEventListener('submit', handleMinerSubmit);
+            form.dataset.bound = 'true';
+        }
+
+        const resetBtn = minerSelectors.resetBtn();
+        if (resetBtn && !resetBtn.dataset.bound) {
+            resetBtn.addEventListener('click', () => {
+                resetMinerForm();
+                hideMinerAlert();
+            });
+            resetBtn.dataset.bound = 'true';
+        }
+
+        const refreshBtn = minerSelectors.refreshBtn();
+        if (refreshBtn && !refreshBtn.dataset.bound) {
+            refreshBtn.addEventListener('click', () => fetchMiners({ silent: true }));
+            refreshBtn.dataset.bound = 'true';
+        }
+
+        attachMinerTableEvents();
+
+        modalEl.addEventListener('show.bs.modal', () => {
+            hideMinerAlert();
+            clearMinerFormFeedback();
+            if (!minerState.initialized) {
+                fetchMiners({ showLoader: true, silent: true });
+            }
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            resetMinerForm();
+            hideMinerAlert();
+        });
+    }
     
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 Enhanced Tunnel Designer Loading...');
@@ -698,6 +1191,9 @@
             
             // Setup keyboard shortcuts
             setupKeyboardShortcuts();
+
+            // Setup miners modal interactions
+            initializeMinerModalHandlers();
             
             console.log('✅ Enhanced Tunnel Designer Ready!');
             showMessage('🎯 Kolay tünel çizimi aktif! Nokta & Yol moduyla çizime başlayın.', 'success');

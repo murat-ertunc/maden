@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MinerController;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,13 @@ Route::middleware('auth')->prefix('api')->group(function () {
 
     Route::delete('/mines/{mine}', [\App\Http\Controllers\MineController::class, 'destroy'])->name('api.mines.destroy');
     
+    // Miners API
+    Route::get('/miners', [MinerController::class, 'index'])->name('api.miners.index');
+    Route::post('/miners', [MinerController::class, 'store'])->name('api.miners.store');
+    Route::put('/miners/{miner}', [MinerController::class, 'update'])->name('api.miners.update');
+    Route::delete('/miners/{miner}', [MinerController::class, 'destroy'])->name('api.miners.destroy');
+    Route::patch('/miners/{miner}', [MinerController::class, 'update']);
+
     // Miner Position Tracking API Routes (for Raspberry Pi)
     Route::post('/miner-position', [\App\Http\Controllers\TunnelController::class, 'receiveMinerPosition'])->name('api.miner.position');
     Route::get('/mines/{mine}/miner-positions', [\App\Http\Controllers\TunnelController::class, 'getMinerPositions'])->name('api.miner.positions');
