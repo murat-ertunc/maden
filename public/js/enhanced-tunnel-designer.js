@@ -170,18 +170,67 @@ class EnhancedTunnelDesigner {
                     return palette[type] || "#1f5bbd";
                 }),
                 new go.Binding("geometryString", "", (data) => {
-                    const lengthPx = Math.max(2, (data.length || 0.5) * 20);
+                    const lengthMeters = Math.max(0.05, data.length || 0.5);
+                    let lengthPx = Math.max(2, lengthMeters * 20);
                     const startMeters = Math.max(0.05, data.startWidth ?? data.width ?? 1);
                     const endMeters = Math.max(0.05, data.endWidth ?? data.width ?? 1);
                     const halfStart = (startMeters * 20) / 2;
                     const halfEnd = (endMeters * 20) / 2;
                     const maxHalf = Math.max(halfStart, halfEnd);
-                    const topStart = (maxHalf - halfStart).toFixed(2);
-                    const bottomStart = (maxHalf + halfStart).toFixed(2);
-                    const topEnd = (maxHalf - halfEnd).toFixed(2);
-                    const bottomEnd = (maxHalf + halfEnd).toFixed(2);
-                    const len = lengthPx.toFixed(2);
-                    return `M0 ${topStart} L${len} ${topEnd} L${len} ${bottomEnd} L0 ${bottomStart} Z`;
+                    const topStart = maxHalf - halfStart;
+                    const bottomStart = maxHalf + halfStart;
+                    const topEnd = maxHalf - halfEnd;
+                    const bottomEnd = maxHalf + halfEnd;
+                    const centerY = maxHalf;
+
+                    const fmt = (n) => Number.isFinite(n) ? n.toFixed(2) : '0.00';
+
+                    let startCut = 0;
+                    let endCut = 0;
+
+                    if (data.startTrimmed && (data.startTrimDepth ?? 0) > 0) {
+                        startCut = Math.max(0, Math.min(lengthPx * 0.49, (data.startTrimDepth || 0) * 20));
+                    }
+                    if (data.endTrimmed && (data.endTrimDepth ?? 0) > 0) {
+                        endCut = Math.max(0, Math.min(lengthPx * 0.49, (data.endTrimDepth || 0) * 20));
+                    }
+
+                    if (startCut + endCut > lengthPx - 2) {
+                        const scale = (lengthPx - 2) / (startCut + endCut);
+                        startCut *= scale;
+                        endCut *= scale;
+                    }
+
+                    const effectiveTopEndX = lengthPx - endCut;
+                    const effectiveBottomEndX = lengthPx - endCut;
+
+                    const path = [];
+
+                    if (startCut > 0.1) {
+                        path.push(`M0 ${fmt(centerY)}`);
+                        path.push(`L${fmt(startCut)} ${fmt(topStart)}`);
+                    } else {
+                        startCut = 0;
+                        path.push(`M0 ${fmt(topStart)}`);
+                    }
+
+                    path.push(`L${fmt(effectiveTopEndX)} ${fmt(topEnd)}`);
+
+                    if (endCut > 0.1) {
+                        path.push(`L${fmt(lengthPx)} ${fmt(centerY)}`);
+                    } else {
+                        endCut = 0;
+                    }
+
+                    path.push(`L${fmt(effectiveBottomEndX)} ${fmt(bottomEnd)}`);
+                    path.push(`L${fmt(startCut)} ${fmt(bottomStart)}`);
+
+                    if (startCut > 0.1) {
+                        path.push(`L0 ${fmt(centerY)}`);
+                    }
+
+                    path.push('Z');
+                    return path.join(' ');
                 })),
 
                 // Cross-section overlay: non-horseshoe (circle/rectangle)
@@ -839,6 +888,26 @@ class EnhancedTunnelDesigner {
             this.handleExtendSegmentRequest();
         });
 
+        const trimButton = document.createElement('button');
+        trimButton.type = 'button';
+        trimButton.textContent = 'Kesişimleri kaldır';
+        Object.assign(trimButton.style, {
+            background: '#FFC107',
+            color: '#263238',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            fontWeight: '600'
+        });
+
+        trimButton.addEventListener('click', () => {
+            if (!this.pendingGatewayContext) return;
+            const { segment } = this.pendingGatewayContext;
+            this.hideGatewayContextMenu();
+            this.removeSegmentIntersections(segment);
+        });
+
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
         deleteButton.textContent = 'Çizgiyi sil';
@@ -859,9 +928,10 @@ class EnhancedTunnelDesigner {
             this.deleteSegment(segment);
         });
 
-        actions.appendChild(addButton);
-        actions.appendChild(extendButton);
-        actions.appendChild(deleteButton);
+    actions.appendChild(addButton);
+    actions.appendChild(extendButton);
+    actions.appendChild(trimButton);
+    actions.appendChild(deleteButton);
 
         menu.appendChild(actions);
 
@@ -899,6 +969,182 @@ class EnhancedTunnelDesigner {
             this.gatewayContextMenu.style.display = 'none';
         }
         this.pendingGatewayContext = null;
+    }
+
+    removeSegmentIntersections(segment) {
+        if (!segment) return;
+
+        const model = this.diagram?.model;
+        if (!model) return;
+
+        const target = model.findNodeDataForKey(segment.key);
+        if (!target) return;
+
+        const connections = this.findSegmentConnections(target);
+        if (!connections.start.length && !connections.end.length) {
+            if (typeof window.showMessage === 'function') {
+                window.showMessage('Bu çizgiyle kesişen başka bir tünel bulunamadı.', 'info');
+            }
+            return;
+        }
+
+        const processed = new Set();
+        const updatedKeys = new Set();
+
+        const processEndpoint = (endpointKey, neighbors) => {
+            neighbors.forEach((entry) => {
+                const other = model.findNodeDataForKey(entry.segment.key);
+                if (!other) return;
+
+                const pairKey = `${target.key}:${endpointKey}|${other.key}:${entry.endpoint}`;
+                const reverseKey = `${other.key}:${entry.endpoint}|${target.key}:${endpointKey}`;
+                if (processed.has(pairKey) || processed.has(reverseKey)) {
+                    return;
+                }
+                processed.add(pairKey);
+                processed.add(reverseKey);
+
+                const trimDepth = this.calculateTrimDepthMeters(target, endpointKey, other, entry.endpoint);
+                if (trimDepth <= 0) return;
+
+                model.startTransaction('trimIntersections');
+                try {
+                    this.applyTrimToSegment(target, endpointKey, trimDepth, model);
+                    this.applyTrimToSegment(other, entry.endpoint, trimDepth, model);
+
+                    if (target.category === 'free_tunnel_segment') {
+                        this.recalculateFreeSegmentGeometry(target, model);
+                    }
+                    if (other.category === 'free_tunnel_segment') {
+                        this.recalculateFreeSegmentGeometry(other, model);
+                    }
+
+                    updatedKeys.add(target.key);
+                    updatedKeys.add(other.key);
+                    model.commitTransaction('trimIntersections');
+                } catch (err) {
+                    try { model.rollbackTransaction('trimIntersections'); } catch (_) {}
+                    console.error('Kesişim temizleme başarısız:', err);
+                }
+            });
+        };
+
+        processEndpoint('start', connections.start);
+        processEndpoint('end', connections.end);
+
+        if (updatedKeys.size === 0) {
+            if (typeof window.showMessage === 'function') {
+                window.showMessage('Kaldırılacak kesişim bulunamadı.', 'info');
+            }
+            return;
+        }
+
+        updatedKeys.forEach((key) => {
+            const dataObj = model.findNodeDataForKey(key);
+            if (dataObj) {
+                this.tunnelData.segments.set(key, dataObj);
+            }
+        });
+
+        if (typeof this.onTunnelModified === 'function') {
+            this.onTunnelModified(this.getTunnelData());
+        }
+
+        if (typeof window.showMessage === 'function') {
+            window.showMessage('Kesişimler temizlendi.', 'success');
+        }
+    }
+
+    findSegmentConnections(segment) {
+        const result = { start: [], end: [] };
+        const model = this.diagram?.model;
+        if (!segment || !model) return result;
+
+        const startPoint = segment.from ? go.Point.parse(segment.from) : null;
+        const endPoint = segment.to ? go.Point.parse(segment.to) : null;
+        if (!startPoint || !endPoint) return result;
+
+        const tolerance = 1.5;
+        const isNear = (a, b) => a && b && a.distanceSquaredPoint(b) <= tolerance * tolerance;
+
+        model.nodeDataArray.forEach((data) => {
+            if (!data || data.key === segment.key) return;
+            if (data.category !== 'tunnel_segment' && data.category !== 'free_tunnel_segment') return;
+
+            const otherStart = data.from ? go.Point.parse(data.from) : null;
+            const otherEnd = data.to ? go.Point.parse(data.to) : null;
+
+            if (isNear(startPoint, otherStart)) {
+                result.start.push({ segment: data, endpoint: 'start' });
+            }
+            if (isNear(startPoint, otherEnd)) {
+                result.start.push({ segment: data, endpoint: 'end' });
+            }
+            if (isNear(endPoint, otherStart)) {
+                result.end.push({ segment: data, endpoint: 'start' });
+            }
+            if (isNear(endPoint, otherEnd)) {
+                result.end.push({ segment: data, endpoint: 'end' });
+            }
+        });
+
+        return result;
+    }
+
+    getSegmentEndpointWidth(segment, endpoint) {
+        if (!segment) return 1;
+        if (endpoint === 'start') {
+            return Math.max(0.05, segment.startWidth ?? segment.width ?? this.config.defaultStartWidth ?? 1);
+        }
+        return Math.max(0.05, segment.endWidth ?? segment.width ?? this.config.defaultEndWidth ?? 1);
+    }
+
+    calculateTrimDepthMeters(segmentA, endpointA, segmentB, endpointB) {
+        const widthA = this.getSegmentEndpointWidth(segmentA, endpointA);
+        const widthB = this.getSegmentEndpointWidth(segmentB, endpointB);
+        const baseDepth = Math.min(widthA, widthB) * 0.45;
+
+        const lengthA = segmentA.length ?? this.calculateDistance(go.Point.parse(segmentA.from), go.Point.parse(segmentA.to));
+        const lengthB = segmentB.length ?? this.calculateDistance(go.Point.parse(segmentB.from), go.Point.parse(segmentB.to));
+        const maxDepth = Math.max(0.1, Math.min(lengthA, lengthB) * 0.45);
+
+        return Math.max(0.1, Math.min(baseDepth, maxDepth));
+    }
+
+    applyTrimToSegment(segment, endpoint, depthMeters, model) {
+        if (!segment || !model) return;
+        const depthProp = endpoint === 'start' ? 'startTrimDepth' : 'endTrimDepth';
+        const flagProp = endpoint === 'start' ? 'startTrimmed' : 'endTrimmed';
+
+        const currentDepth = Math.max(0, segment[depthProp] ?? 0);
+        const newDepth = Math.max(currentDepth, depthMeters);
+
+        model.setDataProperty(segment, flagProp, true);
+        model.setDataProperty(segment, depthProp, newDepth);
+    }
+
+    recalculateFreeSegmentGeometry(segment, model) {
+        if (!segment || segment.category !== 'free_tunnel_segment') return;
+
+        const from = segment.from ? go.Point.parse(segment.from) : null;
+        const to = segment.to ? go.Point.parse(segment.to) : null;
+        if (!from || !to) return;
+
+        const shape = this.computeFreeSegmentGeometry(
+            from,
+            to,
+            segment.startWidth,
+            segment.endWidth,
+            {
+                trimStartMeters: segment.startTrimmed ? (segment.startTrimDepth ?? 0) : 0,
+                trimEndMeters: segment.endTrimmed ? (segment.endTrimDepth ?? 0) : 0
+            }
+        );
+
+        if (!shape) return;
+
+        model.setDataProperty(segment, 'pos', go.Point.stringify(shape.position));
+        model.setDataProperty(segment, 'geometryString', shape.geometry);
     }
 
     createAngleRingOverlay(host) {
@@ -2222,7 +2468,7 @@ class EnhancedTunnelDesigner {
         }
     }
     
-    computeFreeSegmentGeometry(startPoint, endPoint, startWidthMeters, endWidthMeters) {
+    computeFreeSegmentGeometry(startPoint, endPoint, startWidthMeters, endWidthMeters, options = {}) {
         if (!startPoint || !endPoint) return null;
 
         const startWidth = Math.max(0.05, startWidthMeters ?? this.config.defaultStartWidth ?? 1);
@@ -2239,20 +2485,63 @@ class EnhancedTunnelDesigner {
         const nx = -dy / length;
         const ny = dx / length;
 
-        const p1 = new go.Point(startPoint.x + nx * halfStart, startPoint.y + ny * halfStart);
-        const p2 = new go.Point(endPoint.x + nx * halfEnd, endPoint.y + ny * halfEnd);
-        const p3 = new go.Point(endPoint.x - nx * halfEnd, endPoint.y - ny * halfEnd);
-        const p4 = new go.Point(startPoint.x - nx * halfStart, startPoint.y - ny * halfStart);
+        const dirX = dx / length;
+        const dirY = dy / length;
 
-        const minX = Math.min(p1.x, p2.x, p3.x, p4.x);
-        const minY = Math.min(p1.y, p2.y, p3.y, p4.y);
+        const trimStartMeters = Math.max(0, options.trimStartMeters ?? 0);
+        const trimEndMeters = Math.max(0, options.trimEndMeters ?? 0);
+        let trimStartUnits = Math.min(length - 2, trimStartMeters * 20);
+        let trimEndUnits = Math.min(length - 2, trimEndMeters * 20);
 
-        const local = [p1, p2, p3, p4].map(pt => ({
+        if (trimStartUnits + trimEndUnits > length - 2) {
+            const scale = (length - 2) / (trimStartUnits + trimEndUnits);
+            trimStartUnits *= scale;
+            trimEndUnits *= scale;
+        }
+
+        if (!Number.isFinite(trimStartUnits) || trimStartUnits < 0) trimStartUnits = 0;
+        if (!Number.isFinite(trimEndUnits) || trimEndUnits < 0) trimEndUnits = 0;
+
+        const startBase = trimStartUnits > 0.1
+            ? new go.Point(startPoint.x + dirX * trimStartUnits, startPoint.y + dirY * trimStartUnits)
+            : (startPoint.copy ? startPoint.copy() : new go.Point(startPoint.x, startPoint.y));
+        const endBase = trimEndUnits > 0.1
+            ? new go.Point(endPoint.x - dirX * trimEndUnits, endPoint.y - dirY * trimEndUnits)
+            : (endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y));
+
+        const startTop = new go.Point(startBase.x + nx * halfStart, startBase.y + ny * halfStart);
+        const startBottom = new go.Point(startBase.x - nx * halfStart, startBase.y - ny * halfStart);
+        const endTop = new go.Point(endBase.x + nx * halfEnd, endBase.y + ny * halfEnd);
+        const endBottom = new go.Point(endBase.x - nx * halfEnd, endBase.y - ny * halfEnd);
+
+        const polygon = [];
+        if (trimStartUnits > 0.1) {
+            polygon.push(startPoint.copy ? startPoint.copy() : new go.Point(startPoint.x, startPoint.y));
+        }
+        polygon.push(startTop);
+        polygon.push(endTop);
+        if (trimEndUnits > 0.1) {
+            polygon.push(endPoint.copy ? endPoint.copy() : new go.Point(endPoint.x, endPoint.y));
+        }
+        polygon.push(endBottom);
+        polygon.push(startBottom);
+
+        const minX = Math.min(...polygon.map(pt => pt.x));
+        const minY = Math.min(...polygon.map(pt => pt.y));
+
+        const local = polygon.map(pt => ({
             x: (pt.x - minX).toFixed(2),
             y: (pt.y - minY).toFixed(2)
         }));
 
-        const geometry = `M${local[0].x} ${local[0].y} L${local[1].x} ${local[1].y} L${local[2].x} ${local[2].y} L${local[3].x} ${local[3].y} Z`;
+        const pathParts = [];
+        local.forEach((pt, index) => {
+            const prefix = index === 0 ? 'M' : 'L';
+            pathParts.push(`${prefix}${pt.x} ${pt.y}`);
+        });
+        pathParts.push('Z');
+
+        const geometry = pathParts.join(' ');
 
         return {
             position: new go.Point(minX, minY),
