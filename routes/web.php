@@ -77,10 +77,13 @@ Route::get('logout-user', function () {
 
 Auth::routes();
 
-Route::get('/logout', [\App\Http\Controllers\HomeController::class, 'logoutUser'])->name('logout')->middleware('auth');
+Route::get('/logout', [\App\Http\Controllers\HomeController::class, 'logoutUser'])->name('custom.logout')->middleware('auth');
 
 
 Route::get('/login-admin', function () {
     Auth::loginUsingId(1);
     return redirect('/tunnel-designer');
 })->name('login-admin');
+
+// Test route for gateway controller
+Route::any('/test-gateway', [\App\Http\Controllers\GatewayController::class, 'storeGatewayData'])->name('test.gateway');

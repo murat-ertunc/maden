@@ -1,0 +1,3727 @@
+[
+    {
+        "timestamp": "2025-10-06T21:11:29.793906Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:14:45"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:14:45"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:14:45"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:14:45"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:14:45"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:14:45"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:11:57.195302Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "622"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -103,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:15:12"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:15:12"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:12:08.497330Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:15:24"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:15:24"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:12:19.782186Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -88,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:15:35"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:15:35"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:12:31.074110Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:15:46"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:15:46"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:12:42.376329Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:15:57"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:15:57"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:12:53.665008Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -88,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:16:09"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:16:09"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:13:04.950125Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:16:20"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:16:20"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:13:16.224359Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:31"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:31"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -89,
+                "timestamp": "01:16:31"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:16:31"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -86,
+                "timestamp": "01:16:31"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:13:27.503070Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "619"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "47:52:95:88:34:ef",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "60:d5:e7:11:f5:71",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -103,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "6f:0d:55:94:fd:08",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:16:43"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:16:43"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:13:38.781794Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:16:54"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:16:54"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:13:50.061928Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:05"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:17:05"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:01.382299Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:17:16"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -67,
+                "timestamp": "01:17:16"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:12.664568Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:28"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:17:28"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:23.948992Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:39"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -67,
+                "timestamp": "01:17:39"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:35.235668Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:17:50"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -67,
+                "timestamp": "01:17:50"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:46.518001Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:02"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:18:02"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:14:57.799830Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "d8:c0:e3:71:ed:6a",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "f2:6b:46:24:36:8b",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:13"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:18:13"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:15:09.085248Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -88,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:18:24"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:18:24"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:15:20.359416Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:35"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -67,
+                "timestamp": "01:18:35"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:15:31.643193Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:18:47"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:18:47"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:15:42.927992Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -88,
+                "timestamp": "01:18:58"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:18:58"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:15:54.206463Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:09"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:19:09"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:16:05.519091Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:19:21"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:19:21"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:16:16.804322Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:19:32"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -66,
+                "timestamp": "01:19:32"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:16:28.097746Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:19:43"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:19:43"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:16:39.370160Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:19:54"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -65,
+                "timestamp": "01:19:54"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:16:50.653372Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:06"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -67,
+                "timestamp": "01:20:06"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:01.922414Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:20:17"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -64,
+                "timestamp": "01:20:17"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:13.188943Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:20:28"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:28"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:28"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:28"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:28"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:20:28"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:24.483221Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:20:40"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:40"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:35.747994Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "531"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:20:51"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:20:51"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:51"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:20:51"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:20:51"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -103,
+                "timestamp": "01:20:51"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:46.995663Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:02"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:02"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:02"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:02"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:02"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:17:58.235127Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "354"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:13"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:13"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:21:13"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:21:13"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:18:09.494837Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:25"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:25"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:25"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:25"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:25"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:18:20.753119Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:36"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:36"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:36"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:36"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:21:36"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:18:32.007101Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "442"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:47"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:21:47"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:47"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:21:47"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -105,
+                "timestamp": "01:21:47"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:18:43.277653Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:21:58"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:21:58"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:21:58"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:21:58"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:21:58"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:21:58"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:18:54.536130Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:10"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:22:10"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:22:10"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:22:10"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:10"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:19:05.808171Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "531"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:22:21"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:22:21"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:22:21"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:22:21"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:22:21"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -103,
+                "timestamp": "01:22:21"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:19:17.085381Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "531"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:22:32"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:22:32"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:22:32"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:32"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:22:32"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:22:32"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:19:28.352795Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "441"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:22:43"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:22:43"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:43"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:22:43"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:22:43"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:19:39.615941Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:22:55"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:55"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:22:55"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:22:55"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:22:55"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:22:55"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:19:50.910451Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:06"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:06"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:02.214201Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:23:17"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:23:17"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:13.536343Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:29"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:29"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:24.805817Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:23:40"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:40"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:23:40"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:40"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:23:40"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:23:40"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:36.079521Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:23:51"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:23:51"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:23:51"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:23:51"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:23:51"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:23:51"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:47.358983Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:24:02"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -100,
+                "timestamp": "01:24:02"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:02"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:02"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:02"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:02"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:20:58.624781Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "530"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:14"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:24:14"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:14"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:14"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:14"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:24:14"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:21:09.899882Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "529"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -99,
+                "timestamp": "01:24:25"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:24:25"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:25"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:25"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:25"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -91,
+                "timestamp": "01:24:25"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:21:21.181029Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "529"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:24:36"
+            },
+            {
+                "beacon_id": "6a:84:67:2e:d6:32",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:24:36"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:36"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:36"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:24:36"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:24:36"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:21:32.479194Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "617"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "79:18:2b:b6:03:9e",
+                "gateway_id": "GW01",
+                "rssi": -93,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -90,
+                "timestamp": "01:24:48"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -85,
+                "timestamp": "01:24:48"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:21:43.757245Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "619"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -97,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "79:18:2b:b6:03:9e",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -101,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -92,
+                "timestamp": "01:24:59"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -83,
+                "timestamp": "01:24:59"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    },
+    {
+        "timestamp": "2025-10-06T21:21:55.126406Z",
+        "method": "POST",
+        "headers": {
+            "host": [
+                "192.168.0.30:8000"
+            ],
+            "user-agent": [
+                "ESP32HTTPClient"
+            ],
+            "connection": [
+                "keep-alive"
+            ],
+            "accept-encoding": [
+                "identity;q=1,chunked;q=0.1,*;q=0"
+            ],
+            "content-type": [
+                "application\/json"
+            ],
+            "content-length": [
+                "618"
+            ]
+        },
+        "query_parameters": [],
+        "body": [
+            {
+                "beacon_id": "64:a8:1c:fe:9c:7a",
+                "gateway_id": "GW01",
+                "rssi": -102,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "6c:ba:1f:9e:e9:9f",
+                "gateway_id": "GW01",
+                "rssi": -98,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "79:18:2b:b6:03:9e",
+                "gateway_id": "GW01",
+                "rssi": -94,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "7f:98:78:7d:aa:e2",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "cd:04:8e:9d:28:48",
+                "gateway_id": "GW01",
+                "rssi": -95,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "fd:ce:16:e0:c3:40",
+                "gateway_id": "GW01",
+                "rssi": -96,
+                "timestamp": "01:25:10"
+            },
+            {
+                "beacon_id": "ff:ff:11:a2:ce:43",
+                "gateway_id": "GW01",
+                "rssi": -84,
+                "timestamp": "01:25:10"
+            }
+        ],
+        "ip_address": "192.168.0.201",
+        "user_agent": "ESP32HTTPClient"
+    }
+]

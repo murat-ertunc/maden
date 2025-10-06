@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gateway Data Test</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>Gateway Data Test</h1>
+    
+    <form id="gatewayForm" action="/test-gateway" method="POST">
+        <div>
+            <label>Test Data:</label>
+            <input type="text" name="test_data" value="sample_value">
+        </div>
+        <div>
+            <label>Device ID:</label>
+            <input type="text" name="device_id" value="device_123">
+        </div>
+        <div>
+            <label>Temperature:</label>
+            <input type="number" name="temperature" value="25.5">
+        </div>
+        <div>
+            <label>Humidity:</label>
+            <input type="number" name="humidity" value="60">
+        </div>
+        <button type="submit">Test Gateway Data</button>
+    </form>
+
+    <h2>Test API Endpoint</h2>
+    <button onclick="testApiEndpoint()">Test /api/gateway-data</button>
+    <div id="result"></div>
+
+    <script>
+        async function testApiEndpoint() {
+            try {
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        test_data: 'sample_value',
+                        device_id: 'device_123',
+                        temperature: 25.5,
+                        humidity: 60,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
