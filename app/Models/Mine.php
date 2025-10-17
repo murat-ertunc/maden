@@ -44,4 +44,20 @@ class Mine extends Model
     {
         return $this->hasMany(MinePath::class);
     }
+
+    public function beaconReadings(): HasMany
+    {
+        return $this->hasMany(BeaconReading::class);
+    }
+
+    /**
+     * Get latest beacon readings for this mine
+     */
+    public function latestBeaconReadings(int $minutes = 10)
+    {
+        return $this->beaconReadings()
+            ->where('reading_timestamp', '>=', now()->subMinutes($minutes))
+            ->orderBy('reading_timestamp', 'desc')
+            ->get();
+    }
 }

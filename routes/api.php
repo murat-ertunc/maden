@@ -4,9 +4,8 @@ use App\Http\Controllers\TunnelController;
 use App\Http\Controllers\GatewayController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/beacons/latest', [TunnelController::class, 'latestBeacons'])->name('api.beacons.latest');
-
-// Gateway data endpoint - accepts all HTTP methods
+// Beacon and Gateway endpoints (Public - No Auth)
+Route::get('/beacons/latest', [TunnelController::class, 'latestBeacons'])->name('api.beacons.latest.v2');
 Route::any('/gateway-data', [GatewayController::class, 'storeGatewayData'])->name('api.gateway-data');
 
 // HTTP Request monitoring endpoints

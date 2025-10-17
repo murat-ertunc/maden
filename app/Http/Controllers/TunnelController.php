@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\DataTransferObjects\BeaconReading;
+use App\DataTransferObjects\BeaconReading as BeaconReadingDTO;
+use App\Models\BeaconReading;
 use App\Models\Mine;
 use App\Models\MinePath;
 use Illuminate\Http\Request;
@@ -46,13 +47,15 @@ class TunnelController extends Controller
 
 
     /**
-     * API: Latest beacon readings (mock data for positioning prototype).
+     * API: Latest beacon readings from database
      */
     public function latestBeacons(Request $request)
     {
         $mineId = $request->integer('mine_id');
         $gateways = [];
+        $minutes = $request->integer('minutes', 10); // Last X minutes, default 10
 
+        // Get gateway coordinates if mine_id is provided
         if ($mineId) {
             $mine = Mine::where('id', $mineId)
                 ->where('user_id', Auth::id())
@@ -64,30 +67,22 @@ class TunnelController extends Controller
             }
         }
 
-        $readings = [
-            ["beacon_id" => "A4:C1:38:00:00:11", "gateway_id" => "GW01", "rssi" => -69, "timestamp" => "2025-10-04T14:00:05"],
-            ["beacon_id" => "A4:C1:38:00:00:11", "gateway_id" => "GW11", "rssi" => -75, "timestamp" => "2025-10-04T14:00:10"],
-            ["beacon_id" => "A4:C1:38:00:00:12", "gateway_id" => "GW07", "rssi" => -69, "timestamp" => "2025-10-04T14:00:12"],
-            ["beacon_id" => "A4:C1:38:00:00:12", "gateway_id" => "GW04", "rssi" => -80, "timestamp" => "2025-10-04T14:00:17"],
-            ["beacon_id" => "A4:C1:38:00:00:13", "gateway_id" => "GW20", "rssi" => -65, "timestamp" => "2025-10-04T14:00:20"],
-            ["beacon_id" => "A4:C1:38:00:00:13", "gateway_id" => "GW19", "rssi" => -75, "timestamp" => "2025-10-04T14:00:25"],
-            ["beacon_id" => "A4:C1:38:00:00:14", "gateway_id" => "GW15", "rssi" => -69, "timestamp" => "2025-10-04T14:00:30"],
-            ["beacon_id" => "A4:C1:38:00:00:14", "gateway_id" => "GW14", "rssi" => -80, "timestamp" => "2025-10-04T14:00:35"],
-            ["beacon_id" => "A4:C1:38:00:00:15", "gateway_id" => "GW02", "rssi" => -69, "timestamp" => "2025-10-04T14:00:40"],
-            ["beacon_id" => "A4:C1:38:00:00:15", "gateway_id" => "GW03", "rssi" => -80, "timestamp" => "2025-10-04T14:00:45"],
-            ["beacon_id" => "A4:C1:38:00:00:16", "gateway_id" => "GW12", "rssi" => -60, "timestamp" => "2025-10-04T14:00:50"],
-            ["beacon_id" => "A4:C1:38:00:00:16", "gateway_id" => "GW11", "rssi" => -70, "timestamp" => "2025-10-04T14:00:55"],
-            ["beacon_id" => "A4:C1:38:00:00:17", "gateway_id" => "GW09", "rssi" => -60, "timestamp" => "2025-10-04T14:01:00"],
-            ["beacon_id" => "A4:C1:38:00:00:17", "gateway_id" => "GW08", "rssi" => -70, "timestamp" => "2025-10-04T14:01:05"],
-            ["beacon_id" => "A4:C1:38:00:00:18", "gateway_id" => "GW14", "rssi" => -75, "timestamp" => "2025-10-04T14:01:10"],
-            ["beacon_id" => "A4:C1:38:00:00:18", "gateway_id" => "GW13", "rssi" => -75, "timestamp" => "2025-10-04T14:01:15"],
-            ["beacon_id" => "A4:C1:38:00:00:19", "gateway_id" => "GW22", "rssi" => -60, "timestamp" => "2025-10-04T14:01:20"],
-            ["beacon_id" => "A4:C1:38:00:00:19", "gateway_id" => "GW21", "rssi" => -75, "timestamp" => "2025-10-04T14:01:25"],
-            ["beacon_id" => "A4:C1:38:00:00:20", "gateway_id" => "GW17", "rssi" => -55, "timestamp" => "2025-10-04T14:01:30"],
-            ["beacon_id" => "A4:C1:38:00:00:20", "gateway_id" => "GW16", "rssi" => -69, "timestamp" => "2025-10-04T14:01:35"]
-        ];
+        // Get latest beacon readings from database
+        $beaconReadings = BeaconReading::latestForMine($mineId, $minutes);
 
-        $dto = array_map(static fn (array $reading) => BeaconReading::fromArray($reading)->toArray(), $readings);
+        // Convert to DTO format for frontend compatibility
+        $readings = [];
+        foreach ($beaconReadings as $reading) {
+            $readings[] = [
+                'beacon_id' => $reading->beacon_id,
+                'gateway_id' => $reading->gateway_id,
+                'rssi' => $reading->rssi,
+                'timestamp' => $reading->reading_timestamp->toISOString(),
+            ];
+        }
+
+        // Convert to DTO if DTO class expects it
+        $dto = array_map(static fn (array $reading) => BeaconReadingDTO::fromArray($reading)->toArray(), $readings);
 
         return response()->json([
             'data' => $dto,
@@ -95,7 +90,11 @@ class TunnelController extends Controller
             'meta' => [
                 'mine_id' => $mineId,
                 'generated_at' => now()->toISOString(),
-                'source' => 'mock',
+                'source' => 'database',
+                'time_range_minutes' => $minutes,
+                'reading_count' => count($readings),
+                'active_beacons' => collect($readings)->pluck('beacon_id')->unique()->count(),
+                'active_gateways' => collect($readings)->pluck('gateway_id')->unique()->count(),
             ],
         ]);
     }

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\BeaconReading;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 
 class GatewayController extends Controller
 {
@@ -99,56 +102,143 @@ class GatewayController extends Controller
     }
 
     /**
-     * Store incoming gateway data to JSON file
+     * Store incoming gateway beacon reading data
      *
      * @param Request $request
      * @return JsonResponse
      */
     public function storeGatewayData(Request $request): JsonResponse
     {
-        // Add debug log to see if route is being hit
-        Log::info('Gateway endpoint called', ['method' => $request->method(), 'data' => $request->all()]);
-        
         try {
-            // Get all request data
-            $requestData = [
-                'timestamp' => now()->toISOString(),
-                'method' => $request->method(),
-                'headers' => $request->headers->all(),
-                'query_parameters' => $request->query(),
-                'body' => $request->all(),
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent()
-            ];
-
-            // Define file path in public directory
-            $filePath = public_path('gateway-data.json');
-
-            // Read existing data if file exists
-            $existingData = [];
-            if (file_exists($filePath)) {
-                $existingContent = file_get_contents($filePath);
-                $existingData = json_decode($existingContent, true) ?? [];
-            }
-
-            // Add new data to existing data array
-            $existingData[] = $requestData;
-
-            // Save updated data to JSON file
-            $jsonData = json_encode($existingData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            file_put_contents($filePath, $jsonData);
-
-            // Log the activity
-            Log::info('Gateway data saved', [
-                'file' => $filePath,
-                'data_count' => count($existingData)
+            $data = $request->all();
+            
+            // Log incoming request for debugging
+            Log::info('Gateway data received', [
+                'ip' => $request->ip(),
+                'data_keys' => array_keys($data),
+                'full_data' => $data,
+                'raw_content' => $request->getContent()
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Data successfully saved to gateway-data.json',
-                'timestamp' => $requestData['timestamp']
-            ], 200);
+            // Validate incoming data structure
+            // Support both single reading and multiple readings
+            $readings = [];
+            
+            // Check if data is sent as direct JSON array (like [{...}, {...}])
+            // Laravel converts this to numeric array keys [0 => {...}, 1 => {...}]
+            if (empty($data) || (isset($data[0]) && is_array($data[0]))) {
+                // Get raw JSON content and decode it properly
+                $rawContent = $request->getContent();
+                $decodedContent = json_decode($rawContent, true);
+                
+                if (is_array($decodedContent)) {
+                    // Check if it's an array of objects or a single object
+                    if (isset($decodedContent[0]) && is_array($decodedContent[0])) {
+                        $readings = $decodedContent; // Array of readings
+                    } elseif (isset($decodedContent['beacon_id']) || isset($decodedContent['beaconId'])) {
+                        $readings = [$decodedContent]; // Single reading
+                    } else {
+                        $readings = $decodedContent; // Try as-is
+                    }
+                }
+            }
+            // Check if data contains 'readings' array (batch mode)
+            elseif (isset($data['readings']) && is_array($data['readings'])) {
+                $readings = $data['readings'];
+            }
+            // Check if data contains 'data' array (alternative format)
+            elseif (isset($data['data']) && is_array($data['data'])) {
+                $readings = $data['data'];
+            }
+            // Single reading format
+            elseif (isset($data['beacon_id']) || isset($data['beaconId'])) {
+                $readings = [$data];
+            }
+            // If no recognizable format, store raw data as single reading
+            else {
+                $readings = [$data];
+            }
+
+            $savedCount = 0;
+            $errors = [];
+
+            DB::beginTransaction();
+            
+            try {
+                foreach ($readings as $reading) {
+                    try {
+                        // Extract data with multiple possible key formats
+                        $beaconId = $reading['beacon_id'] ?? $reading['beaconId'] ?? $reading['beacon'] ?? null;
+                        $gatewayId = $reading['gateway_id'] ?? $reading['gatewayId'] ?? $reading['gateway'] ?? null;
+                        $rssi = $reading['rssi'] ?? $reading['signal_strength'] ?? null;
+                        $timestamp = $reading['timestamp'] ?? $reading['reading_timestamp'] ?? now();
+                        $mineId = $reading['mine_id'] ?? $reading['mineId'] ?? $data['mine_id'] ?? null;
+
+                        // Skip if essential data is missing
+                        if (!$beaconId || !$gatewayId || $rssi === null) {
+                            $errorMsg = "Missing required fields - beacon_id: " . ($beaconId ?? 'null') . 
+                                      ", gateway_id: " . ($gatewayId ?? 'null') . 
+                                      ", rssi: " . ($rssi ?? 'null') . 
+                                      " | Full reading: " . json_encode($reading);
+                            $errors[] = $errorMsg;
+                            Log::warning('Missing required fields', [
+                                'beacon_id' => $beaconId,
+                                'gateway_id' => $gatewayId,
+                                'rssi' => $rssi,
+                                'reading' => $reading
+                            ]);
+                            continue;
+                        }
+
+                        // Create beacon reading record
+                        BeaconReading::create([
+                            'mine_id' => $mineId,
+                            'beacon_id' => (string) $beaconId,
+                            'gateway_id' => (string) $gatewayId,
+                            'rssi' => (int) $rssi,
+                            'reading_timestamp' => $timestamp,
+                            'ip_address' => $request->ip(),
+                            'raw_data' => $reading
+                        ]);
+
+                        $savedCount++;
+                        
+                    } catch (\Exception $e) {
+                        $errors[] = "Error processing reading: " . $e->getMessage();
+                        Log::warning('Error processing single beacon reading', [
+                            'reading' => $reading,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+
+                DB::commit();
+
+                $response = [
+                    'success' => $savedCount > 0,
+                    'message' => $savedCount > 0 
+                        ? "Successfully saved {$savedCount} beacon reading(s)" 
+                        : "No readings were saved",
+                    'saved_count' => $savedCount,
+                    'timestamp' => now()->toISOString()
+                ];
+
+                if (!empty($errors)) {
+                    $response['errors'] = $errors;
+                    $response['error_count'] = count($errors);
+                }
+
+                Log::info('Gateway data saved to database', [
+                    'saved_count' => $savedCount,
+                    'error_count' => count($errors)
+                ]);
+
+                return response()->json($response, 200);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
 
         } catch (\Exception $e) {
             Log::error('Error saving gateway data', [

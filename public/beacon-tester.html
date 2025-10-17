@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beacon Data Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .section h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.success {
+            background: #28a745;
+        }
+        button.success:hover {
+            background: #218838;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Beacon Data Test Tool</h1>
+        
+        <div class="info">
+            <strong>📡 Gateway Data Endpoint:</strong> <code>/api/gateway-data</code><br>
+            <strong>🔍 Latest Beacons Endpoint:</strong> <code>/api/beacons/latest</code>
+        </div>
+
+        <div class="section">
+            <h2>1️⃣ Tekli Beacon Verisi Gönder</h2>
+            <button onclick="sendSingleReading()">Tek Okuma Gönder</button>
+            <button onclick="sendSingleWithMine()">Mine ID ile Gönder</button>
+            <div id="result1" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>2️⃣ Çoklu Beacon Verisi Gönder (Batch)</h2>
+            <button onclick="sendBatchReadings()">10 Okuma Gönder</button>
+            <button onclick="sendBatchWithMine()">Mine ID'li Batch Gönder</button>
+            <div id="result2" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>3️⃣ Özel JSON Gönder</h2>
+            <textarea id="customJson" placeholder='{"beacon_id": "A4:C1:38:00:00:01", "gateway_id": "GW01", "rssi": -65}'></textarea>
+            <button onclick="sendCustomJson()">Özel JSON Gönder</button>
+            <div id="result3" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>4️⃣ Kayıtlı Beacon Verilerini Görüntüle</h2>
+            <button onclick="getLatestBeacons()" class="success">Son Beacon Okumalarını Getir</button>
+            <button onclick="getLatestBeaconsWithMock()" class="success">Mock Data ile Getir</button>
+            <div id="result4" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>5️⃣ Simülasyon - Sürekli Veri Gönder</h2>
+            <button onclick="startSimulation()">Simülasyonu Başlat (Her 3sn)</button>
+            <button onclick="stopSimulation()">Simülasyonu Durdur</button>
+            <div id="result5" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let simulationInterval = null;
+
+        function showResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'result ' + (isSuccess ? 'success' : 'error');
+            element.textContent = message;
+        }
+
+        async function sendSingleReading() {
+            try {
+                const data = {
+                    beacon_id: "A4:C1:38:00:00:11",
+                    gateway_id: "GW01",
+                    rssi: -69,
+                    timestamp: new Date().toISOString()
+                };
+
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                showResult('result1', JSON.stringify(result, null, 2), result.success);
+            } catch (error) {
+                showResult('result1', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function sendSingleWithMine() {
+            try {
+                const data = {
+                    mine_id: 27,
+                    beacon_id: "A4:C1:38:00:00:12",
+                    gateway_id: "GW02",
+                    rssi: -72,
+                    timestamp: new Date().toISOString()
+                };
+
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                showResult('result1', JSON.stringify(result, null, 2), result.success);
+            } catch (error) {
+                showResult('result1', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function sendBatchReadings() {
+            try {
+                const readings = [];
+                const beacons = ["A4:C1:38:00:00:11", "A4:C1:38:00:00:12", "A4:C1:38:00:00:13"];
+                const gateways = ["GW01", "GW02", "GW03", "GW04"];
+
+                for (let i = 0; i < 10; i++) {
+                    readings.push({
+                        beacon_id: beacons[Math.floor(Math.random() * beacons.length)],
+                        gateway_id: gateways[Math.floor(Math.random() * gateways.length)],
+                        rssi: Math.floor(Math.random() * 30) - 90, // -90 to -60
+                        timestamp: new Date(Date.now() - i * 1000).toISOString()
+                    });
+                }
+
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ readings: readings })
+                });
+
+                const result = await response.json();
+                showResult('result2', JSON.stringify(result, null, 2), result.success);
+            } catch (error) {
+                showResult('result2', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function sendBatchWithMine() {
+            try {
+                const readings = [];
+                const beacons = ["A4:C1:38:00:00:14", "A4:C1:38:00:00:15", "A4:C1:38:00:00:16"];
+                const gateways = ["GW05", "GW06", "GW07", "GW08"];
+
+                for (let i = 0; i < 10; i++) {
+                    readings.push({
+                        beacon_id: beacons[Math.floor(Math.random() * beacons.length)],
+                        gateway_id: gateways[Math.floor(Math.random() * gateways.length)],
+                        rssi: Math.floor(Math.random() * 30) - 90,
+                        timestamp: new Date(Date.now() - i * 1000).toISOString()
+                    });
+                }
+
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mine_id: 27, readings: readings })
+                });
+
+                const result = await response.json();
+                showResult('result2', JSON.stringify(result, null, 2), result.success);
+            } catch (error) {
+                showResult('result2', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function sendCustomJson() {
+            try {
+                const jsonText = document.getElementById('customJson').value;
+                const data = JSON.parse(jsonText);
+
+                const response = await fetch('/api/gateway-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                showResult('result3', JSON.stringify(result, null, 2), result.success);
+            } catch (error) {
+                showResult('result3', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function getLatestBeacons() {
+            try {
+                const response = await fetch('/api/beacons/latest?mine_id=27&minutes=10');
+                const result = await response.json();
+                
+                showResult('result4', 
+                    `📊 Sonuç:\n` +
+                    `- Kaynak: ${result.meta.source}\n` +
+                    `- Toplam Okuma: ${result.meta.reading_count}\n` +
+                    `- Aktif Beacon: ${result.meta.active_beacons}\n` +
+                    `- Aktif Gateway: ${result.meta.active_gateways}\n\n` +
+                    `📡 Veriler:\n` +
+                    JSON.stringify(result.data, null, 2),
+                    true
+                );
+            } catch (error) {
+                showResult('result4', 'Hata: ' + error.message, false);
+            }
+        }
+
+        async function getLatestBeaconsWithMock() {
+            try {
+                const response = await fetch('/api/beacons/latest?mine_id=27&use_mock=true');
+                const result = await response.json();
+                
+                showResult('result4', 
+                    `📊 Sonuç (Mock Data):\n` +
+                    `- Kaynak: ${result.meta.source}\n` +
+                    `- Toplam Okuma: ${result.meta.reading_count}\n\n` +
+                    `📡 Veriler:\n` +
+                    JSON.stringify(result.data, null, 2),
+                    true
+                );
+            } catch (error) {
+                showResult('result4', 'Hata: ' + error.message, false);
+            }
+        }
+
+        function startSimulation() {
+            if (simulationInterval) {
+                showResult('result5', '⚠️ Simülasyon zaten çalışıyor!', false);
+                return;
+            }
+
+            let count = 0;
+            showResult('result5', '✅ Simülasyon başlatıldı... Her 3 saniyede bir veri gönderilecek.', true);
+
+            simulationInterval = setInterval(async () => {
+                count++;
+                const beacons = ["A4:C1:38:00:00:21", "A4:C1:38:00:00:22", "A4:C1:38:00:00:23"];
+                const gateways = ["GW10", "GW11", "GW12"];
+
+                const data = {
+                    beacon_id: beacons[count % beacons.length],
+                    gateway_id: gateways[count % gateways.length],
+                    rssi: Math.floor(Math.random() * 30) - 90,
+                    timestamp: new Date().toISOString()
+                };
+
+                try {
+                    const response = await fetch('/api/gateway-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    
+                    showResult('result5', 
+                        `✅ Simülasyon çalışıyor... (${count} okuma gönderildi)\n\n` +
+                        `Son Gönderilen:\n${JSON.stringify(data, null, 2)}\n\n` +
+                        `Yanıt:\n${JSON.stringify(result, null, 2)}`,
+                        true
+                    );
+                } catch (error) {
+                    showResult('result5', `❌ Simülasyon hatası (${count}): ${error.message}`, false);
+                }
+            }, 3000);
+        }
+
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                showResult('result5', '🛑 Simülasyon durduruldu.', true);
+            } else {
+                showResult('result5', '⚠️ Simülasyon zaten durmuş!', false);
+            }
+        }
+
+        // Sayfa kapatılırken simülasyonu durdur
+        window.addEventListener('beforeunload', () => {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+            }
+        });
+    </script>
+</body>
+</html>

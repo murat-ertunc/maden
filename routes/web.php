@@ -38,8 +38,11 @@ Route::middleware('auth')->prefix('api')->group(function () {
     // Miner Position Tracking API Routes (for Raspberry Pi)
     Route::post('/miner-position', [\App\Http\Controllers\TunnelController::class, 'receiveMinerPosition'])->name('api.miner.position');
     Route::get('/mines/{mine}/miner-positions', [\App\Http\Controllers\TunnelController::class, 'getMinerPositions'])->name('api.miner.positions');
+});
 
-    Route::get('/beacons/latest', [\App\Http\Controllers\TunnelController::class, 'latestBeacons'])->name('api.beacons.latest');
+// Public API Routes (No Auth Required) - For IoT Devices
+Route::prefix('api')->group(function () {
+    Route::get('/beacons/latest', [\App\Http\Controllers\TunnelController::class, 'latestBeacons'])->name('api.beacons.latest.public');
 });
 
 Route::get('set-locale/{locale}', function ($locale) {
