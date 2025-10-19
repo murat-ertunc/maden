@@ -60,10 +60,6 @@ class EnhancedTunnelDesigner {
         this.hoverMeterLabel = null;
         this.gatewayContextMenu = null;
         this.pendingGatewayContext = null;
-    this.gatewayTooltip = null;
-    this.gatewayTooltipIdLabel = null;
-    this.gatewayTooltipMeterLabel = null;
-    this.activeGatewayTooltip = null;
         this.boundHoverMouseMove = null;
         this.boundHoverMouseLeave = null;
     this.angleRingOverlay = null;
@@ -438,27 +434,25 @@ class EnhancedTunnelDesigner {
                     locationSpot: go.Spot.Center,
                     selectable: true,
                     deletable: true,
-                    cursor: "pointer",
-                    click: (e, obj) => this.handleGatewayClick(e, obj)
+                    cursor: "pointer"
                 },
                 new go.Binding("location", "position", go.Point.parse).makeTwoWay(go.Point.stringify),
                 
                 $(go.Panel, "Auto",
                     $(go.Shape, "RoundedRectangle", {
-                        width: 42,
-                        height: 24,
-                        fill: "rgba(0, 200, 83, 0.85)",
-                        stroke: "rgba(0, 121, 107, 0.9)",
-                        strokeWidth: 1.6,
-                        parameter1: 6
+                        width: 50,
+                        height: 30,
+                        fill: "#00C853",
+                        stroke: "#00796B",
+                        strokeWidth: 2
                     }),
                     
                     $(go.TextBlock, {
-                        margin: 2,
+                        margin: 3,
                         font: "bold 9px sans-serif",
                         stroke: "white",
                         overflow: go.TextBlock.OverflowEllipsis,
-                        maxSize: new go.Size(36, NaN)
+                        maxSize: new go.Size(45, NaN)
                     },
                     new go.Binding("text", "gatewayId"))
                 ),
@@ -467,10 +461,10 @@ class EnhancedTunnelDesigner {
                 $(go.TextBlock, {
                     alignment: go.Spot.Bottom,
                     alignmentFocus: go.Spot.Top,
-                    margin: new go.Margin(2, 4, 0, 4),
-                    font: "9px sans-serif",
+                    margin: new go.Margin(3, 4, 0, 4),
+                    font: "10px sans-serif",
                     stroke: "#00796B",
-                    background: "rgba(255,255,255,0.85)"
+                    background: "rgba(255,255,255,0.9)"
                 },
                 new go.Binding("text", "meterage", m => `${m.toFixed(1)}m`))
             )
@@ -783,8 +777,7 @@ class EnhancedTunnelDesigner {
 
         this.createHoverMeterLabel(host);
         this.createGatewayContextMenu(host);
-        this.createGatewayTooltip(host);
-        this.createAngleRingOverlay(host);
+    this.createAngleRingOverlay(host);
 
         if (!this.boundHoverMouseMove) {
             this.boundHoverMouseMove = (evt) => {
@@ -800,21 +793,16 @@ class EnhancedTunnelDesigner {
             this.boundHoverMouseLeave = () => {
                 this.hideHoverMeterLabel();
                 this.hideGatewayContextMenu();
-                this.hideGatewayTooltip();
             };
         }
 
         host.addEventListener('mousemove', this.boundHoverMouseMove);
         host.addEventListener('mouseleave', this.boundHoverMouseLeave);
 
-        this.diagram.addDiagramListener('BackgroundSingleClicked', () => {
-            this.hideGatewayContextMenu();
-            this.hideGatewayTooltip();
-        });
+        this.diagram.addDiagramListener('BackgroundSingleClicked', () => this.hideGatewayContextMenu());
         this.diagram.addDiagramListener('ViewportBoundsChanged', () => {
             this.hideGatewayContextMenu();
             this.refreshAngleRingPosition();
-            this.refreshGatewayTooltipPosition();
         });
     }
 
@@ -1002,156 +990,6 @@ class EnhancedTunnelDesigner {
             this.gatewayContextMenu.style.display = 'none';
         }
         this.pendingGatewayContext = null;
-    }
-
-    createGatewayTooltip(host) {
-        if (this.gatewayTooltip) return;
-
-        const tooltip = document.createElement('div');
-        tooltip.className = 'gateway-tooltip';
-        Object.assign(tooltip.style, {
-            position: 'absolute',
-            display: 'none',
-            flexDirection: 'column',
-            gap: '6px',
-            padding: '10px 12px',
-            background: 'rgba(18, 18, 18, 0.92)',
-            color: '#fff',
-            borderRadius: '10px',
-            boxShadow: '0 10px 22px rgba(0,0,0,0.35)',
-            transform: 'translate(-50%, calc(-100% - 18px))',
-            pointerEvents: 'auto',
-            zIndex: '40',
-            minWidth: '180px'
-        });
-
-        const title = document.createElement('div');
-        title.textContent = 'Alıcı';
-        Object.assign(title.style, {
-            fontSize: '11px',
-            fontWeight: '600',
-            letterSpacing: '0.6px',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.7)'
-        });
-
-        const idRow = document.createElement('div');
-        Object.assign(idRow.style, {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '13px',
-            fontWeight: '600'
-        });
-        const idLabel = document.createElement('span');
-        idLabel.textContent = 'ID';
-        idLabel.style.opacity = '0.6';
-        const idValue = document.createElement('span');
-        idValue.textContent = '-';
-
-        idRow.appendChild(idLabel);
-        idRow.appendChild(idValue);
-
-        const meterRow = document.createElement('div');
-        Object.assign(meterRow.style, {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '13px'
-        });
-        const meterLabel = document.createElement('span');
-        meterLabel.textContent = 'Metraj';
-        meterLabel.style.opacity = '0.6';
-        const meterValue = document.createElement('span');
-        meterValue.textContent = '0.0 m';
-        meterValue.style.fontWeight = '600';
-
-        meterRow.appendChild(meterLabel);
-        meterRow.appendChild(meterValue);
-
-        const actionButton = document.createElement('button');
-        actionButton.type = 'button';
-        actionButton.textContent = 'Sil';
-        Object.assign(actionButton.style, {
-            marginTop: '4px',
-            padding: '8px 10px',
-            borderRadius: '6px',
-            border: 'none',
-            background: '#ff5252',
-            color: '#fff',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease'
-        });
-        actionButton.addEventListener('mouseenter', () => {
-            actionButton.style.background = '#ff1744';
-        });
-        actionButton.addEventListener('mouseleave', () => {
-            actionButton.style.background = '#ff5252';
-        });
-        actionButton.addEventListener('click', () => {
-            if (this.activeGatewayTooltip && this.activeGatewayTooltip.data) {
-                this.handleGatewayDelete(this.activeGatewayTooltip.data);
-            }
-        });
-
-        tooltip.appendChild(title);
-        tooltip.appendChild(idRow);
-        tooltip.appendChild(meterRow);
-        tooltip.appendChild(actionButton);
-
-        host.appendChild(tooltip);
-        this.gatewayTooltip = tooltip;
-        this.gatewayTooltipIdLabel = idValue;
-        this.gatewayTooltipMeterLabel = meterValue;
-    }
-
-    showGatewayTooltip(part, docPoint = null, meterOverride = null) {
-        if (!this.gatewayTooltip || !part) return;
-        const data = part.data;
-        if (!data) return;
-
-        const meterValue = typeof meterOverride === 'number' ? meterOverride : (typeof data.meterage === 'number' ? data.meterage : 0);
-        if (this.gatewayTooltipIdLabel) {
-            this.gatewayTooltipIdLabel.textContent = data.gatewayId || '—';
-        }
-        if (this.gatewayTooltipMeterLabel) {
-            this.gatewayTooltipMeterLabel.textContent = `${meterValue.toFixed(1)} m`;
-        }
-
-        const centerDocPoint = docPoint ? (docPoint.copy ? docPoint.copy() : new go.Point(docPoint.x, docPoint.y)) : part.getDocumentPoint(go.Spot.Center);
-        this.activeGatewayTooltip = {
-            part,
-            data,
-            meterage: meterValue,
-            docPoint: centerDocPoint
-        };
-
-        this.gatewayTooltip.style.display = 'flex';
-        this.refreshGatewayTooltipPosition();
-    }
-
-    hideGatewayTooltip() {
-        if (this.gatewayTooltip) {
-            this.gatewayTooltip.style.display = 'none';
-        }
-        this.activeGatewayTooltip = null;
-    }
-
-    refreshGatewayTooltipPosition() {
-        if (!this.gatewayTooltip || !this.diagram || !this.activeGatewayTooltip) return;
-        if (this.gatewayTooltip.style.display === 'none') return;
-
-        const { part } = this.activeGatewayTooltip;
-        if (!part || part.diagram !== this.diagram) {
-            this.hideGatewayTooltip();
-            return;
-        }
-
-        const docPoint = part.getDocumentPoint(go.Spot.Center);
-        const viewPoint = this.diagram.transformDocToView(docPoint);
-        this.gatewayTooltip.style.left = `${viewPoint.x}px`;
-        this.gatewayTooltip.style.top = `${viewPoint.y}px`;
     }
 
     removeSegmentIntersections(segment) {
@@ -2572,6 +2410,7 @@ class EnhancedTunnelDesigner {
         if (!this.config.magneticSnap) return snapped;
 
         const magneticDistance = gridSize * (this.config.magneticSnapMultiplier || 2);
+        // const magneticDistance = 10;
         const thresh2 = magneticDistance * magneticDistance;
 
         let bestPoint = null;
@@ -3154,42 +2993,6 @@ class EnhancedTunnelDesigner {
         }
     }
 
-    handleGatewayClick(e, obj) {
-        const part = obj?.part;
-        if (!part || !part.data) return;
-
-        if (e) {
-            e.handled = true;
-        }
-
-        const gatewayData = part.data;
-        this.hideGatewayContextMenu();
-        this.diagram.clearSelection();
-
-        const centerDocPoint = part.getDocumentPoint(go.Spot.Center);
-        let meterage = typeof gatewayData.meterage === 'number' ? gatewayData.meterage : 0;
-
-        if (gatewayData.segmentKey && this.diagram && this.diagram.model) {
-            const segmentData = this.diagram.model.findNodeDataForKey(gatewayData.segmentKey);
-            if (segmentData && segmentData.from && segmentData.to) {
-                const startPoint = go.Point.parse(segmentData.from);
-                const endPoint = go.Point.parse(segmentData.to);
-                const segmentLength = segmentData.length || this.calculateDistance(startPoint, endPoint);
-                meterage = this.calculateMeterageOnSegment(centerDocPoint, startPoint, endPoint, segmentLength);
-            }
-        }
-
-        if (gatewayData.key && this.tunnelData.gateways.has(gatewayData.key)) {
-            const stored = this.tunnelData.gateways.get(gatewayData.key);
-            if (stored) {
-                stored.meterage = meterage;
-            }
-        }
-        gatewayData.meterage = meterage;
-
-        this.showGatewayTooltip(part, centerDocPoint, meterage);
-    }
-
     handleSegmentClick(e, obj) {
         const segment = obj?.part?.data;
         if (!segment || !segment.from || !segment.to) return;
@@ -3275,55 +3078,8 @@ class EnhancedTunnelDesigner {
 
         this.hideGatewayContextMenu();
         this.hideHoverMeterLabel();
-        this.hideGatewayTooltip();
         this.pendingGatewayContext = null;
         this.diagram.clearSelection();
-
-        if (typeof this.onTunnelModified === 'function') {
-            this.onTunnelModified(this.getTunnelData());
-        }
-    }
-
-    handleGatewayDelete(gatewayData) {
-        if (!gatewayData || !this.diagram || !this.diagram.model) return;
-
-        const gatewayKey = gatewayData.key;
-        const segmentKey = gatewayData.segmentKey;
-
-        try {
-            this.diagram.startTransaction('deleteGateway');
-            const modelData = gatewayKey ? this.diagram.model.findNodeDataForKey(gatewayKey) : null;
-            if (modelData) {
-                this.diagram.model.removeNodeData(modelData);
-            } else {
-                this.diagram.model.removeNodeData(gatewayData);
-            }
-            this.diagram.commitTransaction('deleteGateway');
-        } catch (err) {
-            try { this.diagram.rollbackTransaction('deleteGateway'); } catch (_) { /* noop */ }
-            console.error('Gateway deletion failed', err);
-            return;
-        }
-
-        if (gatewayKey) {
-            this.tunnelData.gateways.delete(gatewayKey);
-        }
-
-        if (segmentKey && this.segmentGateways.has(segmentKey)) {
-            const nextList = (this.segmentGateways.get(segmentKey) || []).filter(key => key !== gatewayKey);
-            if (nextList.length) {
-                this.segmentGateways.set(segmentKey, nextList);
-            } else {
-                this.segmentGateways.delete(segmentKey);
-            }
-        }
-
-        this.hideGatewayTooltip();
-        this.diagram.clearSelection();
-
-        if (typeof window.showMessage === 'function') {
-            window.showMessage('Alıcı silindi ve otomatik kaydedildi.', 'success');
-        }
 
         if (typeof this.onTunnelModified === 'function') {
             this.onTunnelModified(this.getTunnelData());
