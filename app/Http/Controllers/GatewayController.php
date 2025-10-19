@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Mine;
 use Illuminate\Http\Request;
 use App\Models\BeaconReading;
 use Illuminate\Http\JsonResponse;
@@ -192,7 +193,7 @@ class GatewayController extends Controller
 
                         // Create beacon reading record
                         BeaconReading::create([
-                            'mine_id' => $mineId,
+                            'mine_id' => $mineId ?? (Mine::first()->id ?? null),
                             'beacon_id' => (string) $beaconId,
                             'gateway_id' => (string) $gatewayId,
                             'rssi' => (int) $rssi,
