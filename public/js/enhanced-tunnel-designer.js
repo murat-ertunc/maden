@@ -427,46 +427,37 @@ class EnhancedTunnelDesigner {
             )
         );
         
-        // Gateway/Sensor template - Alıcı şablonu
+        // Gateway/Sensor template - Alıcı şablonu (basitleştirilmiş: sadece yeşil nokta)
         this.diagram.nodeTemplateMap.add("gateway",
-            $(go.Node, "Spot",
+            $(go.Node, "Auto",
                 {
                     locationSpot: go.Spot.Center,
                     selectable: true,
                     deletable: true,
-                    cursor: "pointer"
+                    cursor: "pointer",
+                    toolTip: $(go.Adornment, "Auto",
+                        $(go.Shape, "RoundedRectangle", {
+                            fill: "rgba(0, 0, 0, 0.85)",
+                            stroke: "#00C853",
+                            strokeWidth: 1
+                        }),
+                        $(go.TextBlock, {
+                            margin: 6,
+                            font: "11px sans-serif",
+                            stroke: "white"
+                        },
+                        new go.Binding("text", "", (data) => `${data.gatewayId}\n${data.meterage.toFixed(1)}m`))
+                    )
                 },
                 new go.Binding("location", "position", go.Point.parse).makeTwoWay(go.Point.stringify),
                 
-                $(go.Panel, "Auto",
-                    $(go.Shape, "RoundedRectangle", {
-                        width: 50,
-                        height: 30,
-                        fill: "#00C853",
-                        stroke: "#00796B",
-                        strokeWidth: 2
-                    }),
-                    
-                    $(go.TextBlock, {
-                        margin: 3,
-                        font: "bold 9px sans-serif",
-                        stroke: "white",
-                        overflow: go.TextBlock.OverflowEllipsis,
-                        maxSize: new go.Size(45, NaN)
-                    },
-                    new go.Binding("text", "gatewayId"))
-                ),
-                
-                // Metraj gösterimi (altında)
-                $(go.TextBlock, {
-                    alignment: go.Spot.Bottom,
-                    alignmentFocus: go.Spot.Top,
-                    margin: new go.Margin(3, 4, 0, 4),
-                    font: "10px sans-serif",
+                $(go.Shape, "Circle", {
+                    width: 8,
+                    height: 8,
+                    fill: "#00C853",
                     stroke: "#00796B",
-                    background: "rgba(255,255,255,0.9)"
-                },
-                new go.Binding("text", "meterage", m => `${m.toFixed(1)}m`))
+                    strokeWidth: 1.5
+                })
             )
         );
     }
@@ -474,12 +465,14 @@ class EnhancedTunnelDesigner {
     setupMeasurementTemplate() {
         const $ = go.GraphObject.make;
         
+        // Measurement template (gizli, sadece hover'da tooltip gösterilecek)
         this.diagram.nodeTemplateMap.add("measurement",
             $(go.Node,
                 {
                     selectable: false,
                     avoidable: false,
-                    pickable: false
+                    pickable: true,
+                    visible: false  // Metraj yazısını gizle
                 },
                 new go.Binding("location", "position", go.Point.parse),
                 
@@ -1681,6 +1674,12 @@ class EnhancedTunnelDesigner {
         this.diagram.div.classList.remove('drawing-mode');
         this.hideDrawingInstructions();
         
+        // Otomatik kaydetme
+        if (typeof window.saveTunnelData === 'function') {
+            setTimeout(() => {
+                window.saveTunnelData();
+            }, 500);
+        }
 
     }
     
@@ -2878,13 +2877,14 @@ class EnhancedTunnelDesigner {
             }),
             $(go.TextBlock, {
                 margin: 8,
-                font: "bold 12px sans-serif",
+                font: "bold 11px sans-serif",
                 stroke: "white"
             },
             new go.Binding("text", "", (data) => {
-                // Bu tooltip mouse hareket ettikçe güncellenmeyecek
-                // Gerçek metraj hesaplaması click handler'da yapılacak
-                return `Tıklayarak alıcı ekle`;
+                const length = data.length ? data.length.toFixed(1) : '0.0';
+                const startW = (data.startWidth ?? data.width ?? 0).toFixed(2);
+                const endW = (data.endWidth ?? data.width ?? 0).toFixed(2);
+                return `Uzunluk: ${length}m\nGiriş: ${startW}m → Çıkış: ${endW}m\n\nTıklayarak alıcı ekle`;
             }))
         );
     }

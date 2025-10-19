@@ -40,7 +40,7 @@ class BeaconReading extends Model
     public static function latestForBeacon(string $beaconId, int $limit = 10)
     {
         return static::where('beacon_id', $beaconId)
-            ->orderBy('reading_timestamp', 'desc')
+            ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
     }
@@ -51,7 +51,7 @@ class BeaconReading extends Model
     public static function latestForGateway(string $gatewayId, int $limit = 10)
     {
         return static::where('gateway_id', $gatewayId)
-            ->orderBy('reading_timestamp', 'desc')
+            ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
     }
@@ -61,8 +61,8 @@ class BeaconReading extends Model
      */
     public static function latestForMine(?int $mineId, int $minutes = 10)
     {
-        $query = static::where('reading_timestamp', '>=', now()->subMinutes($minutes))
-            ->orderBy('reading_timestamp', 'desc');
+        $query = static::where('created_at', '>=', now()->subMinutes($minutes))
+            ->orderBy('created_at', 'desc')->whereHas('readingsMiner');
 
         if ($mineId) {
             $query->where('mine_id', $mineId);
@@ -76,7 +76,7 @@ class BeaconReading extends Model
      */
     public static function activeBeacons(int $minutes = 10)
     {
-        return static::where('reading_timestamp', '>=', now()->subMinutes($minutes))
+        return static::where('created_at', '>=', now()->subMinutes($minutes))
             ->distinct()
             ->pluck('beacon_id');
     }
@@ -86,7 +86,7 @@ class BeaconReading extends Model
      */
     public static function activeGateways(int $minutes = 10)
     {
-        return static::where('reading_timestamp', '>=', now()->subMinutes($minutes))
+        return static::where('created_at', '>=', now()->subMinutes($minutes))
             ->distinct()
             ->pluck('gateway_id');
     }
@@ -96,6 +96,11 @@ class BeaconReading extends Model
      */
     public static function cleanOldReadings(int $days = 7)
     {
-        return static::where('reading_timestamp', '<', now()->subDays($days))->delete();
+        return static::where('created_at', '<', now()->subDays($days))->delete();
+    }
+
+    public function readingsMiner()
+    {
+        return $this->belongsTo(Miner::class, 'beacon_id', 'beacon_id');
     }
 }
