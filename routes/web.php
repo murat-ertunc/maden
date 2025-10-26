@@ -5,8 +5,13 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/', function () {
+    Auth::loginUsingId(1);
+    return redirect('/tunnel-designer');
+})->name('home');
+
 Route::name('dashboard.')->controller(\App\Http\Controllers\DashBoardController::class)->middleware('auth')->group(function () {
-    Route::get('/', 'dashboard')->name('index');
+    // Route::get('/', 'dashboard')->name('index');
     Route::get('/analysis', 'analysis')->name('analysis');
 });
 

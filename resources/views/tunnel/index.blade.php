@@ -290,7 +290,7 @@
         <div class="col-12">
             <div class="drawing-mode-selector">
                 <h5 class="mb-3">
-                    <i class="fas fa-pencil-alt"></i> 🎯 Çizim Modu Seçin - Artık Çok Kolay!
+                    <i class="fas fa-pencil-alt"></i> 🎯 Çizim Modu Seçin
                 </h5>
                 <div class="d-flex flex-wrap justify-content-center">
                     {{-- Drag & Draw mode hidden by request --}}
@@ -299,7 +299,7 @@
                         <div class="mode-title">Serbest Tünel</div>
                         <div class="mode-desc">Nokta-nokta tıklayarak<br>serbest tünel çizin!</div>
                     </div>
-                    <div class="mode-button" data-mode="tunnel_point">
+                    <div class="mode-button d-none" data-mode="tunnel_point">
                         <div class="mode-icon">📍</div>
                         <div class="mode-title">Nokta & Yol</div>
                         <div class="mode-desc">Noktalara tıklayarak<br>uzun yollar çizin</div>
