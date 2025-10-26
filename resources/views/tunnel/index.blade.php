@@ -821,7 +821,7 @@
 
 @push('scripts')
 <!-- GoJS Library -->
-<script src="https://unpkg.com/gojs@3.0.26/release/go.js"></script>
+<script src="/vendor/gojs/go.js"></script>
 
 <!-- Enhanced TunnelDesigner Implementation -->
 <script src="{{ asset('js/enhanced-tunnel-designer.js') }}?v={{ time() }}" 
