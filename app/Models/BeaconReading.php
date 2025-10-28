@@ -46,6 +46,18 @@ class BeaconReading extends Model
     }
 
     /**
+     * Get the absolute last reading for a specific beacon (regardless of time)
+     * Groups by gateway to get the most recent RSSI from each gateway
+     */
+    public static function lastReadingForBeacon(string $beaconId)
+    {
+        return static::where('beacon_id', $beaconId)
+            ->orderBy('id', 'desc')
+            ->limit(1)
+            ->get();
+    }
+
+    /**
      * Get latest readings for a specific gateway
      */
     public static function latestForGateway(string $gatewayId, int $limit = 10)

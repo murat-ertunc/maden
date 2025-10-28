@@ -99,6 +99,57 @@ class TunnelController extends Controller
         ]);
     }
 
+    /**
+     * API: Get last reading for a specific beacon (no time limit)
+     */
+    public function lastBeaconReading(Request $request, string $beaconId)
+    {
+        $mineId = $request->integer('mine_id');
+        $gateways = [];
+
+        // Get gateway coordinates if mine_id is provided
+        if ($mineId) {
+            $mine = Mine::where('id', $mineId)
+                ->where('user_id', Auth::id())
+                ->with('paths')
+                ->first();
+
+            if ($mine) {
+                $gateways = $this->collectGatewayCoordinates($mine);
+            }
+        }
+
+        // Get all readings for this beacon (ordered by most recent)
+        $beaconReadings = BeaconReading::lastReadingForBeacon($beaconId);
+
+        // Convert to DTO format for frontend compatibility
+        $readings = [];
+        foreach ($beaconReadings as $reading) {
+            $readings[] = [
+                'beacon_id' => $reading->beacon_id,
+                'gateway_id' => $reading->gateway_id,
+                'rssi' => $reading->rssi,
+                'timestamp' => $reading->reading_timestamp->toISOString(),
+                'created_at' => $reading->created_at->toISOString(),
+            ];
+        }
+
+        // Convert to DTO if DTO class expects it
+        $dto = array_map(static fn (array $reading) => BeaconReadingDTO::fromArray($reading)->toArray(), $readings);
+
+        return response()->json([
+            'data' => $dto,
+            'gateways' => $gateways,
+            'meta' => [
+                'mine_id' => $mineId,
+                'beacon_id' => $beaconId,
+                'generated_at' => now()->toISOString(),
+                'source' => 'database',
+                'reading_count' => count($readings),
+                'last_reading_time' => $readings ? ($readings[0]['created_at'] ?? null) : null,
+            ],
+        ]);
+    }
 
 
     /**

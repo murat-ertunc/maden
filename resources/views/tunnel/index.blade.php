@@ -251,6 +251,49 @@
         50% { transform: scale(1.2); opacity: 0.4; }
         100% { transform: scale(0.75); opacity: 0.8; }
     }
+    
+    /* Miner Location Viewer Styles */
+    #miner-location-viewer {
+        overflow: auto;
+    }
+    
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    
+    /* Collapse chevron rotation */
+    .card-header[data-bs-toggle="collapse"] .fa-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    
+    .card-header[data-bs-toggle="collapse"]:not(.collapsed) .fa-chevron-down {
+        transform: rotate(180deg);
+    }
+
+    .miner-location-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: rgba(248, 249, 250, 0.92);
+        z-index: 30;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .miner-location-overlay[data-state="loading"] {
+        pointer-events: none;
+    }
+
+    .miner-location-overlay .spinner-border {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-width: 0.35rem;
+    }
 </style>
 @endpush
 
@@ -269,9 +312,6 @@
                     </button>
                     <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#minersModal" id="btn-open-miners">
                         <i class="fas fa-hard-hat"></i> Madenciler
-                    </button>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMineModal">
-                        <i class="fas fa-plus"></i> Yeni Maden
                     </button>
                 </div>
             </div>
@@ -413,13 +453,13 @@
                                 <button type="button" class="btn btn-sm btn-outline-primary btn-icon" id="btn-save">
                                     <i class="fas fa-save"></i> <span>Kaydet</span>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-info btn-icon" id="btn-monitoring">
+                                <button type="button" class="btn btn-sm btn-outline-info btn-icon d-none" id="btn-monitoring">
                                     <i class="fas fa-expand"></i> <span>İzleme Modu</span>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" id="btn-load">
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-icon d-none" id="btn-load">
                                     <i class="fas fa-folder-open"></i> <span>Yükle</span>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-success btn-icon" id="btn-export">
+                                <button type="button" class="btn btn-sm btn-outline-success btn-icon d-none" id="btn-export">
                                     <i class="fas fa-download"></i> <span>Dışa Aktar</span>
                                 </button>
                             </div>
@@ -600,7 +640,10 @@
                     </div>
                 @endif
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMineModal" onclick="closeMinesListModal()">
+                    <i class="fas fa-plus"></i> Yeni Maden
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
             </div>
         </div>
@@ -609,7 +652,7 @@
 
         <!-- Miners Management Modal -->
         <div class="modal fade" id="minersModal" tabindex="-1" aria-labelledby="minersModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="minersModalLabel">
@@ -620,67 +663,77 @@
                     <div class="modal-body">
                         <div id="miners-modal-alert" class="alert" role="alert" style="display: none;"></div>
                         <div class="row g-4">
-                            <div class="col-lg-6">
-                                <div class="d-flex align-items-center gap-2 mb-3">
-                                    <i class="fas fa-user-plus text-primary"></i>
-                                    <h6 class="fw-bold mb-0">Madenci Oluştur / Güncelle</h6>
-                                </div>
-                                <form id="miner-form" class="card border-primary-subtle shadow-sm">
-                                    <div class="card-body">
-                                        <input type="hidden" id="miner-id">
-                                        <div id="miner-form-feedback" style="display:none;" class="alert" role="alert"></div>
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label for="miner-first-name" class="form-label">Ad <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="miner-first-name" placeholder="Örn: Ahmet" required>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="miner-last-name" class="form-label">Soyad <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="miner-last-name" placeholder="Örn: Yılmaz" required>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="miner-phone" class="form-label">Telefon</label>
-                                                <input type="tel" class="form-control" id="miner-phone" placeholder="0 5XX XXX XX XX">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="miner-age" class="form-label">Yaş</label>
-                                                <input type="number" class="form-control" id="miner-age" min="16" max="80" placeholder="Örn: 34">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="miner-blood-type" class="form-label">Kan Grubu</label>
-                                                <select id="miner-blood-type" class="form-select">
-                                                    <option value="">Seçiniz</option>
-                                                    <option value="A+">A+</option>
-                                                    <option value="A-">A-</option>
-                                                    <option value="B+">B+</option>
-                                                    <option value="B-">B-</option>
-                                                    <option value="AB+">AB+</option>
-                                                    <option value="AB-">AB-</option>
-                                                    <option value="0+">0+</option>
-                                                    <option value="0-">0-</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="miner-beacon-id" class="form-label">Beacon ID</label>
-                                                <input type="text" class="form-control" id="miner-beacon-id" placeholder="Örn: BEACON-123">
-                                            </div>
-                                            <div class="col-12">
-                                                <label for="miner-address" class="form-label">Adres</label>
-                                                <textarea id="miner-address" class="form-control" rows="3" placeholder="Madencinin adresi..."></textarea>
-                                            </div>
+                            <!-- Madenci Oluştur/Güncelle Formu - Collapsible -->
+                            <div class="col-12">
+                                <div class="card border-primary-subtle shadow-sm">
+                                    <div class="card-header bg-primary bg-opacity-10 cursor-pointer" data-bs-toggle="collapse" data-bs-target="#minerFormCollapse">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="fas fa-user-plus text-primary"></i>
+                                            <h6 class="fw-bold mb-0">Madenci Oluştur / Güncelle</h6>
+                                            <i class="fas fa-chevron-down ms-auto"></i>
                                         </div>
                                     </div>
-                                    <div class="card-footer d-flex justify-content-between gap-2">
-                                        <button type="button" class="btn btn-outline-secondary" id="miner-reset-btn">
-                                            <i class="fas fa-eraser"></i> Formu Temizle
-                                        </button>
-                                        <button type="submit" class="btn btn-primary" id="miner-submit-btn">
-                                            <i class="fas fa-save"></i> Kaydet
-                                        </button>
+                                    <div class="collapse" id="minerFormCollapse">
+                                        <form id="miner-form">
+                                            <div class="card-body">
+                                                <input type="hidden" id="miner-id">
+                                                <div id="miner-form-feedback" style="display:none;" class="alert" role="alert"></div>
+                                                <div class="row g-3">
+                                                    <div class="col-md-3">
+                                                        <label for="miner-first-name" class="form-label">Ad <span class="text-danger">*</span></label>
+                                                        <input type="text" class="form-control" id="miner-first-name" placeholder="Örn: Ahmet" required>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="miner-last-name" class="form-label">Soyad <span class="text-danger">*</span></label>
+                                                        <input type="text" class="form-control" id="miner-last-name" placeholder="Örn: Yılmaz" required>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="miner-phone" class="form-label">Telefon</label>
+                                                        <input type="tel" class="form-control" id="miner-phone" placeholder="0 5XX XXX XX XX">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="miner-age" class="form-label">Yaş</label>
+                                                        <input type="number" class="form-control" id="miner-age" min="16" max="80" placeholder="Örn: 34">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label for="miner-blood-type" class="form-label">Kan Grubu</label>
+                                                        <select id="miner-blood-type" class="form-select">
+                                                            <option value="">Seçiniz</option>
+                                                            <option value="A+">A+</option>
+                                                            <option value="A-">A-</option>
+                                                            <option value="B+">B+</option>
+                                                            <option value="B-">B-</option>
+                                                            <option value="AB+">AB+</option>
+                                                            <option value="AB-">AB-</option>
+                                                            <option value="0+">0+</option>
+                                                            <option value="0-">0-</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label for="miner-beacon-id" class="form-label">Beacon ID</label>
+                                                        <input type="text" class="form-control" id="miner-beacon-id" placeholder="Örn: BEACON-123">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label for="miner-address" class="form-label">Adres</label>
+                                                        <input type="text" class="form-control" id="miner-address" placeholder="Madencinin adresi...">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="card-footer d-flex justify-content-between gap-2">
+                                                <button type="button" class="btn btn-outline-secondary" id="miner-reset-btn">
+                                                    <i class="fas fa-eraser"></i> Formu Temizle
+                                                </button>
+                                                <button type="submit" class="btn btn-primary" id="miner-submit-btn">
+                                                    <i class="fas fa-save"></i> Kaydet
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
-                                </form>
+                                </div>
                             </div>
-                            <div class="col-lg-6">
+                            
+                            <!-- Madenci Listesi -->
+                            <div class="col-md-4">
                                 <div class="d-flex align-items-center gap-2 mb-3">
                                     <i class="fas fa-users text-success"></i>
                                     <h6 class="fw-bold mb-0">Madenci Listesi</h6>
@@ -688,28 +741,51 @@
                                         <i class="fas fa-sync"></i> Yenile
                                     </button>
                                 </div>
-                                <div class="card shadow-sm border-success-subtle">
+                                <div class="card shadow-sm border-success-subtle" style="max-height: 600px; overflow-y: auto;">
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
                                             <table class="table table-hover table-sm align-middle mb-0" id="miners-table">
-                                                <thead class="table-light">
+                                                <thead class="table-light sticky-top">
                                                     <tr>
                                                         <th>#</th>
                                                         <th>Madenci</th>
                                                         <th>İletişim</th>
                                                         <th>Kan / Yaş</th>
                                                         <th>Beacon</th>
-                                                        <th>Adres</th>
                                                         <th class="text-end">İşlemler</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="miners-table-body">
                                                     <tr>
-                                                        <td colspan="7" class="text-center text-muted py-4">Kayıt bulunamadı.</td>
+                                                        <td colspan="6" class="text-center text-muted py-4">Kayıt bulunamadı.</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Madenci Konum Görüntüleme Alanı -->
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="fas fa-map-marked-alt text-info"></i>
+                                    <h6 class="fw-bold mb-0">Madenci Konumu</h6>
+                                    <small class="ms-auto text-muted" id="miner-location-timestamp"></small>
+                                </div>
+                                <div class="card shadow-sm border-info-subtle" style="height: 600px;">
+                                    <div class="card-body p-0 position-relative tunnel-designer-container">
+                                        <!-- GoJS Diagram for Miner Location -->
+                                        <div id="miner-location-diagram" style="width: 100%; height: 100%; background: #f8f9fa;">
+                                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                                <div class="text-center">
+                                                    <i class="fas fa-map-marker-alt fa-3x mb-3 opacity-25"></i>
+                                                    <p>Madenci seçmek için <i class="fas fa-eye"></i> ikonuna tıklayın</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Beacon Layer for Single Miner -->
+                                        <div id="miner-beacon-layer" style="position: absolute; inset: 0; pointer-events: none; z-index: 20;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -830,6 +906,7 @@
 
 <script>
     let tunnelDesigner = null;
+    let minerLocationDesigner = null; // Madenci konumu için ayrı designer
     let currentMineId = null;
     const minerState = {
         list: [],
@@ -980,10 +1057,13 @@
         return null;
     }
 
-    function resetGatewayReferences() {
-        gatewayReferences.clear();
+    function resetGatewayReferences(target) {
+        const map = target instanceof Map ? target : gatewayReferences;
+        map.clear();
         staticGatewayReferences.forEach((coords, id) => {
-            gatewayReferences.set(id, coords);
+            if (!coords) return;
+            // clone to avoid accidental downstream mutations sharing references
+            map.set(id, { x: Number(coords.x), y: Number(coords.y) });
         });
     }
 
@@ -992,10 +1072,14 @@
             return;
         }
 
+        const targetMap = options && options.targetMap instanceof Map
+            ? options.targetMap
+            : gatewayReferences;
+
         const preferPayload = !!(options && options.preferPayload);
 
         if (preferPayload) {
-            resetGatewayReferences();
+            resetGatewayReferences(targetMap);
         }
 
         function applyEntry(id, value) {
@@ -1006,7 +1090,7 @@
             const coords = normalizeGatewayCoords(value);
             if (!coords) return;
 
-            gatewayReferences.set(key, coords);
+            targetMap.set(key, coords);
         }
 
         if (raw instanceof Map) {
@@ -1319,9 +1403,12 @@
         return date.toLocaleString('tr-TR', { hour12: false });
     }
 
-    function resolveBeaconGroup(group) {
+    function resolveBeaconGroup(group, options = {}) {
         const details = [];
         const observations = [];
+        const lookupGateway = typeof options.lookupGateway === 'function'
+            ? options.lookupGateway
+            : getGatewayPosition;
 
         group.readings.forEach((reading) => {
             if (!reading) {
@@ -1336,7 +1423,7 @@
                 return;
             }
 
-            const gateway = getGatewayPosition(gatewayId);
+            const gateway = lookupGateway(gatewayId);
             const distance = distanceForRssiValue(reading.rssi);
             if (!gateway || !Number.isFinite(distance)) {
                 return;
@@ -1353,6 +1440,7 @@
                 gatewayId,
                 rssi: reading.rssi,
                 distance,
+                position: { x: gateway.x, y: gateway.y },
             });
         });
 
@@ -1625,7 +1713,7 @@
         if (!tbody) return;
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center py-4">
+                <td colspan="6" class="text-center py-4">
                     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     Madenci listesi yükleniyor...
                 </td>
@@ -1637,7 +1725,7 @@
         const tbody = minerSelectors.tableBody();
         if (!tbody) return;
         if (!miners || miners.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Kayıt bulunamadı.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Kayıt bulunamadı.</td></tr>';
             return;
         }
 
@@ -1647,27 +1735,27 @@
             const last = escapeHtml(miner.last_name ?? '');
             const fullName = `${first} ${last}`.trim() || '—';
             const phone = escapeHtml(miner.phone ?? '');
-            const address = escapeHtml(miner.address ?? '');
-            const contactParts = [phone, address].filter((part) => part && part.length > 0);
-            const contact = contactParts.length ? contactParts.join('<br>') : '-';
+            const contact = phone || '-';
             const blood = escapeHtml(miner.blood_type ?? '-');
             const age = miner.age ? escapeHtml(String(miner.age)) : '-';
             const beacon = miner.beacon_id ? escapeHtml(miner.beacon_id) : '-';
-            const rowAddress = address || '-';
+            
             return `
                 <tr data-miner-id="${id}">
                     <td>${index + 1}</td>
                     <td class="fw-semibold">${fullName}</td>
-                    <td>${contact || '-'}</td>
+                    <td>${contact}</td>
                     <td>${blood} / ${age}</td>
                     <td>${beacon}</td>
-                    <td>${rowAddress}</td>
                     <td class="text-end">
                         <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-primary" data-action="edit-miner" data-id="${id}">
+                            <button type="button" class="btn btn-outline-info" data-action="view-miner-location" data-id="${id}" data-beacon="${miner.beacon_id || ''}" title="Konumu Görüntüle">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" data-action="edit-miner" data-id="${id}" title="Düzenle">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-danger" data-action="delete-miner" data-id="${id}">
+                            <button type="button" class="btn btn-outline-danger" data-action="delete-miner" data-id="${id}" title="Sil">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -1811,13 +1899,432 @@
         }
     }
 
+    async function viewMinerLocation(minerId, beaconId) {
+        const diagramDiv = document.getElementById('miner-location-diagram');
+        const beaconLayer = document.getElementById('miner-beacon-layer');
+        const timestampEl = document.getElementById('miner-location-timestamp');
+        
+        if (!diagramDiv) return;
+        
+        // Loading durumu
+        diagramDiv.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100">
+                <div class="text-center">
+                    <div class="spinner-border text-info mb-3" role="status">
+                        <span class="visually-hidden">Yükleniyor...</span>
+                    </div>
+                    <p class="text-muted">Madenci konumu yükleniyor...</p>
+                </div>
+            </div>
+        `;
+        
+        if (beaconLayer) beaconLayer.innerHTML = '';
+        if (timestampEl) timestampEl.textContent = 'Yükleniyor...';
+        
+        if (!beaconId) {
+            diagramDiv.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-warning">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 opacity-50"></i>
+                        <p>Bu madenciye beacon ID atanmamış!</p>
+                    </div>
+                </div>
+            `;
+            if (timestampEl) timestampEl.textContent = '';
+            return;
+        }
+        
+        try {
+            // Beacon için en son reading'i al (her gateway'den en son)
+            const response = await fetch(`/api/beacons/last-reading/${encodeURIComponent(beaconId)}?mine_id=${currentMineId || ''}`);
+            if (!response.ok) throw new Error('Beacon verileri alınamadı');
+            
+            const data = await response.json();
+            const beaconReadings = data.data || [];
+            const gateways = data.gateways || {};
+            const lastReadingTime = data.meta?.last_reading_time || null;
+            
+            if (beaconReadings.length === 0) {
+                diagramDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-satellite-dish fa-3x mb-3 opacity-25"></i>
+                            <p>Bu madenci için henüz beacon verisi yok</p>
+                            <small>Beacon ID: ${escapeHtml(beaconId)}</small>
+                        </div>
+                    </div>
+                `;
+                if (timestampEl) timestampEl.textContent = '';
+                return;
+            }
+            
+            // Timestamp güncelle
+            if (timestampEl && lastReadingTime) {
+                const date = new Date(lastReadingTime);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                
+                let timeAgo = '';
+                if (diffDays > 0) {
+                    timeAgo = `${diffDays} gün önce`;
+                } else if (diffHours > 0) {
+                    timeAgo = `${diffHours} saat önce`;
+                } else if (diffMins > 0) {
+                    timeAgo = `${diffMins} dakika önce`;
+                } else {
+                    timeAgo = 'Az önce';
+                }
+                
+                timestampEl.innerHTML = `
+                    <span class="badge bg-info">Son Veri: ${date.toLocaleString('tr-TR', { hour12: false })}</span>
+                    <span class="badge bg-secondary ms-2">${timeAgo}</span>
+                `;
+            }
+            
+            // Mevcut tunnel data'yı al
+            const tunnelData = tunnelDesigner ? tunnelDesigner.getTunnelData() : null;
+            
+            if (!tunnelData || !tunnelData.segments || tunnelData.segments.length === 0) {
+                diagramDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <div class="text-center text-warning">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-3 opacity-50"></i>
+                            <p>Lütfen önce tünel tasarımını oluşturun!</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Miner location designer'ı oluştur veya güncelle
+            if (!minerLocationDesigner) {
+                minerLocationDesigner = new EnhancedTunnelDesigner('miner-location-diagram', {
+                    readOnly: true,
+                    showGrid: false,
+                    allowZoom: true,
+                    allowPan: true,
+                    showMiniMap: false
+                });
+            }
+            
+            // Tunnel data'yı yükle
+            minerLocationDesigner.loadTunnelData(tunnelData);
+
+            // Modal için izole gateway pozisyonlarını hazırla
+            const localGatewayMap = new Map();
+            // Capture gateway coordinates in an isolated map so global polling updates do not mutate the modal view
+            mergeGatewayReferences(gateways, { preferPayload: true, targetMap: localGatewayMap });
+            const lookupGateway = (id) => {
+                if (id === undefined || id === null) {
+                    return null;
+                }
+                const key = String(id).trim();
+                if (!key) {
+                    return null;
+                }
+                if (localGatewayMap.has(key)) {
+                    return localGatewayMap.get(key);
+                }
+                return getGatewayPosition(id);
+            };
+            
+            // Beacon pozisyonunu hesapla
+            const beaconGroup = {
+                beaconId: beaconId,
+                readings: beaconReadings.map(r => ({
+                    beacon_id: r.beacon_id,
+                    gateway_id: r.gateway_id,
+                    rssi: r.rssi,
+                    timestamp: r.timestamp
+                })),
+                latestTimestamp: lastReadingTime
+            };
+            
+            const resolved = resolveBeaconGroup(beaconGroup, { lookupGateway });
+            
+            // Beacon'ı render et
+            if (resolved && resolved.position) {
+                renderMinerBeacon(resolved);
+            }
+            
+        } catch (error) {
+            console.error('Madenci konumu yüklenirken hata:', error);
+            diagramDiv.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle fa-3x mb-3 opacity-50"></i>
+                        <p>Konum yüklenirken hata oluştu</p>
+                        <small>${escapeHtml(error.message)}</small>
+                    </div>
+                </div>
+            `;
+            if (timestampEl) timestampEl.textContent = '';
+        }
+    }
+    
+    function renderMinerBeacon(entry) {
+        const layer = document.getElementById('miner-beacon-layer');
+        if (!layer || !minerLocationDesigner || !minerLocationDesigner.diagram) {
+            return;
+        }
+        
+        // Rendering flag kontrolü - eğer şu anda rendering yapılıyorsa, bekle
+        if (minerLocationDesigner.diagram.__isRenderingBeacon) {
+            return;
+        }
+        
+        minerLocationDesigner.diagram.__isRenderingBeacon = true;
+        
+        try {
+            // Layer boyutunu ayarla
+            const diagramDiv = minerLocationDesigner.diagram.div;
+            if (diagramDiv) {
+                const rect = diagramDiv.getBoundingClientRect();
+                layer.style.width = `${rect.width}px`;
+                layer.style.height = `${rect.height}px`;
+            }
+            
+            // ÖNEMLİ: Her render'da layer'ı tamamen temizle
+            layer.innerHTML = '';
+            
+            // Return yerine if kontrolü kullan
+            if (!entry.position) {
+                return;
+            }
+        
+            const docPoint = new go.Point(entry.position.x * PIXELS_PER_METER, entry.position.y * PIXELS_PER_METER);
+            const viewPoint = minerLocationDesigner.diagram.transformDocToView(docPoint);
+            
+            // Return yerine if kontrolü kullan
+            if (!viewPoint) {
+                return;
+            }
+            
+            // Madenci marker'ını oluştur
+            const marker = document.createElement('div');
+            marker.className = 'beacon-marker';
+            marker.style.left = `${viewPoint.x}px`;
+            marker.style.top = `${viewPoint.y}px`;
+            marker.dataset.beaconId = entry.beaconId;
+            marker.dataset.confidence = entry.confidence;
+            marker.title = formatTooltip(entry);
+            
+            // Daha büyük ve belirgin yap
+            marker.style.width = '24px';
+            marker.style.height = '24px';
+            marker.style.marginLeft = '-12px';
+            marker.style.marginTop = '-12px';
+            marker.style.background = 'rgba(220, 53, 69, 0.9)';
+            marker.style.boxShadow = '0 0 20px rgba(220, 53, 69, 1)';
+            
+            layer.appendChild(marker);
+            
+            // Gateway'leri de göster
+            if (entry.gateways && Array.isArray(entry.gateways)) {
+                entry.gateways.forEach(gw => {
+                    const gwPosSource = gw && gw.position ? gw.position : null;
+                    const gwPos = gwPosSource || getGatewayPosition(gw.gatewayId);
+                    if (gwPos) {
+                        const gwDocPoint = new go.Point(gwPos.x * PIXELS_PER_METER, gwPos.y * PIXELS_PER_METER);
+                        const gwViewPoint = minerLocationDesigner.diagram.transformDocToView(gwDocPoint);
+                        
+                        if (gwViewPoint) {
+                            const gwMarker = document.createElement('div');
+                            gwMarker.style.position = 'absolute';
+                            gwMarker.style.left = `${gwViewPoint.x}px`;
+                            gwMarker.style.top = `${gwViewPoint.y}px`;
+                            gwMarker.style.width = '16px';
+                            gwMarker.style.height = '16px';
+                            gwMarker.style.marginLeft = '-8px';
+                            gwMarker.style.marginTop = '-8px';
+                            gwMarker.style.borderRadius = '50%';
+                            gwMarker.style.background = '#0d6efd';
+                            gwMarker.style.border = '2px solid white';
+                            gwMarker.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                            gwMarker.style.zIndex = '10';
+                            gwMarker.title = `Gateway: ${gw.gatewayId}\nRSSI: ${gw.rssi} dBm\nMesafe: ${gw.distance.toFixed(2)} m`;
+                            
+                            layer.appendChild(gwMarker);
+                            
+                            // Menzil dairesi çiz
+                            const radiusInPixels = gw.distance * PIXELS_PER_METER * minerLocationDesigner.diagram.scale;
+                            const circle = document.createElement('div');
+                            circle.style.position = 'absolute';
+                            circle.style.left = `${gwViewPoint.x}px`;
+                            circle.style.top = `${gwViewPoint.y}px`;
+                            circle.style.width = `${radiusInPixels * 2}px`;
+                            circle.style.height = `${radiusInPixels * 2}px`;
+                            circle.style.marginLeft = `-${radiusInPixels}px`;
+                            circle.style.marginTop = `-${radiusInPixels}px`;
+                            circle.style.borderRadius = '50%';
+                            circle.style.background = 'rgba(255, 165, 0, 0.15)';
+                            circle.style.border = '2px dashed rgba(255, 165, 0, 0.6)';
+                            circle.style.pointerEvents = 'auto';
+                            circle.style.cursor = 'help';
+                            circle.style.userSelect = 'none';
+                            circle.style.zIndex = '5';
+                            circle.title = `${gw.distance.toFixed(2)} Metre`; // hover tooltip
+                            
+                            layer.appendChild(circle);
+                        }
+                    }
+                });
+            }
+        } finally {
+            // Rendering flag'i her durumda temizle
+            minerLocationDesigner.diagram.__isRenderingBeacon = false;
+        }
+        
+        // Viewport değişikliklerinde yeniden render et - sadece bir kez ekle
+        if (!minerLocationDesigner.diagram.__minerBeaconListenerBound) {
+            minerLocationDesigner.diagram.__currentBeaconEntry = entry;
+            
+            // Debounce timer için değişken
+            let viewportChangeTimer = null;
+            
+            minerLocationDesigner.diagram.addDiagramListener('ViewportBoundsChanged', () => {
+                // Önceki timer'ı iptal et
+                if (viewportChangeTimer) {
+                    clearTimeout(viewportChangeTimer);
+                }
+                
+                // Kısa bir gecikme ile render et (debounce)
+                viewportChangeTimer = setTimeout(() => {
+                    const storedEntry = minerLocationDesigner.diagram.__currentBeaconEntry;
+                    if (storedEntry && !minerLocationDesigner.diagram.__isRenderingBeacon) {
+                        requestAnimationFrame(() => {
+                            const layer = document.getElementById('miner-beacon-layer');
+                            if (!layer || !minerLocationDesigner || !minerLocationDesigner.diagram) {
+                                return;
+                            }
+                            
+                            // Rendering flag'i set et
+                            if (minerLocationDesigner.diagram.__isRenderingBeacon) {
+                                return;
+                            }
+                            minerLocationDesigner.diagram.__isRenderingBeacon = true;
+                            
+                            try {
+                                // Layer'ı temizle
+                                layer.innerHTML = '';
+                                
+                                // Boyutları güncelle
+                                const diagramDiv = minerLocationDesigner.diagram.div;
+                                if (diagramDiv) {
+                                    const rect = diagramDiv.getBoundingClientRect();
+                                    layer.style.width = `${rect.width}px`;
+                                    layer.style.height = `${rect.height}px`;
+                                }
+                                
+                                if (!storedEntry.position) {
+                                    return;
+                                }
+                                
+                                // Madenci pozisyonunu yeniden çiz
+                                const docPoint = new go.Point(storedEntry.position.x * PIXELS_PER_METER, storedEntry.position.y * PIXELS_PER_METER);
+                                const viewPoint = minerLocationDesigner.diagram.transformDocToView(docPoint);
+                                
+                                if (!viewPoint) {
+                                    return;
+                                }
+                                
+                                const marker = document.createElement('div');
+                                marker.className = 'beacon-marker';
+                                marker.style.left = `${viewPoint.x}px`;
+                                marker.style.top = `${viewPoint.y}px`;
+                                marker.dataset.beaconId = storedEntry.beaconId;
+                                marker.dataset.confidence = storedEntry.confidence;
+                                marker.title = formatTooltip(storedEntry);
+                                marker.style.width = '24px';
+                                marker.style.height = '24px';
+                                marker.style.marginLeft = '-12px';
+                                marker.style.marginTop = '-12px';
+                                marker.style.background = 'rgba(220, 53, 69, 0.9)';
+                                marker.style.boxShadow = '0 0 20px rgba(220, 53, 69, 1)';
+                                
+                                layer.appendChild(marker);
+                                
+                                // Gateway'leri yeniden çiz
+                                if (storedEntry.gateways && Array.isArray(storedEntry.gateways)) {
+                                    storedEntry.gateways.forEach(gw => {
+                                        const gwPosSource = gw && gw.position ? gw.position : null;
+                                        const gwPos = gwPosSource || getGatewayPosition(gw.gatewayId);
+                                        if (gwPos) {
+                                            const gwDocPoint = new go.Point(gwPos.x * PIXELS_PER_METER, gwPos.y * PIXELS_PER_METER);
+                                            const gwViewPoint = minerLocationDesigner.diagram.transformDocToView(gwDocPoint);
+                                            
+                                            if (gwViewPoint) {
+                                                const gwMarker = document.createElement('div');
+                                                gwMarker.style.position = 'absolute';
+                                                gwMarker.style.left = `${gwViewPoint.x}px`;
+                                                gwMarker.style.top = `${gwViewPoint.y}px`;
+                                                gwMarker.style.width = '16px';
+                                                gwMarker.style.height = '16px';
+                                                gwMarker.style.marginLeft = '-8px';
+                                                gwMarker.style.marginTop = '-8px';
+                                                gwMarker.style.borderRadius = '50%';
+                                                gwMarker.style.background = '#0d6efd';
+                                                gwMarker.style.border = '2px solid white';
+                                                gwMarker.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                                                gwMarker.style.zIndex = '10';
+                                                gwMarker.title = `Gateway: ${gw.gatewayId}\nRSSI: ${gw.rssi} dBm\nMesafe: ${gw.distance.toFixed(2)} m`;
+                                                
+                                                layer.appendChild(gwMarker);
+                                                
+                                                // Menzil dairesi
+                                                const radiusInPixels = gw.distance * PIXELS_PER_METER * minerLocationDesigner.diagram.scale;
+                                                const circle = document.createElement('div');
+                                                circle.style.position = 'absolute';
+                                                circle.style.left = `${gwViewPoint.x}px`;
+                                                circle.style.top = `${gwViewPoint.y}px`;
+                                                circle.style.width = `${radiusInPixels * 2}px`;
+                                                circle.style.height = `${radiusInPixels * 2}px`;
+                                                circle.style.marginLeft = `-${radiusInPixels}px`;
+                                                circle.style.marginTop = `-${radiusInPixels}px`;
+                                                circle.style.borderRadius = '50%';
+                                                circle.style.background = 'rgba(255, 165, 0, 0.15)';
+                                                circle.style.border = '2px dashed rgba(255, 165, 0, 0.6)';
+                                                circle.style.pointerEvents = 'auto';
+                                                circle.style.cursor = 'help';
+                                                circle.style.userSelect = 'none';
+                                                circle.style.zIndex = '5';
+                                                circle.title = `${gw.distance.toFixed(2)} Metre`;
+                                                
+                                                layer.appendChild(circle);
+                                            }
+                                        }
+                                    });
+                                }
+                            } finally {
+                                minerLocationDesigner.diagram.__isRenderingBeacon = false;
+                            }
+                        });
+                    }
+                }, 50); // 50ms debounce - hızlı ama çift render'ı önler
+            });
+            minerLocationDesigner.diagram.__minerBeaconListenerBound = true;
+        } else {
+            // Listener zaten var, sadece entry'yi güncelle
+            minerLocationDesigner.diagram.__currentBeaconEntry = entry;
+        }
+    }
+
     function attachMinerTableEvents() {
         const tbody = minerSelectors.tableBody();
         if (!tbody) return;
         tbody.addEventListener('click', async (event) => {
+            const viewBtn = event.target.closest('[data-action="view-miner-location"]');
             const editBtn = event.target.closest('[data-action="edit-miner"]');
             const deleteBtn = event.target.closest('[data-action="delete-miner"]');
-            if (editBtn) {
+            
+            if (viewBtn) {
+                const id = viewBtn.dataset.id;
+                const beaconId = viewBtn.dataset.beacon;
+                await viewMinerLocation(id, beaconId);
+            } else if (editBtn) {
                 const id = editBtn.dataset.id;
                 const miner = minerState.list.find((m) => String(m.id) === String(id));
                 if (miner) {
@@ -1869,7 +2376,43 @@
         modalEl.addEventListener('hidden.bs.modal', () => {
             resetMinerForm();
             hideMinerAlert();
+            
+            // Miner location diagram'ı temizle
+            const diagramDiv = document.getElementById('miner-location-diagram');
+            const beaconLayer = document.getElementById('miner-beacon-layer');
+            const timestampEl = document.getElementById('miner-location-timestamp');
+            
+            if (diagramDiv) {
+                diagramDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                        <div class="text-center">
+                            <i class="fas fa-map-marker-alt fa-3x mb-3 opacity-25"></i>
+                            <p>Madenci seçmek için <i class="fas fa-eye"></i> ikonuna tıklayın</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (beaconLayer) {
+                beaconLayer.innerHTML = '';
+            }
+            
+            if (timestampEl) {
+                timestampEl.textContent = '';
+            }
         });
+        
+        // Collapse chevron animation
+        const collapseHeader = document.querySelector('[data-bs-toggle="collapse"][data-bs-target="#minerFormCollapse"]');
+        const collapseEl = document.getElementById('minerFormCollapse');
+        if (collapseHeader && collapseEl) {
+            collapseEl.addEventListener('shown.bs.collapse', () => {
+                collapseHeader.classList.remove('collapsed');
+            });
+            collapseEl.addEventListener('hidden.bs.collapse', () => {
+                collapseHeader.classList.add('collapsed');
+            });
+        }
     }
     
     document.addEventListener('DOMContentLoaded', function() {
