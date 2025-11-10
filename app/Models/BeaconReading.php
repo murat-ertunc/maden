@@ -46,13 +46,27 @@ class BeaconReading extends Model
     }
 
     /**
-     * Get the absolute last reading for a specific beacon (regardless of time)
-     * Groups by gateway to get the most recent RSSI from each gateway
+     * Get the reading with strongest signal (closest to 0) for a specific beacon
+     * Gets all readings within 3 minutes from the latest reading timestamp
+     * RSSI values are negative, so we order by DESC to get the closest to 0
      */
     public static function lastReadingForBeacon(string $beaconId)
     {
+        // Get the latest reading timestamp for this beacon
+        $latestReading = static::where('beacon_id', $beaconId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+        
+        if (!$latestReading) {
+            return collect();
+        }
+        
+        // Get all readings within 3 minutes from the latest reading
+        $threeMinutesBeforeLatest = $latestReading->created_at->subMinutes(3);
+        
         return static::where('beacon_id', $beaconId)
-            ->orderBy('id', 'desc')
+            ->where('created_at', '>=', $threeMinutesBeforeLatest)
+            ->orderBy('rssi', 'desc')
             ->limit(1)
             ->get();
     }
