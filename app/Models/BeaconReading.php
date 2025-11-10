@@ -61,8 +61,8 @@ class BeaconReading extends Model
             return collect();
         }
         
-        // Get all readings within 3 minutes from the latest reading
-        $threeMinutesBeforeLatest = $latestReading->created_at->subMinutes(3);
+        // Get all readings within 3 minutes from the latest reading (use copy to avoid mutation)
+        $threeMinutesBeforeLatest = $latestReading->created_at->copy()->subMinutes(3);
         
         return static::where('beacon_id', $beaconId)
             ->where('created_at', '>=', $threeMinutesBeforeLatest)

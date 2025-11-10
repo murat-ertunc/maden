@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 // Beacon and Gateway endpoints (Public - No Auth)
 Route::get('/beacons/latest', [TunnelController::class, 'latestBeacons'])->name('api.beacons.latest.v2');
 Route::get('/beacons/last-reading/{beaconId}', [TunnelController::class, 'lastBeaconReading'])->name('api.beacons.last-reading');
+Route::get('/beacons/history-reading/{beaconId}', [TunnelController::class, 'historyBeaconReading'])->name('api.beacons.history-reading');
 Route::any('/gateway-data', [GatewayController::class, 'storeGatewayData'])->name('api.gateway-data');
 
 // HTTP Request monitoring endpoints

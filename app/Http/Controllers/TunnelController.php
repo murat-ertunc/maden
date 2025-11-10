@@ -105,14 +105,23 @@ class TunnelController extends Controller
     public function lastBeaconReading(Request $request, string $beaconId)
     {
         $mineId = $request->integer('mine_id');
+        
+        // Sanitize beaconId to prevent XSS
+        $beaconId = strip_tags($beaconId);
+        $beaconId = htmlspecialchars($beaconId, ENT_QUOTES, 'UTF-8');
+        
         $gateways = [];
 
         // Get gateway coordinates if mine_id is provided
         if ($mineId) {
-            $mine = Mine::where('id', $mineId)
-                ->where('user_id', Auth::id())
-                ->with('paths')
-                ->first();
+            $query = Mine::where('id', $mineId)->with('paths');
+            
+            // Add user filter only if authenticated
+            if (Auth::check()) {
+                $query->where('user_id', Auth::id());
+            }
+            
+            $mine = $query->first();
 
             if ($mine) {
                 $gateways = $this->collectGatewayCoordinates($mine);
@@ -147,6 +156,140 @@ class TunnelController extends Controller
                 'source' => 'database',
                 'reading_count' => count($readings),
                 'last_reading_time' => $readings ? ($readings[0]['created_at'] ?? null) : null,
+            ],
+        ]);
+    }
+
+    /**
+     * API: Get historical reading for a specific beacon at a specific time
+     * Gets readings within ±2 minutes of target time and returns the one with strongest signal (closest to 0)
+     */
+    public function historyBeaconReading(Request $request, string $beaconId)
+    {
+        $mineId = $request->integer('mine_id');
+        $targetTime = $request->input('target_time'); // Format: "2024-11-10 14:30:00"
+        
+        // Sanitize beaconId to prevent XSS
+        $beaconId = strip_tags($beaconId);
+        $beaconId = htmlspecialchars($beaconId, ENT_QUOTES, 'UTF-8');
+        
+        if (!$targetTime) {
+            return response()->json(['error' => 'target_time parameter is required'], 400);
+        }
+
+        try {
+            $targetDateTime = \Carbon\Carbon::parse($targetTime);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Invalid datetime format'], 400);
+        }
+
+        // Calculate time range: ±2 minutes
+        $startTime = $targetDateTime->copy()->subMinutes(2);
+        $endTime = $targetDateTime->copy()->addMinutes(2);
+
+        $gateways = [];
+
+        // Get gateway coordinates if mine_id is provided
+        if ($mineId) {
+            $query = Mine::where('id', $mineId)->with('paths');
+            
+            // Add user filter only if authenticated
+            if (Auth::check()) {
+                $query->where('user_id', Auth::id());
+            }
+            
+            $mine = $query->first();
+
+            if ($mine) {
+                $gateways = $this->collectGatewayCoordinates($mine);
+            }
+        }
+
+        // Get readings within the time range, grouped by gateway
+        // For each gateway, get the reading with strongest signal (RSSI closest to 0)
+        $beaconReadings = BeaconReading::where('beacon_id', $beaconId)
+            ->whereBetween('created_at', [$startTime, $endTime])
+            ->orderBy('rssi', 'desc') // RSSI closest to 0 (highest value since they're negative)
+            ->get()
+            ->groupBy('gateway_id')
+            ->map(function ($gatewayReadings) {
+                // Get the reading with strongest signal for this gateway
+                return $gatewayReadings->first();
+            })
+            ->values();
+
+        // If no readings found in the ±2 minute range, get the closest reading to target time
+        if ($beaconReadings->isEmpty()) {
+            // Get readings before and after target time
+            $beforeReading = BeaconReading::where('beacon_id', $beaconId)
+                ->where('created_at', '<=', $targetDateTime)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $afterReading = BeaconReading::where('beacon_id', $beaconId)
+                ->where('created_at', '>=', $targetDateTime)
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            // Choose the closest one
+            if ($beforeReading && $afterReading) {
+                $beforeDiff = $targetDateTime->diffInSeconds($beforeReading->created_at);
+                $afterDiff = $targetDateTime->diffInSeconds($afterReading->created_at);
+                $closestReading = $beforeDiff <= $afterDiff ? $beforeReading : $afterReading;
+            } else {
+                $closestReading = $beforeReading ?? $afterReading;
+            }
+
+            if ($closestReading) {
+                // Get all readings from the same timestamp, grouped by gateway with strongest signal
+                $actualTime = $closestReading->created_at;
+                $beaconReadings = BeaconReading::where('beacon_id', $beaconId)
+                    ->whereBetween('created_at', [
+                        $actualTime->copy()->subMinutes(2),
+                        $actualTime->copy()->addMinutes(2)
+                    ])
+                    ->orderBy('rssi', 'desc')
+                    ->get()
+                    ->groupBy('gateway_id')
+                    ->map(function ($gatewayReadings) {
+                        return $gatewayReadings->first();
+                    })
+                    ->values();
+            }
+        }
+
+        // Convert to array format
+        $readings = [];
+        $actualReadingTime = null;
+        
+        foreach ($beaconReadings as $reading) {
+            $readings[] = [
+                'beacon_id' => $reading->beacon_id,
+                'gateway_id' => $reading->gateway_id,
+                'rssi' => $reading->rssi,
+                'timestamp' => $reading->reading_timestamp->toISOString(),
+                'created_at' => $reading->created_at->toISOString(),
+            ];
+            
+            if (!$actualReadingTime) {
+                $actualReadingTime = $reading->created_at->toISOString();
+            }
+        }
+
+        // Convert to DTO
+        $dto = array_map(static fn (array $reading) => BeaconReadingDTO::fromArray($reading)->toArray(), $readings);
+
+        return response()->json([
+            'data' => $dto,
+            'gateways' => $gateways,
+            'meta' => [
+                'mine_id' => $mineId,
+                'beacon_id' => $beaconId,
+                'target_time' => $targetTime,
+                'reading_time' => $actualReadingTime,
+                'generated_at' => now()->toISOString(),
+                'source' => 'database',
+                'reading_count' => count($readings),
             ],
         ]);
     }

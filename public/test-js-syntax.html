@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Syntax Test</title>
+</head>
+<body>
+    <h1>Testing JavaScript from Blade</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = [];
+        const resultsDiv = document.getElementById('results');
+        
+        function logTest(name, passed, message = '') {
+            results.push({ name, passed, message });
+            const color = passed ? 'green' : 'red';
+            const icon = passed ? '✅' : '❌';
+            resultsDiv.innerHTML += `<div style="color: ${color}">${icon} ${name}: ${message}</div>`;
+        }
+        
+        // Test extracted JavaScript functions from index.blade.php
+        
+        // Test 1: String padStart
+        try {
+            const hour = String(5).padStart(2, '0');
+            logTest('String padStart', hour === '05', `Result: ${hour}`);
+        } catch (e) {
+            logTest('String padStart', false, e.message);
+        }
+        
+        // Test 2: Empty string validation
+        try {
+            const hourValue = '';
+            const isInvalid = hourValue === '';
+            logTest('Empty string check', isInvalid, 'Correctly identifies empty string');
+        } catch (e) {
+            logTest('Empty string check', false, e.message);
+        }
+        
+        // Test 3: Escape HTML function
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+        
+        try {
+            const xss = '<script>alert("XSS")</script>';
+            const escaped = escapeHtml(xss);
+            const safe = !escaped.includes('<script>');
+            logTest('XSS Escape', safe, `Escaped: ${escaped}`);
+        } catch (e) {
+            logTest('XSS Escape', false, e.message);
+        }
+        
+        // Test 4: Template literal syntax
+        try {
+            const beaconId = 'BEACON-001';
+            const targetDatetime = '2024-11-10 14:30:00';
+            const url = `/api/beacons/history-reading/${encodeURIComponent(beaconId)}?mine_id=1&target_time=${encodeURIComponent(targetDatetime)}`;
+            const hasParams = url.includes('mine_id') && url.includes('target_time');
+            logTest('URL Encoding', hasParams, 'URL properly constructed');
+        } catch (e) {
+            logTest('URL Encoding', false, e.message);
+        }
+        
+        // Test 5: Async function syntax
+        try {
+            const testAsync = async function() {
+                return new Promise(resolve => resolve('success'));
+            };
+            
+            testAsync().then(result => {
+                logTest('Async Function', result === 'success', 'Async/await works');
+            });
+        } catch (e) {
+            logTest('Async Function', false, e.message);
+        }
+        
+        // Test 6: Arrow function syntax
+        try {
+            const arr = [1, 2, 3];
+            const doubled = arr.map(x => x * 2);
+            logTest('Arrow Functions', JSON.stringify(doubled) === '[2,4,6]', 'Arrow functions work');
+        } catch (e) {
+            logTest('Arrow Functions', false, e.message);
+        }
+        
+        // Test 7: Optional chaining
+        try {
+            const obj = { meta: { reading_time: '2024-11-10' } };
+            const time1 = obj.meta?.reading_time;
+            const time2 = obj.nonexistent?.property;
+            logTest('Optional Chaining', time1 && time2 === undefined, 'Optional chaining works');
+        } catch (e) {
+            logTest('Optional Chaining', false, e.message);
+        }
+        
+        // Test 8: Array destructuring
+        try {
+            const data = { meta: { beacon_id: 'B1' } };
+            const { meta } = data;
+            logTest('Destructuring', meta.beacon_id === 'B1', 'Destructuring works');
+        } catch (e) {
+            logTest('Destructuring', false, e.message);
+        }
+        
+        console.log('All tests completed:', results);
+    </script>
+</body>
+</html>

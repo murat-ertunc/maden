@@ -861,6 +861,57 @@
     </div>
 </div>
 
+<!-- Miner History Date Picker Modal -->
+<div class="modal fade" id="minerHistoryModal" tabindex="-1" aria-labelledby="minerHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title" id="minerHistoryModalLabel">
+                    <i class="fas fa-clock"></i> Geçmiş Konum Seç
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Seçilen zamandan ±2 dakika aralığındaki en güçlü sinyal gösterilir.
+                </div>
+                <div class="mb-3">
+                    <label for="history-date" class="form-label">Tarih <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="history-date" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="history-hour" class="form-label">Saat <span class="text-danger">*</span></label>
+                        <select class="form-select" id="history-hour" required>
+                            <option value="">Seçin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="history-minute" class="form-label">Dakika <span class="text-danger">*</span></label>
+                        <select class="form-select" id="history-minute" required>
+                            <option value="">Seçin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="history-second" class="form-label">Saniye</label>
+                        <select class="form-select" id="history-second">
+                            <option value="0">00</option>
+                        </select>
+                    </div>
+                </div>
+                <input type="hidden" id="history-miner-id">
+                <input type="hidden" id="history-beacon-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-success" id="history-submit-btn">
+                    <i class="fas fa-search"></i> Konumu Göster
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Gateway (Alıcı) Ekleme Modal -->
 <div class="modal fade" id="gatewayModal" tabindex="-1" aria-labelledby="gatewayModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -1752,6 +1803,9 @@
                             <button type="button" class="btn btn-outline-info" data-action="view-miner-location" data-id="${id}" data-beacon="${miner.beacon_id || ''}" title="Konumu Görüntüle">
                                 <i class="fas fa-eye"></i>
                             </button>
+                            <button type="button" class="btn btn-outline-secondary" data-action="view-miner-history" data-id="${id}" data-beacon="${miner.beacon_id || ''}" title="Geçmiş Konum">
+                                <i class="fas fa-clock"></i>
+                            </button>
                             <button type="button" class="btn btn-outline-primary" data-action="edit-miner" data-id="${id}" title="Düzenle">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -1999,16 +2053,23 @@
                 return;
             }
             
-            // Miner location designer'ı oluştur veya güncelle
-            if (!minerLocationDesigner) {
-                minerLocationDesigner = new EnhancedTunnelDesigner('miner-location-diagram', {
-                    readOnly: true,
-                    showGrid: false,
-                    allowZoom: true,
-                    allowPan: true,
-                    showMiniMap: false
-                });
+            // Miner location designer'ı yeniden oluştur (her seferinde temiz başla)
+            // Eğer varsa, eski diagram'ı temizle
+            if (minerLocationDesigner && minerLocationDesigner.diagram) {
+                minerLocationDesigner.diagram.div = null;
             }
+            
+            // Loading içeriğini temizle
+            diagramDiv.innerHTML = '';
+            
+            // Yeni designer oluştur
+            minerLocationDesigner = new EnhancedTunnelDesigner('miner-location-diagram', {
+                readOnly: true,
+                showGrid: false,
+                allowZoom: true,
+                allowPan: true,
+                showMiniMap: false
+            });
             
             // Tunnel data'yı yükle
             minerLocationDesigner.loadTunnelData(tunnelData);
@@ -2317,6 +2378,7 @@
         if (!tbody) return;
         tbody.addEventListener('click', async (event) => {
             const viewBtn = event.target.closest('[data-action="view-miner-location"]');
+            const historyBtn = event.target.closest('[data-action="view-miner-history"]');
             const editBtn = event.target.closest('[data-action="edit-miner"]');
             const deleteBtn = event.target.closest('[data-action="delete-miner"]');
             
@@ -2324,6 +2386,10 @@
                 const id = viewBtn.dataset.id;
                 const beaconId = viewBtn.dataset.beacon;
                 await viewMinerLocation(id, beaconId);
+            } else if (historyBtn) {
+                const id = historyBtn.dataset.id;
+                const beaconId = historyBtn.dataset.beacon;
+                openMinerHistoryModal(id, beaconId);
             } else if (editBtn) {
                 const id = editBtn.dataset.id;
                 const miner = minerState.list.find((m) => String(m.id) === String(id));
@@ -2336,6 +2402,241 @@
                 await deleteMiner(id);
             }
         });
+    }
+
+    function openMinerHistoryModal(minerId, beaconId) {
+        if (!beaconId) {
+            alert('Bu madenciye beacon ID atanmamış!');
+            return;
+        }
+        
+        // Modal elementlerini al
+        const modal = document.getElementById('minerHistoryModal');
+        const dateInput = document.getElementById('history-date');
+        const hourSelect = document.getElementById('history-hour');
+        const minuteSelect = document.getElementById('history-minute');
+        const secondSelect = document.getElementById('history-second');
+        const minerIdInput = document.getElementById('history-miner-id');
+        const beaconIdInput = document.getElementById('history-beacon-id');
+        
+        // Miner ve beacon bilgilerini sakla
+        minerIdInput.value = minerId;
+        beaconIdInput.value = beaconId;
+        
+        // Bugünün tarihini varsayılan olarak ayarla
+        const now = new Date();
+        dateInput.value = now.toISOString().split('T')[0];
+        dateInput.max = now.toISOString().split('T')[0]; // Gelecek tarihi engelle
+        
+        // Saat seçeneklerini doldur (0-23)
+        hourSelect.innerHTML = '<option value="">Seçin</option>';
+        for (let i = 0; i < 24; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i.toString().padStart(2, '0');
+            hourSelect.appendChild(opt);
+        }
+        
+        // Dakika seçeneklerini doldur (0-59)
+        minuteSelect.innerHTML = '<option value="">Seçin</option>';
+        for (let i = 0; i < 60; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i.toString().padStart(2, '0');
+            minuteSelect.appendChild(opt);
+        }
+        
+        // Saniye seçeneklerini doldur (0-59)
+        secondSelect.innerHTML = '<option value="0">00</option>';
+        for (let i = 0; i < 60; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i.toString().padStart(2, '0');
+            secondSelect.appendChild(opt);
+        }
+        
+        // Modal'ı aç
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+    
+    async function viewMinerHistoryLocation() {
+        const dateInput = document.getElementById('history-date');
+        const hourSelect = document.getElementById('history-hour');
+        const minuteSelect = document.getElementById('history-minute');
+        const secondSelect = document.getElementById('history-second');
+        const minerIdInput = document.getElementById('history-miner-id');
+        const beaconIdInput = document.getElementById('history-beacon-id');
+        
+        // Validasyon
+        if (!dateInput.value || hourSelect.value === '' || minuteSelect.value === '') {
+            alert('Lütfen tarih, saat ve dakika seçin!');
+            return;
+        }
+        
+        const minerId = minerIdInput.value;
+        const beaconId = beaconIdInput.value;
+        const date = dateInput.value;
+        const hour = String(hourSelect.value).padStart(2, '0');
+        const minute = String(minuteSelect.value).padStart(2, '0');
+        const second = String(secondSelect.value || '0').padStart(2, '0');
+        
+        // ISO datetime oluştur
+        const targetDatetime = `${date} ${hour}:${minute}:${second}`;
+        
+        // Modal'ı kapat
+        const modal = document.getElementById('minerHistoryModal');
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) bsModal.hide();
+        
+        // Tarihi göster ve konumu yükle
+        await viewMinerLocationAtTime(minerId, beaconId, targetDatetime);
+    }
+    
+    async function viewMinerLocationAtTime(minerId, beaconId, targetDatetime) {
+        const diagramDiv = document.getElementById('miner-location-diagram');
+        const beaconLayer = document.getElementById('miner-beacon-layer');
+        const timestampEl = document.getElementById('miner-location-timestamp');
+        
+        if (!diagramDiv) return;
+        
+        if (!beaconId) {
+            diagramDiv.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-warning">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 opacity-50"></i>
+                        <p>Bu madenciye beacon ID atanmamış!</p>
+                    </div>
+                </div>
+            `;
+            if (timestampEl) timestampEl.textContent = '';
+            return;
+        }
+        
+        // Loading durumu
+        diagramDiv.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100">
+                <div class="text-center">
+                    <div class="spinner-border text-info mb-3" role="status">
+                        <span class="visually-hidden">Yükleniyor...</span>
+                    </div>
+                    <p class="text-muted">Geçmiş konum yükleniyor...</p>
+                    <small class="text-muted">${targetDatetime}</small>
+                </div>
+            </div>
+        `;
+        
+        if (beaconLayer) beaconLayer.innerHTML = '';
+        if (timestampEl) timestampEl.textContent = 'Yükleniyor...';
+        
+        try {
+            // Tarihi URL parametresi olarak gönder
+            const response = await fetch(`/api/beacons/history-reading/${encodeURIComponent(beaconId)}?mine_id=${currentMineId || ''}&target_time=${encodeURIComponent(targetDatetime)}`);
+            if (!response.ok) throw new Error('Geçmiş beacon verileri alınamadı');
+            
+            const data = await response.json();
+            const beaconReadings = data.data || [];
+            const gateways = data.gateways || {};
+            const actualReadingTime = data.meta?.reading_time || targetDatetime;
+            
+            if (beaconReadings.length === 0) {
+                diagramDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-satellite-dish fa-3x mb-3 opacity-25"></i>
+                            <p>Seçilen zaman aralığında beacon verisi yok</p>
+                            <small>Beacon ID: ${escapeHtml(beaconId)}</small>
+                            <br>
+                            <small class="text-muted">Aranan: ${targetDatetime}</small>
+                        </div>
+                    </div>
+                `;
+                if (timestampEl) timestampEl.textContent = '';
+                return;
+            }
+            
+            // Timestamp güncelle
+            if (timestampEl) {
+                const date = new Date(actualReadingTime);
+                timestampEl.innerHTML = `
+                    <span class="badge bg-secondary">Geçmiş Veri: ${date.toLocaleString('tr-TR', { hour12: false })}</span>
+                `;
+            }
+            
+            // Mevcut tunnel data'yı al
+            const tunnelData = tunnelDesigner ? tunnelDesigner.getTunnelData() : null;
+            
+            if (!tunnelData || !tunnelData.segments || tunnelData.segments.length === 0) {
+                diagramDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <div class="text-center text-warning">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-3 opacity-50"></i>
+                            <p>Lütfen önce tünel tasarımını oluşturun!</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Miner location designer'ı yeniden oluştur
+            if (minerLocationDesigner && minerLocationDesigner.diagram) {
+                minerLocationDesigner.diagram.div = null;
+            }
+            
+            diagramDiv.innerHTML = '';
+            
+            minerLocationDesigner = new EnhancedTunnelDesigner('miner-location-diagram', {
+                readOnly: true,
+                showGrid: false,
+                allowZoom: true,
+                allowPan: true,
+                showMiniMap: false
+            });
+            
+            minerLocationDesigner.loadTunnelData(tunnelData);
+
+            // Gateway pozisyonlarını hazırla
+            const localGatewayMap = new Map();
+            mergeGatewayReferences(gateways, { preferPayload: true, targetMap: localGatewayMap });
+            const lookupGateway = (id) => {
+                if (id === undefined || id === null) return null;
+                const key = String(id).trim();
+                if (!key) return null;
+                if (localGatewayMap.has(key)) return localGatewayMap.get(key);
+                return getGatewayPosition(id);
+            };
+            
+            // Beacon pozisyonunu hesapla
+            const beaconGroup = {
+                beaconId: beaconId,
+                readings: beaconReadings.map(r => ({
+                    beacon_id: r.beacon_id,
+                    gateway_id: r.gateway_id,
+                    rssi: r.rssi,
+                    timestamp: r.timestamp
+                })),
+                latestTimestamp: actualReadingTime
+            };
+            
+            const resolved = resolveBeaconGroup(beaconGroup, { lookupGateway });
+            
+            if (resolved && resolved.position) {
+                renderMinerBeacon(resolved);
+            }
+            
+        } catch (error) {
+            console.error('Geçmiş madenci konumu yüklenirken hata:', error);
+            diagramDiv.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle fa-3x mb-3 opacity-50"></i>
+                        <p>Geçmiş konum yüklenirken hata oluştu</p>
+                        <small>${escapeHtml(error.message)}</small>
+                    </div>
+                </div>
+            `;
+            if (timestampEl) timestampEl.textContent = '';
+        }
     }
 
     function initializeMinerModalHandlers() {
@@ -3341,6 +3642,14 @@
             document.getElementById('gateway-id-input').focus();
         }, 500);
     };
+    
+    // Miner History Modal Submit
+    document.addEventListener('DOMContentLoaded', function() {
+        const historySubmitBtn = document.getElementById('history-submit-btn');
+        if (historySubmitBtn) {
+            historySubmitBtn.addEventListener('click', viewMinerHistoryLocation);
+        }
+    });
     
     // Gateway form submit
     document.addEventListener('DOMContentLoaded', function() {
